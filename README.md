@@ -1,35 +1,33 @@
-# jk - Jenkins CLI for developers
+# jk — Jenkins CLI for developers
 
-`jk` is a GitHub CLI–style command line for Jenkins controllers. The CLI is written in Go and targets macOS, Linux, and Windows with a single static binary.
+`jk` brings a GitHub CLI–style experience to Jenkins. It lets you inspect jobs, follow builds, manage credentials, and administer nodes from a single cross-platform binary.
 
-## Project status
+## Highlights
 
-Phase 0 + Phase 1 MVP scaffolding is now in place:
+- **Context aware authentication** – log in once and switch between controllers (`jk auth`, `jk context`).
+- **Pipeline ergonomics** – trigger, rerun, follow, and summarize jobs with human or JSON/YAML output (`jk run`, `jk log`).
+- **Artifacts & tests** – enumerate artifacts, download filtered sets, and inspect aggregated test reports.
+- **Platform administration** – list queue items, manage credentials, cordon/delete nodes, and view installed plugins.
+- **GitHub CLI parity** – command layout, help UX, and flag semantics mirror `gh`, easing adoption for developers.
 
-- Auth and context management backed by the OS keyring (`jk auth login`, `jk context ls/use/rm`).
-- Shared configuration, logging, and Jenkins path utilities.
-- HTTP client with CSRF crumb handling, capability detection, and version handshakes.
-- Core developer workflows (`job ls/view`, `run start/ls/view/cancel/rerun`, `log follow`, `artifact ls/download`, `queue ls/cancel`, `test report`).
-- Basic unit tests and `make` targets for build/test/tidy.
+## Installation
 
-Refer to `docs/spec.md` for the full technical plan and `docs/api.md` for JSON contracts.
-
-## Building from source
+Pre-built releases are not published yet. Build from source with Go 1.25 or newer:
 
 ```bash
 make build   # produces ./bin/jk
 make test    # runs go test ./...
 ```
 
-> Ensure Go 1.25 or newer is available (`go env GOVERSION` should report `go1.25.x`). The `go` tool on your `PATH` is used directly.
+> Ensure `go env GOVERSION` reports `go1.25.x`. The toolchain on your `PATH` is used directly.
 
-## Quick start (local development)
+## Getting started
 
 ```bash
-# Authenticate and create a context
+# Authenticate and store a context
 jk auth login https://jenkins.company.example
 
-# Inspect configuration
+# Inspect active context
 jk auth status
 jk context ls
 
@@ -38,57 +36,66 @@ jk job ls --folder team
 jk run ls team/app/pipeline
 jk run view team/app/pipeline 128
 jk run start team/app/pipeline --follow
-jk run rerun team/app/pipeline 128 --follow
-jk run cancel team/app/pipeline 129
 
-# Stream logs and fetch artifacts
-jk log team/app/pipeline 128
+# Stream logs & artifacts
 jk log team/app/pipeline 128 --follow
-jk artifact ls team/app/pipeline 128
 jk artifact download team/app/pipeline 128 -p "**/*.xml" -o out/
 
-# Queue and test insights
+# Platform operations
 jk queue ls
-jk test report team/app/pipeline 128
-
-# Credentials
 jk cred ls --scope system
-
-# Nodes and plugins
-jk node ls
+jk cred create-secret --id slack-token --description "Slack notifier" --from-stdin < token.txt
 jk node cordon linux-agent-1 --message "Maintenance"
-jk plugin ls
-
-# Fetch structured output
-jk run ls team/app/pipeline --limit 5 --json
-jk run start team/app/pipeline --json --param version=1.4.0
+jk plugin install warnings-ng
 ```
 
-`examples/parity-smoke.sh` outlines the acceptance flow we will automate during Phase 1 to demonstrate `gh` parity.
+Use `--json` or `--yaml` on supported commands for machine-readable output.
 
-## Repository structure
+## Command quick reference
+
+| Area        | Examples |
+|-------------|----------|
+| Auth & context | `jk auth login`, `jk context use`, `jk context ls` |
+| Jobs & runs | `jk job ls`, `jk run ls`, `jk run rerun`, `jk run cancel` |
+| Logs & artifacts | `jk log`, `jk log --follow`, `jk artifact ls/download` |
+| Tests | `jk test report` |
+| Credentials | `jk cred ls`, `jk cred create-secret`, `jk cred rm` |
+| Nodes | `jk node ls`, `jk node cordon`, `jk node rm` |
+| Queue | `jk queue ls`, `jk queue cancel` |
+| Plugins | `jk plugin ls`, `jk plugin install`, `jk plugin enable/disable` |
+
+Run `jk <command> --help` for detailed flags and examples.
+
+## Documentation
+
+- [Specification](docs/spec.md) — roadmap, scope, and design decisions.
+- [API contracts](docs/api.md) — JSON schemas for structured output.
+- [Changelog](docs/CHANGELOG.md) — release notes when versioning begins.
+
+## Development notes
+
+Project layout mirrors `gh`:
 
 ```
-cmd/jk               # entry point calling internal/jkcmd
-internal/jkcmd       # gh-style command runner and exit handling
-internal/jenkins     # Jenkins client and helpers
-internal/config      # Config file model
-internal/secret      # Keyring integration
-internal/log         # Logging helpers
-pkg/cmd              # Command packages (auth, context, run, log, etc.)
-pkg/cmd/shared       # Shared command helpers (output, test reports, logs)
-pkg/cmdutil          # Factory and error helpers mirroring gh
-pkg/iostreams        # Terminal IO abstraction (ported from gh)
-plugin/              # Placeholder for Phase 3 companion plugin
+cmd/jk               # entry point delegating to internal/jkcmd
+internal/jkcmd       # command runner / exit handling
+internal/jenkins     # Jenkins REST client
+pkg/cmd              # Cobra command packages
+pkg/cmd/shared       # Common helpers (output, logs, test reports)
+pkg/cmdutil          # Factory/error utilities
+y pkg/iostreams        # Terminal abstraction borrowed from gh
 ```
 
-## Testing
-
-`go test ./...` exercises helper utilities today (job path encoding, duration formatting, exit-code mapping). Integration and contract tests against a live Jenkins matrix will arrive in later phases per the spec.
+We run `go test ./...` and `go build ./...` in CI. Keep the spec and API docs synchronized with behavior changes.
 
 ## Contributing
 
 1. Fork and clone the repo.
 2. Install Go 1.25.
-3. Run `make build` and `make test` before submitting changes.
-4. Keep the specification (`docs/spec.md`) and API contract (`docs/api.md`) up to date with behavioral changes.
+3. Run `make build` & `make test` before submitting changes.
+4. Update `docs/spec.md` and `docs/api.md` when altering contracts or workflows.
+5. Open a pull request describing the user-facing impact (command, flag, behavior).
+
+---
+
+We’re actively iterating toward a 1.0 release; feedback and contributions are welcome.
