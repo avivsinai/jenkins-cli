@@ -1,0 +1,25 @@
+# Binaries
+/bin/
+/dist/
+/build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go build cache
+*.test
+*.out
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Generated docs
+/site/
+
+# Plugin build outputs
+plugin/target/
