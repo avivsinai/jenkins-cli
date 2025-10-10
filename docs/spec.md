@@ -335,7 +335,7 @@ Other commands keep the general-purpose codes, surfaced consistently in help tex
 ## 12. Technology Selection & Tooling
 
 ### 12.1 CLI
-- Language: Go 1.22+ (module mode, static builds).
+- Language: Go 1.25+ (module mode, static builds).
 - Libraries:
   - `spf13/cobra` + `spf13/pflag` for command structure.
   - `spf13/viper` for config binding and env overrides.
@@ -371,7 +371,7 @@ Other commands keep the general-purpose codes, surfaced consistently in help tex
 - Release: hosted on internal update center or artifacts repository (Artifactory), packaged as `.hpi`.
 
 ### 12.3 Development Workflow
-- Mono-repo layout with `/cmd/jk`, `/pkg/...`, `/plugin`.
+- Mono-repo layout with `/cmd/jk`, `/internal/...`, `/plugin`.
 - Use GitHub Actions or Jenkins pipelines for CI: run Go tests, plugin Maven tests, integration suites.
 - Manage dependencies with Renovate or Dependabot.
 - Documentation site generated via MkDocs or Docusaurus (optional) fed by `docs/`.
@@ -409,7 +409,7 @@ Other commands keep the general-purpose codes, surfaced consistently in help tex
 ## 15. Implementation Roadmap
 
 ### Phase 0 – Project Bootstrap (Week 0-1)
-- Initialize repository structure (`cmd/jk`, `pkg/...`, `/plugin`).
+- Initialize repository structure (`cmd/jk`, `internal/...`, `/plugin`).
 - Set up Go module, basic Cobra scaffold, logging, configuration plumbing.
 - Establish CI pipeline (lint, unit tests) and coding standards.
 - Document contributing guidelines and decision log format.

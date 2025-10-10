@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/your-org/jenkins-cli/pkg/config"
-	jklog "github.com/your-org/jenkins-cli/pkg/log"
+	"github.com/your-org/jenkins-cli/internal/config"
+	jklog "github.com/your-org/jenkins-cli/internal/log"
 )
 
 // Execute runs the root command and exits non-zero on failure.

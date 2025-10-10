@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/your-org/jenkins-cli/pkg/config"
-	"github.com/your-org/jenkins-cli/pkg/jenkins"
+	"github.com/your-org/jenkins-cli/internal/config"
+	"github.com/your-org/jenkins-cli/internal/jenkins"
 	"gopkg.in/yaml.v3"
 )
 

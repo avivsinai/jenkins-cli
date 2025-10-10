@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/your-org/jenkins-cli/pkg/jenkins"
+	"github.com/your-org/jenkins-cli/internal/jenkins"
 )
 
 type runListResponse struct {

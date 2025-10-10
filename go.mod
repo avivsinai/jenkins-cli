@@ -1,6 +1,7 @@
 module github.com/your-org/jenkins-cli
 
-go 1.22.0
+go 1.25
+toolchain go1.25.2
 
 require (
 	github.com/99designs/keyring v1.2.2

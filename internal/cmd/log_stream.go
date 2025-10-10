@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/your-org/jenkins-cli/pkg/jenkins"
+	"github.com/your-org/jenkins-cli/internal/jenkins"
 )
 
 func streamProgressiveLog(ctx context.Context, client *jenkins.Client, jobPath string, buildNumber int, interval time.Duration, out io.Writer) error {

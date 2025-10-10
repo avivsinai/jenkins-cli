@@ -21,7 +21,7 @@ make build   # produces ./bin/jk
 make test    # runs go test ./...
 ```
 
-> Ensure Go 1.22 is available. The Makefile prepends the Homebrew Go 1.22 toolchain (`/opt/homebrew/opt/go@1.22/bin`) to `PATH` by default.
+> Ensure Go 1.25 or newer is available (`go env GOVERSION` should report `go1.25.x`). The `go` tool on your `PATH` is used directly.
 
 ## Quick start (local development)
 
@@ -54,14 +54,14 @@ jk test report team/app/pipeline 128
 ## Repository structure
 
 ```
-cmd/jk           # entry point
-pkg/cmd          # Cobra command implementations
-pkg/jenkins      # Jenkins client and helpers
-pkg/config       # Config file model
-pkg/secret       # Keyring integration
-pkg/log          # Logging helpers
-pkg/terminal     # Prompt utilities
-plugin/          # Placeholder for Phase 3 companion plugin
+cmd/jk              # entry point
+internal/cmd        # Cobra command implementations
+internal/jenkins    # Jenkins client and helpers
+internal/config     # Config file model
+internal/secret     # Keyring integration
+internal/log        # Logging helpers
+internal/terminal   # Prompt utilities
+plugin/             # Placeholder for Phase 3 companion plugin
 ```
 
 ## Testing
@@ -71,6 +71,6 @@ plugin/          # Placeholder for Phase 3 companion plugin
 ## Contributing
 
 1. Fork and clone the repo.
-2. Install Go 1.22.
+2. Install Go 1.25.
 3. Run `make build` and `make test` before submitting changes.
 4. Keep the specification (`docs/spec.md`) and API contract (`docs/api.md`) up to date with behavioral changes.

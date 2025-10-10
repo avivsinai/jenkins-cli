@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/your-org/jenkins-cli/pkg/config"
-	"github.com/your-org/jenkins-cli/pkg/secret"
-	"github.com/your-org/jenkins-cli/pkg/terminal"
+	"github.com/your-org/jenkins-cli/internal/config"
+	"github.com/your-org/jenkins-cli/internal/secret"
+	"github.com/your-org/jenkins-cli/internal/terminal"
 )
 
 func newAuthCmd() *cobra.Command {

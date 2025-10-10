@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/your-org/jenkins-cli/pkg/build"
+	"github.com/your-org/jenkins-cli/internal/build"
 )
 
 func newVersionCmd() *cobra.Command {

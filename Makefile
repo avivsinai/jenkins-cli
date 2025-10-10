@@ -1,29 +1,35 @@
 GO ?= go
-GOFMT ?= gofmt
-BIN_DIR := bin
+BIN_DIR ?= bin
 CMD := ./cmd/jk
+SOURCES := $(shell find cmd internal -name '*.go')
 
-export PATH := /opt/homebrew/opt/go@1.22/bin:$(PATH)
+VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo dev)
+COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS := -s -w \
+	-X github.com/your-org/jenkins-cli/internal/build.Version=$(VERSION) \
+	-X github.com/your-org/jenkins-cli/internal/build.Commit=$(COMMIT) \
+	-X github.com/your-org/jenkins-cli/internal/build.Date=$(BUILD_DATE)
 
 .PHONY: build
 build: $(BIN_DIR)/jk
 
-$(BIN_DIR)/jk: $(shell find cmd pkg -name '*.go') go.mod go.sum
+$(BIN_DIR)/jk: $(SOURCES) go.mod go.sum
 	@mkdir -p $(BIN_DIR)
-	$(GO) build -trimpath -ldflags "-s -w -X github.com/your-org/jenkins-cli/pkg/build.Version=$$(git describe --tags --always 2>/dev/null || echo dev) -X github.com/your-org/jenkins-cli/pkg/build.Commit=$$(git rev-parse HEAD 2>/dev/null || echo unknown) -X github.com/your-org/jenkins-cli/pkg/build.Date=$$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o $(BIN_DIR)/jk $(CMD)
+	$(GO) build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/jk $(CMD)
 
 .PHONY: tidy
- tidy:
+tidy:
 	$(GO) mod tidy
 
 .PHONY: test
- test:
+test:
 	$(GO) test ./...
 
 .PHONY: fmt
- fmt:
-	$(GOFMT) -w $(shell find cmd pkg -name '*.go')
+fmt:
+	$(GO) fmt ./...
 
 .PHONY: clean
- clean:
+clean:
 	rm -rf $(BIN_DIR)

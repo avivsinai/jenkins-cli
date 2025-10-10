@@ -15,10 +15,10 @@ import (
 
 	"github.com/go-resty/resty/v2"
 
-	"github.com/your-org/jenkins-cli/pkg/build"
-	"github.com/your-org/jenkins-cli/pkg/config"
-	"github.com/your-org/jenkins-cli/pkg/log"
-	"github.com/your-org/jenkins-cli/pkg/secret"
+	"github.com/your-org/jenkins-cli/internal/build"
+	"github.com/your-org/jenkins-cli/internal/config"
+	"github.com/your-org/jenkins-cli/internal/log"
+	"github.com/your-org/jenkins-cli/internal/secret"
 )
 
 const (
