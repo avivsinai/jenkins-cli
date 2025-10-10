@@ -1,4 +1,4 @@
-package cmd
+package shared
 
 import (
 	"context"
@@ -8,13 +8,14 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/your-org/jenkins-cli/internal/config"
 	"github.com/your-org/jenkins-cli/internal/jenkins"
-	"gopkg.in/yaml.v3"
+	"github.com/your-org/jenkins-cli/pkg/cmdutil"
 )
 
-func resolveContextName(cmd *cobra.Command, cfg *config.Config) (string, error) {
+func ResolveContextName(cmd *cobra.Command, cfg *config.Config) (string, error) {
 	if cmd == nil {
 		return "", errors.New("command is nil")
 	}
@@ -37,36 +38,18 @@ func resolveContextName(cmd *cobra.Command, cfg *config.Config) (string, error) 
 	return name, nil
 }
 
-func newJenkinsClient(cmd *cobra.Command) (*jenkins.Client, error) {
-	cfg := ConfigFromCmd(cmd)
-	if cfg == nil {
-		return nil, errors.New("configuration unavailable")
-	}
-
-	name, err := resolveContextName(cmd, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := jenkins.NewClient(context.Background(), cfg, name)
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
-}
-
-func wantsJSON(cmd *cobra.Command) bool {
+func WantsJSON(cmd *cobra.Command) bool {
 	v, _ := cmd.Root().PersistentFlags().GetBool("json")
 	return v
 }
 
-func wantsYAML(cmd *cobra.Command) bool {
+func WantsYAML(cmd *cobra.Command) bool {
 	v, _ := cmd.Root().PersistentFlags().GetBool("yaml")
 	return v
 }
 
-func printOutput(cmd *cobra.Command, data interface{}, human func() error) error {
-	if wantsJSON(cmd) {
+func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error {
+	if WantsJSON(cmd) {
 		encoded, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			return err
@@ -74,7 +57,7 @@ func printOutput(cmd *cobra.Command, data interface{}, human func() error) error
 		fmt.Fprintln(cmd.OutOrStdout(), string(encoded))
 		return nil
 	}
-	if wantsYAML(cmd) {
+	if WantsYAML(cmd) {
 		encoded, err := yaml.Marshal(data)
 		if err != nil {
 			return err
@@ -83,4 +66,23 @@ func printOutput(cmd *cobra.Command, data interface{}, human func() error) error
 		return nil
 	}
 	return human()
+}
+
+func JenkinsClient(cmd *cobra.Command, f *cmdutil.Factory) (*jenkins.Client, error) {
+	cfg, err := f.ResolveConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	name, err := ResolveContextName(cmd, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	return f.Client(ctx, name)
 }

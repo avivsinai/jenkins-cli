@@ -1,4 +1,4 @@
-package cmd
+package contextcmd
 
 import (
 	"errors"
@@ -9,31 +9,32 @@ import (
 
 	"github.com/your-org/jenkins-cli/internal/config"
 	"github.com/your-org/jenkins-cli/internal/secret"
+	"github.com/your-org/jenkins-cli/pkg/cmdutil"
 )
 
-func newContextCmd() *cobra.Command {
+func NewCmdContext(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "context",
 		Short: "Manage Jenkins contexts",
 	}
 
 	cmd.AddCommand(
-		newContextListCmd(),
-		newContextUseCmd(),
-		newContextRemoveCmd(),
+		newContextListCmd(f),
+		newContextUseCmd(f),
+		newContextRemoveCmd(f),
 	)
 
 	return cmd
 }
 
-func newContextListCmd() *cobra.Command {
+func newContextListCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "ls",
 		Short: "List configured contexts",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := ConfigFromCmd(cmd)
-			if cfg == nil {
-				return errors.New("configuration unavailable")
+			cfg, err := f.ResolveConfig()
+			if err != nil {
+				return err
 			}
 
 			cfgContexts := cfg.Contexts
@@ -61,15 +62,15 @@ func newContextListCmd() *cobra.Command {
 	}
 }
 
-func newContextUseCmd() *cobra.Command {
+func newContextUseCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "use <name>",
 		Short: "Set the active context",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := ConfigFromCmd(cmd)
-			if cfg == nil {
-				return errors.New("configuration unavailable")
+			cfg, err := f.ResolveConfig()
+			if err != nil {
+				return err
 			}
 
 			name := args[0]
@@ -90,15 +91,15 @@ func newContextUseCmd() *cobra.Command {
 	}
 }
 
-func newContextRemoveCmd() *cobra.Command {
+func newContextRemoveCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm <name>",
 		Short: "Remove a context and its credentials",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := ConfigFromCmd(cmd)
-			if cfg == nil {
-				return errors.New("configuration unavailable")
+			cfg, err := f.ResolveConfig()
+			if err != nil {
+				return err
 			}
 			name := args[0]
 

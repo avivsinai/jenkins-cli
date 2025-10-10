@@ -1,4 +1,4 @@
-package cmd
+package auth
 
 import (
 	"errors"
@@ -11,42 +11,47 @@ import (
 	"github.com/your-org/jenkins-cli/internal/config"
 	"github.com/your-org/jenkins-cli/internal/secret"
 	"github.com/your-org/jenkins-cli/internal/terminal"
+	"github.com/your-org/jenkins-cli/pkg/cmdutil"
 )
 
-func newAuthCmd() *cobra.Command {
+func NewCmdAuth(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "auth",
 		Short: "Authenticate with Jenkins instances",
 	}
 
 	cmd.AddCommand(
-		newAuthLoginCmd(),
-		newAuthLogoutCmd(),
-		newAuthStatusCmd(),
+		newAuthLoginCmd(f),
+		newAuthLogoutCmd(f),
+		newAuthStatusCmd(f),
 	)
 
 	return cmd
 }
 
 type authLoginOptions struct {
-	name        string
-	username    string
-	token       string
-	insecure    bool
-	proxy       string
-	caFile      string
-	setActive   bool
-	contextFlag string
+	name      string
+	username  string
+	token     string
+	insecure  bool
+	proxy     string
+	caFile    string
+	setActive bool
 }
 
-func newAuthLoginCmd() *cobra.Command {
+func newAuthLoginCmd(f *cmdutil.Factory) *cobra.Command {
 	opts := &authLoginOptions{setActive: true}
+
 	cmd := &cobra.Command{
 		Use:   "login <url>",
 		Short: "Authenticate to Jenkins and persist a context",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAuthLogin(cmd, opts, args[0])
+			cfg, err := f.ResolveConfig()
+			if err != nil {
+				return err
+			}
+			return runAuthLogin(cmd, cfg, opts, args[0])
 		},
 	}
 
@@ -61,17 +66,11 @@ func newAuthLoginCmd() *cobra.Command {
 	return cmd
 }
 
-func runAuthLogin(cmd *cobra.Command, opts *authLoginOptions, rawURL string) error {
-	cfg := ConfigFromCmd(cmd)
-	if cfg == nil {
-		return errors.New("configuration unavailable")
-	}
-
+func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions, rawURL string) error {
 	parsed, err := url.Parse(rawURL)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return fmt.Errorf("invalid Jenkins URL %q", rawURL)
 	}
-
 	parsed.Path = strings.TrimSuffix(parsed.Path, "/")
 
 	contextName := opts.name
@@ -133,7 +132,7 @@ func deriveContextName(u *url.URL) string {
 	return host
 }
 
-func newAuthLogoutCmd() *cobra.Command {
+func newAuthLogoutCmd(f *cmdutil.Factory) *cobra.Command {
 	var contextName string
 
 	cmd := &cobra.Command{
@@ -141,9 +140,9 @@ func newAuthLogoutCmd() *cobra.Command {
 		Short: "Remove credentials for a context",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := ConfigFromCmd(cmd)
-			if cfg == nil {
-				return errors.New("configuration unavailable")
+			cfg, err := f.ResolveConfig()
+			if err != nil {
+				return err
 			}
 
 			if len(args) == 1 {
@@ -181,19 +180,19 @@ func newAuthLogoutCmd() *cobra.Command {
 	return cmd
 }
 
-func newAuthStatusCmd() *cobra.Command {
+func newAuthStatusCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Display authentication status",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := ConfigFromCmd(cmd)
-			if cfg == nil {
-				return errors.New("configuration unavailable")
+			cfg, err := f.ResolveConfig()
+			if err != nil {
+				return err
 			}
 
 			ctx, name, err := cfg.ActiveContext()
-			if err != nil {
-				return fmt.Errorf("resolve active context: %w", err)
+			if err != nil && !errors.Is(err, config.ErrContextNotFound) {
+				return err
 			}
 
 			if ctx == nil {

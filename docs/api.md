@@ -102,9 +102,50 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 }
 ```
 
-## 3. Credentials
+### 2.4 Trigger acknowledgement (`jk run start --json` or `jk run rerun --json` without `--follow`)
+```json
+{
+  "jobPath": "team/app/main",
+  "message": "run requested",
+  "queueLocation": "https://jenkins.example/queue/item/1357/"
+}
+```
 
-### 3.1 List (`jk cred ls --json` and `/jk/api/credentials`)
+When `--follow` is supplied with `--json`/`--yaml`, the CLI suppresses live log output and, after the run finishes, emits the run detail payload described in §2.1 instead of the acknowledgement.
+
+### 2.5 Cancel acknowledgement (`jk run cancel --json`)
+```json
+{
+  "jobPath": "team/app/main",
+  "build": 128,
+  "action": "term",
+  "status": "requested"
+}
+```
+
+The CLI exits successfully once the cancellation request is accepted by Jenkins; it does not wait for the build to terminate.
+
+## 3. Logs
+
+### 3.1 Run log snapshot (`jk log --json`)
+```json
+{
+  "jobPath": "team/app/main",
+  "build": 128,
+  "status": "completed",
+  "result": "SUCCESS",
+  "startTime": "2025-08-12T18:24:03Z",
+  "duration": "1m32s",
+  "log": "Started by user Jane Doe\nRunning on linux-agent-1...\n...",
+  "truncated": false
+}
+```
+
+When the run is still executing the snapshot may be truncated; the `truncated` flag is set to `true` and callers should retry with `--follow` to stream the full log. The `--follow` mode emits live text only and does not support JSON/YAML serialization.
+
+## 4. Credentials
+
+### 4.1 List (`jk cred ls --json` and `/jk/api/credentials`)
 ```json
 {
   "items": [
@@ -128,7 +169,7 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 }
 ```
 
-### 3.2 Create/update request payload
+### 4.2 Create/update request payload
 ```json
 {
   "scope": "folder",
@@ -142,7 +183,7 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 }
 ```
 
-## 4. Events (SSE)
+## 5. Events (SSE)
 
 - Endpoint: `/jk/events/stream?topics=run,queue,node`
 - Frames are JSON objects encoded as UTF-8 text events.
@@ -158,7 +199,7 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 }
 ```
 
-## 5. Plugin status handshake
+## 6. Plugin status handshake
 
 - Endpoint: `GET /jk/api/status`
 - Response schema:
@@ -172,13 +213,13 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 ```
 - Clients send `X-JK-Client: <semver>` and `X-JK-Features: <csv>` headers. If the CLI version is below `minClient`, it must fall back to baseline Jenkins APIs and surface a warning to the user.
 
-## 6. Pagination cursors
+## 7. Pagination cursors
 
 - Cursors are opaque URL-safe base64 strings produced by the server; clients cannot introspect them.
 - Requests accept `cursor=<value>` and `limit=<n>`. Servers may ignore `limit` in favor of their own defaults but must not return more than requested.
 - When `nextCursor` is omitted or `null`, the collection is exhausted. Clients may pass `--cursor @prev` to reuse the last seen cursor.
 
-## 7. Enumerations
+## 8. Enumerations
 
 | Field    | Allowed values                                                       |
 |----------|---------------------------------------------------------------------|

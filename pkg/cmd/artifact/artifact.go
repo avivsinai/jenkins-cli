@@ -1,4 +1,4 @@
-package cmd
+package artifact
 
 import (
 	"errors"
@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/your-org/jenkins-cli/internal/jenkins"
+	"github.com/your-org/jenkins-cli/pkg/cmd/shared"
+	"github.com/your-org/jenkins-cli/pkg/cmdutil"
 )
 
 type artifactListResponse struct {
@@ -25,32 +27,32 @@ type artifactItem struct {
 	Size         int64  `json:"size"`
 }
 
-func newArtifactCmd() *cobra.Command {
+func NewCmdArtifact(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "artifact",
 		Short: "Work with run artifacts",
 	}
 
 	cmd.AddCommand(
-		newArtifactListCmd(),
-		newArtifactDownloadCmd(),
+		newArtifactListCmd(f),
+		newArtifactDownloadCmd(f),
 	)
 
 	return cmd
 }
 
-func newArtifactListCmd() *cobra.Command {
+func newArtifactListCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ls <jobPath> <buildNumber>",
 		Short: "List artifacts for a run",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			items, err := fetchArtifacts(cmd, args[0], args[1])
+			items, err := fetchArtifacts(cmd, f, args[0], args[1])
 			if err != nil {
 				return err
 			}
 
-			return printOutput(cmd, items, func() error {
+			return shared.PrintOutput(cmd, items, func() error {
 				if len(items) == 0 {
 					fmt.Fprintln(cmd.OutOrStdout(), "No artifacts found")
 					return nil
@@ -66,7 +68,7 @@ func newArtifactListCmd() *cobra.Command {
 	return cmd
 }
 
-func newArtifactDownloadCmd() *cobra.Command {
+func newArtifactDownloadCmd(f *cmdutil.Factory) *cobra.Command {
 	var pattern string
 	var outputDir string
 	var allowEmpty bool
@@ -76,7 +78,7 @@ func newArtifactDownloadCmd() *cobra.Command {
 		Short: "Download artifacts",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			items, err := fetchArtifacts(cmd, args[0], args[1])
+			items, err := fetchArtifacts(cmd, f, args[0], args[1])
 			if err != nil {
 				return err
 			}
@@ -101,10 +103,10 @@ func newArtifactDownloadCmd() *cobra.Command {
 					fmt.Fprintln(cmd.OutOrStdout(), "No artifacts matched pattern")
 					return nil
 				}
-				return newExitError(3, "no artifacts matched pattern")
+				return shared.NewExitError(3, "no artifacts matched pattern")
 			}
 
-			client, err := newJenkinsClient(cmd)
+			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
 				return err
 			}
@@ -158,8 +160,8 @@ func newArtifactDownloadCmd() *cobra.Command {
 	return cmd
 }
 
-func fetchArtifacts(cmd *cobra.Command, jobPath, buildNumber string) ([]artifactItem, error) {
-	client, err := newJenkinsClient(cmd)
+func fetchArtifacts(cmd *cobra.Command, f *cmdutil.Factory, jobPath, buildNumber string) ([]artifactItem, error) {
+	client, err := shared.JenkinsClient(cmd, f)
 	if err != nil {
 		return nil, err
 	}

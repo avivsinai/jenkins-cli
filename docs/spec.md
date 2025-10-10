@@ -142,13 +142,13 @@ Key workflows the CLI must make trivial:
 | `context`      | `jk context ls`, `jk context use`, `jk context rename`          | Config stored under `$XDG_CONFIG_HOME/jk/config.yml`. |
 | `job`          | `jk job ls`, `jk job view`, `jk job create`, `jk job import-config`, `jk job delete` | `jk job create` consumes high-level YAML when plugin present. |
 | `run`          | `jk run start`, `jk run ls`, `jk run view`, `jk run cancel`, `jk run rerun`, `jk run restart-from` | Capability flags printed in `jk run view`. |
-| `log`          | `jk log follow`, `jk log download`                              | `log follow` supports `--since` and `--plain`. |
+| `log`          | `jk log`, `jk log --follow`                                     | Snapshot default; `--follow` streams like `gh run view --log`. |
 | `artifact`     | `jk artifact ls`, `jk artifact download`                        | Glob filtering via `--pattern`. |
 | `test`         | `jk test report`, `jk test junit`                               | Format options `--summary`, `--json`. |
-| `cred`         | `jk cred ls`, `jk cred create`, `jk cred update`, `jk cred rm`  | Type-specific subcommands (`secret-text`, `userpass`, `ssh`). |
+| `cred`         | `jk cred ls`, `jk cred create-secret`, `jk cred rm`  | Additional types added iteratively; falls back to core APIs when plugin absent. |
 | `node`         | `jk node ls`, `jk node cordon`, `jk node uncordon`, `jk node delete` | Cordon optionally sets offline message. |
 | `queue`        | `jk queue ls`, `jk queue cancel`                                | `jk queue ls --watch` uses SSE if available. |
-| `plugin`       | `jk plugin ls`, `jk plugin install`, `jk plugin enable`         | `install` prompts for confirmation unless `--yes`. |
+| `plugin`       | `jk plugin ls`, `jk plugin install`, `jk plugin enable`, `jk plugin disable` | `install` prompts for confirmation unless `--yes`. |
 | `casc`         | `jk casc apply`, `jk casc export`, `jk casc reload`             | Requires admin rights. |
 | `events`       | `jk events stream`, `jk events tail`                             | Fallback to polling with refresh interval when SSE missing. |
 | `metrics`      | `jk metrics dump`, `jk metrics top`                             | `top` keeps refreshing selected gauges. |
@@ -162,6 +162,14 @@ Key workflows the CLI must make trivial:
 - Secrets (API tokens) stored in OS keychain via `go-keyring`; fallback encrypted file only when the user passes `--allow-insecure-store` and confirms interactively.
 - Proxy configuration precedence is `flag (--proxy) > environment (HTTPS_PROXY/HTTP_PROXY/NO_PROXY) > context config`. CLI also honors custom CA bundles via `--ca-file` and `JK_CA_FILE`.
 - Per-context cache directory stores crumb and small metadata (capabilities, plugin detection caches) with short TTL.
+
+#### 9.2.1 Code layout (gh parity)
+- `cmd/jk` contains only the entrypoint; execution flows into `internal/jkcmd` mirroring `ghcmd`.
+- `pkg/cmd/<command>` houses each Cobra command tree (`auth`, `context`, `run`, `log`, etc.), matching the GitHub CLI directory shape for ergonomics.
+- `pkg/cmd/shared` centralises helpers (context resolution, JSON/YAML output, progressive log streaming, test reports) so commands stay slim.
+- `pkg/cmdutil` provides the lightweight factory/exit wiring borrowed from `gh`'s `cmdutil`.
+- `pkg/iostreams` is a direct port of the GitHub CLI IO abstraction, ensuring identical TTY, colour, and pager behaviour.
+- Legacy `internal/cmd` package was removed to avoid drift; new codepaths must follow the gh-style layering.
 
 ### 9.3 HTTP & Auth Flow
 1. Resolve server URL (ensuring trailing slash trimmed) and credentials from context or flags.
@@ -209,16 +217,22 @@ Key workflows the CLI must make trivial:
 Other commands keep the general-purpose codes, surfaced consistently in help text and docs.
 
 ### 9.7 Pagination, cursors & limits
-- List commands accept `--limit`, `--cursor`, `--since`, and `--until`. `--limit` defaults to 20; `--since/--until` accept RFC3339 timestamps or relative durations (e.g., `2h`).
-- When the companion plugin is available, responses follow the cursor contract:
+- List commands accept `--limit` and `--cursor` today; `--since` and `--until` remain TODO items tracked for the next CLI iteration.
+- Responses follow the cursor contract:
   ```json
   {
     "items": [...],
     "nextCursor": "g2wAAA..."
   }
   ```
-- CLI persists the last cursor when used interactively (`--cursor @prev`), and surfaces `nextCursor` in human-readable output.
-- Against baseline Jenkins endpoints, the CLI enforces `--limit` client-side and supports `--since/--until` where timestamps are available.
+- Human-readable output surfaces `Next cursor: <value>`; persistence for `--cursor @prev` is a tracked enhancement.
+- Against baseline Jenkins endpoints, the CLI enforces `--limit` client-side while the companion plugin can honor server-side cursors.
+
+#### 9.7.1 Run command structured output
+- `jk run ls --json` returns the schema documented in `docs/api.md` (`items[]`, `nextCursor`), and human output mirrors the branch/result summary plus the next cursor hint.
+- `jk run view --json` emits the normative run detail payload (parameters, SCM, causes, stages, artifacts, tests, queue/node metadata). Human output now highlights parameters, SCM, and test counts inline.
+- `jk run start` and `jk run rerun` emit `{jobPath, message, queueLocation}` in JSON/YAML modes when not following. When `--follow` is combined with structured output, the CLI suppresses live log streaming and instead waits for completion before printing the full run detail document, keeping machine-readable pipelines intact.
+- `jk run cancel` accepts `--mode stop|term|kill` and returns a short `{jobPath, build, action, status}` acknowledgement in JSON/YAML.
 
 ### 9.8 Job path encoding
 - Accept human-readable job paths such as `team/app/main`.
@@ -226,10 +240,11 @@ Other commands keep the general-purpose codes, surfaced consistently in help tex
 - Reuse encoder everywhere (HTTP requests, UI links, plugin identifiers) and verify via unit tests covering nested folders, spaces, and special characters.
 
 ### 9.9 Progressive log streaming
-- Poll `logText/progressiveText` every 300–500 ms (`--interval` override). Honor `X-Text-Size` to maintain offsets.
-- If Jenkins returns 416 or `X-More-Data: false` after truncation, reset offset to `0` and resume gracefully.
-- Support `--since <duration>` and `--plain` to trim to recent output and disable ANSI stripping.
-- During queue/wait states, back off to 1s polls until the run transitions to `running`.
+- `jk log <jobPath> <buildNumber>` prints a formatted snapshot of the console log, mirroring `gh run view --log`. When the run is still executing we fetch incremental chunks (up to ~2 MiB) and annotate output as truncated.
+- `jk log --follow` streams live output, reusing the progressive text endpoint with a default 1s polling interval (`--interval` override).
+- Honor `X-Text-Size` to maintain offsets. When 416 is returned, reset the offset to `0` (Jenkins rotated logs).
+- `--plain` disables headings and truncation notices for scripts. (`--since` remains a backlog item captured in §19).
+- During follow mode, emit a short status footer with the final build result to match `gh` UX expectations.
 
 ### 9.10 Capability detection cache
 - On context activation, probe `/jk/api/status`, `/sse-gateway/`, and `/prometheus` once; cache capability flags for 60 seconds or until an operation fails with 404/403/5xx.
@@ -285,6 +300,11 @@ Other commands keep the general-purpose codes, surfaced consistently in help tex
   ```
 - Endpoints for update (`PUT`) and delete (`DELETE`) mirror this shape.
 - Plugin maps to underlying Credentials plugin classes and handles folder RBAC checks.
+- CLI falls back to core Jenkins endpoints (`/credentials/store/system/domain/_/api/json`, `/job/<path>/credentials/store/folder/domain/_/api/json`) when the companion plugin is unavailable, emitting a single informational warning.
+- Current CLI supports secret text credentials via `jk cred create-secret`; additional credential types (username/password, SSH, certificates) follow the same payload wiring.
+- Jenkins plugin management (`jk plugin`) shells out to `/pluginManager/api/json` for inventory and `/pluginManager/installNecessaryPlugins` for installs, mirroring `gh extension` UX with a confirmation prompt (bypass via `--yes`).
+
+- `jk plugin install` posts `<install plugin="shortName@version"/>` XML to `/pluginManager/installNecessaryPlugins` after confirming with the user (skip prompt via `--yes`).
 
 ### 10.5 Events Router
 - Exposes SSE stream at `/jk/events/stream?topics=run,queue,node`.

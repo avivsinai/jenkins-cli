@@ -1,4 +1,4 @@
-package cmd
+package queue
 
 import (
 	"fmt"
@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/your-org/jenkins-cli/pkg/cmd/shared"
+	"github.com/your-org/jenkins-cli/pkg/cmdutil"
 )
 
 type queueListResponse struct {
@@ -24,22 +27,22 @@ type queueTaskRef struct {
 	URL  string `json:"url"`
 }
 
-func newQueueCmd() *cobra.Command {
+func NewCmdQueue(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "queue",
 		Short: "Inspect the build queue",
 	}
 
-	cmd.AddCommand(newQueueListCmd(), newQueueCancelCmd())
+	cmd.AddCommand(newQueueListCmd(f), newQueueCancelCmd(f))
 	return cmd
 }
 
-func newQueueListCmd() *cobra.Command {
+func newQueueListCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "ls",
 		Short: "List queued items",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newJenkinsClient(cmd)
+			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
 				return err
 			}
@@ -50,7 +53,7 @@ func newQueueListCmd() *cobra.Command {
 				return err
 			}
 
-			return printOutput(cmd, resp.Items, func() error {
+			return shared.PrintOutput(cmd, resp.Items, func() error {
 				if len(resp.Items) == 0 {
 					fmt.Fprintln(cmd.OutOrStdout(), "Queue is empty")
 					return nil
@@ -65,13 +68,13 @@ func newQueueListCmd() *cobra.Command {
 	}
 }
 
-func newQueueCancelCmd() *cobra.Command {
+func newQueueCancelCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "cancel <id>",
 		Short: "Cancel a queued item",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newJenkinsClient(cmd)
+			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
 				return err
 			}

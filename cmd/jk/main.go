@@ -1,7 +1,11 @@
 package main
 
-import "github.com/your-org/jenkins-cli/internal/cmd"
+import (
+	"os"
+
+	"github.com/your-org/jenkins-cli/internal/jkcmd"
+)
 
 func main() {
-	cmd.Execute()
+	os.Exit(jkcmd.Main())
 }

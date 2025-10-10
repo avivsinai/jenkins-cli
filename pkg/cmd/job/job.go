@@ -1,4 +1,4 @@
-package cmd
+package job
 
 import (
 	"fmt"
@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/your-org/jenkins-cli/internal/jenkins"
+	"github.com/your-org/jenkins-cli/pkg/cmd/shared"
+	"github.com/your-org/jenkins-cli/pkg/cmdutil"
 )
 
 type jobListResponse struct {
@@ -19,28 +21,28 @@ type jobSummary struct {
 	Color string `json:"color"`
 }
 
-func newJobCmd() *cobra.Command {
+func NewCmdJob(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "job",
 		Short: "Manage Jenkins jobs and pipelines",
 	}
 
 	cmd.AddCommand(
-		newJobListCmd(),
-		newJobViewCmd(),
+		newJobListCmd(f),
+		newJobViewCmd(f),
 	)
 
 	return cmd
 }
 
-func newJobListCmd() *cobra.Command {
+func newJobListCmd(f *cmdutil.Factory) *cobra.Command {
 	var folder string
 
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List jobs",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newJenkinsClient(cmd)
+			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
 				return err
 			}
@@ -66,7 +68,7 @@ func newJobListCmd() *cobra.Command {
 				return resp.Jobs[i].Name < resp.Jobs[j].Name
 			})
 
-			return printOutput(cmd, resp.Jobs, func() error {
+			return shared.PrintOutput(cmd, resp.Jobs, func() error {
 				if len(resp.Jobs) == 0 {
 					fmt.Fprintln(cmd.OutOrStdout(), "No jobs found")
 					return nil
@@ -83,13 +85,13 @@ func newJobListCmd() *cobra.Command {
 	return cmd
 }
 
-func newJobViewCmd() *cobra.Command {
+func newJobViewCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "view <jobPath>",
 		Short: "View job details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newJenkinsClient(cmd)
+			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
 				return err
 			}
@@ -102,7 +104,7 @@ func newJobViewCmd() *cobra.Command {
 				return err
 			}
 
-			return printOutput(cmd, data, func() error {
+			return shared.PrintOutput(cmd, data, func() error {
 				fmt.Fprintf(cmd.OutOrStdout(), "Name: %v\n", data["name"])
 				if desc, ok := data["description"].(string); ok && desc != "" {
 					fmt.Fprintf(cmd.OutOrStdout(), "Description: %s\n", desc)

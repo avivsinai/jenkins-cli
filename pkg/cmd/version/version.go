@@ -1,4 +1,4 @@
-package cmd
+package version
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/your-org/jenkins-cli/internal/build"
 )
 
-func newVersionCmd() *cobra.Command {
+func NewCmdVersion() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Print jk version information",

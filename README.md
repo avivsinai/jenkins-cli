@@ -9,7 +9,7 @@ Phase 0 + Phase 1 MVP scaffolding is now in place:
 - Auth and context management backed by the OS keyring (`jk auth login`, `jk context ls/use/rm`).
 - Shared configuration, logging, and Jenkins path utilities.
 - HTTP client with CSRF crumb handling, capability detection, and version handshakes.
-- Core developer workflows (`job ls/view`, `run start/ls/view`, `log follow`, `artifact ls/download`, `queue ls/cancel`, `test report`).
+- Core developer workflows (`job ls/view`, `run start/ls/view/cancel/rerun`, `log follow`, `artifact ls/download`, `queue ls/cancel`, `test report`).
 - Basic unit tests and `make` targets for build/test/tidy.
 
 Refer to `docs/spec.md` for the full technical plan and `docs/api.md` for JSON contracts.
@@ -38,15 +38,30 @@ jk job ls --folder team
 jk run ls team/app/pipeline
 jk run view team/app/pipeline 128
 jk run start team/app/pipeline --follow
+jk run rerun team/app/pipeline 128 --follow
+jk run cancel team/app/pipeline 129
 
 # Stream logs and fetch artifacts
-jk log follow team/app/pipeline 128
+jk log team/app/pipeline 128
+jk log team/app/pipeline 128 --follow
 jk artifact ls team/app/pipeline 128
 jk artifact download team/app/pipeline 128 -p "**/*.xml" -o out/
 
 # Queue and test insights
 jk queue ls
 jk test report team/app/pipeline 128
+
+# Credentials
+jk cred ls --scope system
+
+# Nodes and plugins
+jk node ls
+jk node cordon linux-agent-1 --message "Maintenance"
+jk plugin ls
+
+# Fetch structured output
+jk run ls team/app/pipeline --limit 5 --json
+jk run start team/app/pipeline --json --param version=1.4.0
 ```
 
 `examples/parity-smoke.sh` outlines the acceptance flow we will automate during Phase 1 to demonstrate `gh` parity.
@@ -54,14 +69,17 @@ jk test report team/app/pipeline 128
 ## Repository structure
 
 ```
-cmd/jk              # entry point
-internal/cmd        # Cobra command implementations
-internal/jenkins    # Jenkins client and helpers
-internal/config     # Config file model
-internal/secret     # Keyring integration
-internal/log        # Logging helpers
-internal/terminal   # Prompt utilities
-plugin/             # Placeholder for Phase 3 companion plugin
+cmd/jk               # entry point calling internal/jkcmd
+internal/jkcmd       # gh-style command runner and exit handling
+internal/jenkins     # Jenkins client and helpers
+internal/config      # Config file model
+internal/secret      # Keyring integration
+internal/log         # Logging helpers
+pkg/cmd              # Command packages (auth, context, run, log, etc.)
+pkg/cmd/shared       # Shared command helpers (output, test reports, logs)
+pkg/cmdutil          # Factory and error helpers mirroring gh
+pkg/iostreams        # Terminal IO abstraction (ported from gh)
+plugin/              # Placeholder for Phase 3 companion plugin
 ```
 
 ## Testing
