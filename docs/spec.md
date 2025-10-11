@@ -162,6 +162,7 @@ Key workflows the CLI must make trivial:
 - Secrets (API tokens) stored in OS keychain via `go-keyring`; fallback encrypted file only when the user passes `--allow-insecure-store` and confirms interactively.
 - Proxy configuration precedence is `flag (--proxy) > environment (HTTPS_PROXY/HTTP_PROXY/NO_PROXY) > context config`. CLI also honors custom CA bundles via `--ca-file` and `JK_CA_FILE`.
 - Per-context cache directory stores crumb and small metadata (capabilities, plugin detection caches) with short TTL.
+- Context resolution precedence is `--context` > `JK_CONTEXT` > active config (`SetActive`). An empty `JK_CONTEXT` must be treated as unset so automation can clear it without mutating local config.
 
 #### 9.2.1 Code layout (gh parity)
 - `cmd/jk` contains only the entrypoint; execution flows into `internal/jkcmd` mirroring `ghcmd`.

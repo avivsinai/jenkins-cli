@@ -51,6 +51,16 @@ jk plugin install warnings-ng
 
 Use `--json` or `--yaml` on supported commands for machine-readable output.
 
+## Context selection & automation
+
+`jk` picks the execution context in this order:
+
+1. `--context` / `-c` flag when supplied.
+2. `JK_CONTEXT` environment variable (ideal for CI/CD scripts).
+3. The active context recorded in your config (`jk context use`).
+
+Unset `JK_CONTEXT` or pass an empty string to fall back to the active context without mutating local config in automation.
+
 ## Command quick reference
 
 | Area        | Examples |
@@ -83,7 +93,7 @@ internal/jenkins     # Jenkins REST client
 pkg/cmd              # Cobra command packages
 pkg/cmd/shared       # Common helpers (output, logs, test reports)
 pkg/cmdutil          # Factory/error utilities
-y pkg/iostreams        # Terminal abstraction borrowed from gh
+pkg/iostreams        # Terminal abstraction borrowed from gh
 ```
 
 We run `go test ./...` and `go build ./...` in CI. Keep the spec and API docs synchronized with behavior changes.
