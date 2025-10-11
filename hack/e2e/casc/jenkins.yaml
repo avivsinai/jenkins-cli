@@ -1,0 +1,48 @@
+jenkins:
+  systemMessage: "jk end-to-end controller"
+  mode: NORMAL
+  numExecutors: 2
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          name: "Administrator"
+          password: "admin123"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: true
+  markupFormatter: "plainText"
+  remotingSecurity:
+    enabled: true
+unclassified:
+  location:
+    url: "http://localhost:8080/"
+jobs:
+  - script: >
+      folder('dogfood') {
+        displayName('Dogfood')
+        description('Jobs used for jk end-to-end tests')
+      }
+  - script: >
+      pipelineJob('dogfood/jk-smoke') {
+        description('Runs make build/test for the jk CLI via the repository Jenkinsfile')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('file:///fixtures/repos/jenkins-cli.git')
+                }
+                branches('*/main')
+                extensions {
+                  wipeWorkspace()
+                }
+              }
+            }
+          }
+        }
+      }

@@ -416,6 +416,7 @@ Other commands keep the general-purpose codes, surfaced consistently in help tex
   - Spin up Jenkins LTS container with required plugins via Docker Compose or Testcontainers.
   - Run scenarios: login, create job, trigger run, follow logs, download artifact.
   - Ensure tests cover crumb logic, SSE fallback, plugin detection.
+  - Repository provides `hack/e2e/` for the JCasC bundle, custom controller image, and helper scripts plus `test/e2e` Go suites that exercise the CLI against the dogfood pipeline defined in `Jenkinsfile`.
 
 ### 14.2 Companion Plugin
 - JenkinsRule tests for each endpoint validating permission enforcement, payload schema, and error paths.

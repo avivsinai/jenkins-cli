@@ -63,6 +63,8 @@ Run the full test/build suite before opening a PR:
 ```bash
 make build
 make test
+make e2e    # spins up a disposable Jenkins controller and runs dogfood scenarios
+make e2e-up # launches the same controller for manual exploration (default port 28080)
 ```
 
 Update docs in `docs/` whenever behavior changes. See the [contributing guide](CONTRIBUTING.md) for release steps and review expectations.

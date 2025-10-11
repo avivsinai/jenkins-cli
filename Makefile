@@ -26,6 +26,18 @@ tidy:
 test:
 	$(GO) test ./...
 
+.PHONY: e2e
+e2e:
+	$(GO) test ./test/e2e -count=1
+
+.PHONY: e2e-up
+e2e-up:
+	hack/e2e/up.sh up
+
+.PHONY: e2e-down
+e2e-down:
+	hack/e2e/up.sh down
+
 .PHONY: fmt
 fmt:
 	$(GO) fmt ./...
