@@ -12,7 +12,7 @@ releases might receive critical patches at the maintainers' discretion.
 
 ## Reporting a vulnerability
 
-Please email security reports to **security@jenkins-cli.dev** with:
+Please email security reports to **avivsinai@gmail.com** with:
 
 - A description of the vulnerability and potential impact.
 - Steps to reproduce or proof-of-concept code.
