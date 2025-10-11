@@ -1,111 +1,72 @@
-# jk — Jenkins CLI for developers
+# jk
 
-`jk` brings a GitHub CLI–style experience to Jenkins. It lets you inspect jobs, follow builds, manage credentials, and administer nodes from a single cross-platform binary.
+<p align="center"><em>GitHub CLI–style workflows for Jenkins controllers</em></p>
 
-## Highlights
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8.svg)](go.mod)
 
-- **Context aware authentication** – log in once and switch between controllers (`jk auth`, `jk context`).
-- **Pipeline ergonomics** – trigger, rerun, follow, and summarize jobs with human or JSON/YAML output (`jk run`, `jk log`).
-- **Artifacts & tests** – enumerate artifacts, download filtered sets, and inspect aggregated test reports.
-- **Platform administration** – list queue items, manage credentials, cordon/delete nodes, and view installed plugins.
-- **GitHub CLI parity** – command layout, help UX, and flag semantics mirror `gh`, easing adoption for developers.
+`jk` gives developers and operators a modern, scriptable interface to Jenkins: inspect runs, stream logs, manage credentials, and administer controllers from a single cross-platform binary.
+
+## Features
+
+- **Context-aware auth** – store multiple controllers, switch with `jk context use`, or pin a context via `JK_CONTEXT`.
+- **Friendly pipelines** – trigger, rerun, follow, and summarize jobs with human or JSON/YAML output.
+- **Artifacts & tests** – browse artifacts, download filtered sets, and surface aggregated test reports.
+- **Platform operations** – cordon nodes, manage credentials, inspect queues, and view installed plugins.
+- **GitHub CLI parity** – command structure and UX mirror `gh`, easing adoption in developer toolchains.
 
 ## Installation
 
-Pre-built releases are not published yet. Build from source with Go 1.25 or newer:
+### From source
+
+```bash
+go install github.com/your-org/jenkins-cli/cmd/jk@latest
+```
+
+or clone and build:
 
 ```bash
 make build   # produces ./bin/jk
 make test    # runs go test ./...
 ```
 
-> Ensure `go env GOVERSION` reports `go1.25.x`. The toolchain on your `PATH` is used directly.
+Prebuilt release archives will land with the first tagged version.
 
-## Getting started
+## Quickstart
 
 ```bash
-# Authenticate and store a context
-jk auth login https://jenkins.company.example
-
-# Inspect active context
-jk auth status
-jk context ls
-
-# Explore jobs and runs
-jk job ls --folder team
-jk run ls team/app/pipeline
-jk run view team/app/pipeline 128
-jk run start team/app/pipeline --follow
-
-# Stream logs & artifacts
-jk log team/app/pipeline 128 --follow
+jk auth login https://jenkins.company.example      # authenticate and create a context
+jk context ls                                      # list available contexts
+jk run ls team/app/pipeline                        # inspect recent runs
+jk run view team/app/pipeline 128 --follow         # stream logs until completion
 jk artifact download team/app/pipeline 128 -p "**/*.xml" -o out/
-
-# Platform operations
-jk queue ls
-jk cred ls --scope system
-jk cred create-secret --id slack-token --description "Slack notifier" --from-stdin < token.txt
-jk node cordon linux-agent-1 --message "Maintenance"
-jk plugin install warnings-ng
 ```
 
-Use `--json` or `--yaml` on supported commands for machine-readable output.
-
-## Context selection & automation
-
-`jk` picks the execution context in this order:
-
-1. `--context` / `-c` flag when supplied.
-2. `JK_CONTEXT` environment variable (ideal for CI/CD scripts).
-3. The active context recorded in your config (`jk context use`).
-
-Unset `JK_CONTEXT` or pass an empty string to fall back to the active context without mutating local config in automation.
-
-## Command quick reference
-
-| Area        | Examples |
-|-------------|----------|
-| Auth & context | `jk auth login`, `jk context use`, `jk context ls` |
-| Jobs & runs | `jk job ls`, `jk run ls`, `jk run rerun`, `jk run cancel` |
-| Logs & artifacts | `jk log`, `jk log --follow`, `jk artifact ls/download` |
-| Tests | `jk test report` |
-| Credentials | `jk cred ls`, `jk cred create-secret`, `jk cred rm` |
-| Nodes | `jk node ls`, `jk node cordon`, `jk node rm` |
-| Queue | `jk queue ls`, `jk queue cancel` |
-| Plugins | `jk plugin ls`, `jk plugin install`, `jk plugin enable/disable` |
-
-Run `jk <command> --help` for detailed flags and examples.
+Add `--json` or `--yaml` to supported commands for machine-readable output.
 
 ## Documentation
 
-- [Specification](docs/spec.md) — roadmap, scope, and design decisions.
-- [API contracts](docs/api.md) — JSON schemas for structured output.
-- [Changelog](docs/CHANGELOG.md) — release notes when versioning begins.
+- [Specification](docs/spec.md) – architecture, scope, and design decisions.
+- [API contracts](docs/api.md) – JSON schemas for structured output.
+- [Changelog](CHANGELOG.md) – release notes and migration guidance.
 
-## Development notes
+## Community
 
-Project layout mirrors `gh`:
+- Read the [code of conduct](CODE_OF_CONDUCT.md) and [contributing guide](CONTRIBUTING.md).
+- Ask questions or propose ideas via GitHub Discussions (coming soon) or issues.
+- Follow the [support guidelines](SUPPORT.md) for help, and our [security policy](SECURITY.md) for private reports.
 
+## Development
+
+Run the full test/build suite before opening a PR:
+
+```bash
+make build
+make test
 ```
-cmd/jk               # entry point delegating to internal/jkcmd
-internal/jkcmd       # command runner / exit handling
-internal/jenkins     # Jenkins REST client
-pkg/cmd              # Cobra command packages
-pkg/cmd/shared       # Common helpers (output, logs, test reports)
-pkg/cmdutil          # Factory/error utilities
-pkg/iostreams        # Terminal abstraction borrowed from gh
-```
 
-We run `go test ./...` and `go build ./...` in CI. Keep the spec and API docs synchronized with behavior changes.
+Update docs in `docs/` whenever behavior changes. See the [contributing guide](CONTRIBUTING.md) for release steps and review expectations.
 
-## Contributing
+## License
 
-1. Fork and clone the repo.
-2. Install Go 1.25.
-3. Run `make build` & `make test` before submitting changes.
-4. Update `docs/spec.md` and `docs/api.md` when altering contracts or workflows.
-5. Open a pull request describing the user-facing impact (command, flag, behavior).
-
----
-
-We’re actively iterating toward a 1.0 release; feedback and contributions are welcome.
+`jk` is available under the [MIT License](LICENSE).
