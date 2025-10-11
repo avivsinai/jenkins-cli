@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -26,6 +27,13 @@ func ResolveContextName(cmd *cobra.Command, cfg *config.Config) (string, error) 
 			return "", err
 		}
 		name = strings.TrimSpace(name)
+		if name != "" {
+			return name, nil
+		}
+	}
+
+	if value, ok := os.LookupEnv("JK_CONTEXT"); ok {
+		name := strings.TrimSpace(value)
 		if name != "" {
 			return name, nil
 		}
