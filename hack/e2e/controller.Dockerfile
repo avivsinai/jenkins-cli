@@ -14,6 +14,8 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl git make unzip docker.io \
   && rm -rf /var/lib/apt/lists/*
 
+RUN git config --system --add safe.directory /fixtures/repos/jenkins-cli.git
+
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" -o /tmp/go.tar.gz \
   && tar -C /usr/local -xzf /tmp/go.tar.gz \
   && rm /tmp/go.tar.gz \
