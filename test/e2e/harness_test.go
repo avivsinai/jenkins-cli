@@ -3,6 +3,7 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/build"
+	containertypes "github.com/docker/docker/api/types/container"
 	tc "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -133,7 +135,7 @@ func newHarness(ctx context.Context) (*harness, error) {
 	}
 
 	if err := h.waitForJob(ctx, "dogfood/jk-smoke", 3*time.Minute); err != nil {
-		container.Terminate(ctx) // best effort
+		_ = container.Terminate(ctx)
 		return nil, err
 	}
 
@@ -141,19 +143,27 @@ func newHarness(ctx context.Context) (*harness, error) {
 }
 
 func (h *harness) Close(ctx context.Context) error {
+	var errs []error
+
 	if h.container != nil {
-		_ = h.container.Terminate(ctx)
+		if err := h.container.Terminate(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("terminate container: %w", err))
+		}
 	}
 
 	if h.bareRepoPath != "" {
-		os.RemoveAll(filepath.Dir(h.bareRepoPath))
+		if err := os.RemoveAll(filepath.Dir(h.bareRepoPath)); err != nil {
+			errs = append(errs, fmt.Errorf("remove bare repo: %w", err))
+		}
 	}
 
 	if h.cliPath != "" {
-		os.RemoveAll(filepath.Dir(h.cliPath))
+		if err := os.RemoveAll(filepath.Dir(h.cliPath)); err != nil {
+			errs = append(errs, fmt.Errorf("remove cli snapshot: %w", err))
+		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 func repoRoot() (string, error) {
@@ -252,11 +262,6 @@ func runCmd(dir string, name string, args ...string) error {
 func launchJenkins(ctx context.Context, repoRoot, bareRepoPath string) (tc.Container, string, error) {
 	cascDir := filepath.Join(repoRoot, "hack", "e2e", "casc")
 
-	mounts := tc.Mounts(
-		tc.BindMount(cascDir, tc.ContainerMountTarget("/var/jenkins_home/casc")),
-		tc.BindMount(bareRepoPath, tc.ContainerMountTarget("/fixtures/repos/jenkins-cli.git")),
-	)
-
 	env := map[string]string{
 		"CASC_JENKINS_CONFIG": "/var/jenkins_home/casc/jenkins.yaml",
 		"JAVA_OPTS":           "-Djenkins.install.runSetupWizard=false -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true",
@@ -280,7 +285,12 @@ func launchJenkins(ctx context.Context, repoRoot, bareRepoPath string) (tc.Conta
 		Env:           env,
 		ExposedPorts:  []string{"8080/tcp"},
 		WaitingFor:    wait.ForLog("Jenkins is fully up and running").WithStartupTimeout(5 * time.Minute),
-		Mounts:        mounts,
+		HostConfigModifier: func(hc *containertypes.HostConfig) {
+			hc.Binds = append(hc.Binds,
+				fmt.Sprintf("%s:/var/jenkins_home/casc:ro", cascDir),
+				fmt.Sprintf("%s:/fixtures/repos/jenkins-cli.git:ro", bareRepoPath),
+			)
+		},
 	}
 
 	container, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{
@@ -293,13 +303,13 @@ func launchJenkins(ctx context.Context, repoRoot, bareRepoPath string) (tc.Conta
 
 	host, err := container.Host(ctx)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return nil, "", err
 	}
 
 	mappedPort, err := container.MappedPort(ctx, "8080/tcp")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return nil, "", fmt.Errorf("resolve mapped port: %w", err)
 	}
 
@@ -320,11 +330,11 @@ func (h *harness) waitForJob(ctx context.Context, jobPath string, timeout time.D
 		req.SetBasicAuth(h.adminUser, h.adminPassword)
 		resp, err := client.Do(req)
 		if err == nil && resp.StatusCode == http.StatusOK {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil
 		}
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		time.Sleep(5 * time.Second)
 	}
@@ -368,7 +378,9 @@ func (h *harness) fetchConsoleLog(ctx context.Context, jobPath string, buildNumb
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -430,7 +442,9 @@ func copyFile(src, dest string, mode fs.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() {
+		_ = in.Close()
+	}()
 
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
@@ -440,7 +454,9 @@ func copyFile(src, dest string, mode fs.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() {
+		_ = out.Close()
+	}()
 
 	if _, err := io.Copy(out, in); err != nil {
 		return err

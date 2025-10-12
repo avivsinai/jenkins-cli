@@ -3,8 +3,8 @@ package cmdutil
 import "errors"
 
 var (
-	// SilentError mirrors gh's sentinel used to suppress error printing.
-	SilentError = errors.New("silent")
+	// ErrSilent mirrors gh's sentinel used to suppress error printing.
+	ErrSilent = errors.New("silent")
 )
 
 // ExitError wraps an exit code and optional message.

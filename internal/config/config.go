@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -28,7 +27,6 @@ type Config struct {
 	Preferences Preferences         `yaml:"preferences,omitempty"`
 	path        string              `yaml:"-"`
 	mu          sync.RWMutex        `yaml:"-"`
-	onDiskPerms fs.FileMode         `yaml:"-"`
 }
 
 // Context represents a Jenkins connection configuration.
@@ -108,15 +106,17 @@ func (c *Config) Save() error {
 	if err != nil {
 		return fmt.Errorf("create temp config: %w", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		_ = os.Remove(tmpFile.Name())
+	}()
 
 	if _, err := tmpFile.Write(data); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return fmt.Errorf("write temp config: %w", err)
 	}
 
 	if err := tmpFile.Chmod(0o600); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return fmt.Errorf("chmod temp config: %w", err)
 	}
 

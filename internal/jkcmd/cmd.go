@@ -38,7 +38,7 @@ func Main() int {
 			}
 			return exitErr.Code
 		}
-		if err != cmdutil.SilentError {
+		if err != cmdutil.ErrSilent {
 			fmt.Fprintf(ios.ErrOut, "Error: %v\n", err)
 		}
 		return 1

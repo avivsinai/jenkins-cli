@@ -26,6 +26,10 @@ tidy:
 test:
 	$(GO) test ./...
 
+.PHONY: lint
+lint:
+	golangci-lint run ./...
+
 .PHONY: e2e
 e2e:
 	$(GO) test ./test/e2e -count=1

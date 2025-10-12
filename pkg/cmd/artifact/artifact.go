@@ -135,19 +135,12 @@ func newArtifactDownloadCmd(f *cmdutil.Factory) *cobra.Command {
 				if body == nil {
 					return errors.New("artifact response empty")
 				}
-				file, err := os.Create(destPath)
-				if err != nil {
-					body.Close()
+				if err := saveArtifact(destPath, body); err != nil {
 					return err
 				}
-				if _, err := io.Copy(file, body); err != nil {
-					body.Close()
-					file.Close()
+				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Downloaded %s\n", destPath); err != nil {
 					return err
 				}
-				body.Close()
-				file.Close()
-				fmt.Fprintf(cmd.OutOrStdout(), "Downloaded %s\n", destPath)
 			}
 
 			return nil
@@ -184,4 +177,41 @@ func fetchArtifacts(cmd *cobra.Command, f *cmdutil.Factory, jobPath, buildNumber
 	}
 
 	return resp.Artifacts, nil
+}
+
+func saveArtifact(destPath string, body io.ReadCloser) (err error) {
+	defer func() {
+		if err != nil {
+			_ = os.Remove(destPath)
+		}
+		if cerr := body.Close(); cerr != nil {
+			closeErr := fmt.Errorf("close artifact body: %w", cerr)
+			if err != nil {
+				err = errors.Join(err, closeErr)
+			} else {
+				err = closeErr
+			}
+		}
+	}()
+
+	file, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("create artifact %q: %w", destPath, err)
+	}
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			closeErr := fmt.Errorf("close file %q: %w", destPath, cerr)
+			if err != nil {
+				err = errors.Join(err, closeErr)
+			} else {
+				err = closeErr
+			}
+		}
+	}()
+
+	if _, err = io.Copy(file, body); err != nil {
+		return fmt.Errorf("write artifact %q: %w", destPath, err)
+	}
+
+	return nil
 }

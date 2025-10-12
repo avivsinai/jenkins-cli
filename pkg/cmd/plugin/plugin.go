@@ -118,7 +118,7 @@ func newPluginInstallCmd(f *cmdutil.Factory) *cobra.Command {
 				answer = strings.ToLower(strings.TrimSpace(answer))
 				if answer != "y" && answer != "yes" {
 					fmt.Fprintln(cmd.OutOrStdout(), "Cancelled")
-					return cmdutil.SilentError
+					return cmdutil.ErrSilent
 				}
 			}
 

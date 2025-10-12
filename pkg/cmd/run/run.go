@@ -438,7 +438,7 @@ func followTriggeredRun(cmd *cobra.Command, client *jenkins.Client, jobPath stri
 		return err
 	}
 
-	streamLogs := !(shared.WantsJSON(cmd) || shared.WantsYAML(cmd))
+	streamLogs := !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd)
 	result, err := monitorRun(cmd, client, jobPath, buildNumber, interval, streamLogs)
 	if err != nil {
 		return err

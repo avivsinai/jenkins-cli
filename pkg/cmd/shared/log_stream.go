@@ -59,8 +59,7 @@ func StreamProgressiveLog(ctx context.Context, client *jenkins.Client, jobPath s
 			return errors.New("log stream returned empty body")
 		}
 
-		chunk, err := io.ReadAll(body)
-		body.Close()
+		chunk, err := readAndClose(body)
 		if err != nil {
 			if ctx != nil && ctx.Err() != nil {
 				return nil
@@ -140,8 +139,7 @@ func CollectLogSnapshot(ctx context.Context, client *jenkins.Client, jobPath str
 			return truncated, errors.New("log stream returned empty body")
 		}
 
-		chunk, err := io.ReadAll(body)
-		body.Close()
+		chunk, err := readAndClose(body)
 		if err != nil {
 			return truncated, fmt.Errorf("read log chunk: %w", err)
 		}
@@ -172,4 +170,17 @@ func CollectLogSnapshot(ctx context.Context, client *jenkins.Client, jobPath str
 	}
 
 	return true, nil
+}
+
+func readAndClose(rc io.ReadCloser) ([]byte, error) {
+	data, err := io.ReadAll(rc)
+	if cerr := rc.Close(); cerr != nil {
+		closeErr := fmt.Errorf("close log stream: %w", cerr)
+		if err != nil {
+			err = errors.Join(err, closeErr)
+		} else {
+			err = closeErr
+		}
+	}
+	return data, err
 }

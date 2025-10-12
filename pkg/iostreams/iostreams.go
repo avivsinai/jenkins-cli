@@ -439,8 +439,15 @@ func (s *IOStreams) ReadUserFile(fn string) ([]byte, error) {
 			return nil, err
 		}
 	}
-	defer r.Close()
-	return io.ReadAll(r)
+	data, err := io.ReadAll(r)
+	if cerr := r.Close(); cerr != nil {
+		if err != nil {
+			err = errors.Join(err, cerr)
+		} else {
+			err = cerr
+		}
+	}
+	return data, err
 }
 
 func (s *IOStreams) TempFile(dir, pattern string) (*os.File, error) {
