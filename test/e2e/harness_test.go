@@ -38,6 +38,44 @@ var (
 	skipReason    string
 )
 
+func init() {
+	ensureDockerHost()
+
+	if os.Getenv("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE") != "" {
+		return
+	}
+
+	if dockerHost := os.Getenv("DOCKER_HOST"); strings.HasPrefix(dockerHost, "unix://") {
+		socket := strings.TrimPrefix(dockerHost, "unix://")
+		if socket != "" && !strings.HasPrefix(socket, "/var/run/") {
+			_ = os.Setenv("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", "/var/run/docker.sock")
+		}
+	}
+}
+
+func ensureDockerHost() {
+	if os.Getenv("DOCKER_HOST") != "" {
+		return
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+
+	candidates := []string{
+		filepath.Join(home, ".colima", "default", "docker.sock"),
+		filepath.Join(home, ".colima", "docker.sock"),
+	}
+
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			_ = os.Setenv("DOCKER_HOST", "unix://"+candidate)
+			return
+		}
+	}
+}
+
 func ptr(s string) *string {
 	return &s
 }
