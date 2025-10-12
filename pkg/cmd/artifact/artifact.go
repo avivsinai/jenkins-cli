@@ -181,15 +181,17 @@ func fetchArtifacts(cmd *cobra.Command, f *cmdutil.Factory, jobPath, buildNumber
 
 func saveArtifact(destPath string, body io.ReadCloser) (err error) {
 	defer func() {
-		if err != nil {
-			_ = os.Remove(destPath)
-		}
 		if cerr := body.Close(); cerr != nil {
 			closeErr := fmt.Errorf("close artifact body: %w", cerr)
 			if err != nil {
 				err = errors.Join(err, closeErr)
 			} else {
 				err = closeErr
+			}
+		}
+		if err != nil {
+			if removeErr := os.Remove(destPath); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+				err = errors.Join(err, fmt.Errorf("remove artifact %q: %w", destPath, removeErr))
 			}
 		}
 	}()
