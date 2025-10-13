@@ -42,14 +42,14 @@ func newTestReportCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			if report == nil {
-				fmt.Fprintln(cmd.OutOrStdout(), "No test report available")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No test report available")
 				return nil
 			}
 
 			return shared.PrintOutput(cmd, report, func() error {
-				fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\nFailed: %d\nSkipped: %d\n", report.TotalCount, report.FailCount, report.SkipCount)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\nFailed: %d\nSkipped: %d\n", report.TotalCount, report.FailCount, report.SkipCount)
 				if len(report.Suites) > 0 {
-					fmt.Fprintf(cmd.OutOrStdout(), "Suites: %d\n", len(report.Suites))
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Suites: %d\n", len(report.Suites))
 				}
 				return nil
 			})

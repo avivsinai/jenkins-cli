@@ -119,7 +119,7 @@ func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions
 		return fmt.Errorf("store token: %w", err)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Logged in to %s (%s)\n", parsed.String(), contextName)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Logged in to %s (%s)\n", parsed.String(), contextName)
 	return nil
 }
 
@@ -171,7 +171,7 @@ func newAuthLogoutCmd(f *cmdutil.Factory) *cobra.Command {
 				return fmt.Errorf("delete token: %w", err)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Logged out of context %s\n", contextName)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Logged out of context %s\n", contextName)
 			return nil
 		},
 	}
@@ -196,13 +196,13 @@ func newAuthStatusCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			if ctx == nil {
-				fmt.Fprintln(cmd.OutOrStdout(), "No active context")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No active context")
 				return nil
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Active context: %s\n", name)
-			fmt.Fprintf(cmd.OutOrStdout(), "URL: %s\n", ctx.URL)
-			fmt.Fprintf(cmd.OutOrStdout(), "Username: %s\n", ctx.Username)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Active context: %s\n", name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "URL: %s\n", ctx.URL)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Username: %s\n", ctx.Username)
 			return nil
 		},
 	}

@@ -77,7 +77,7 @@ func newNodeListCmd(f *cmdutil.Factory) *cobra.Command {
 
 			return shared.PrintOutput(cmd, nodes, func() error {
 				if len(nodes) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "No nodes found")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No nodes found")
 					return nil
 				}
 				for _, n := range nodes {
@@ -89,9 +89,9 @@ func newNodeListCmd(f *cmdutil.Factory) *cobra.Command {
 						state += " (cordoned)"
 					}
 					if n.OfflineBy != "" {
-						fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", n.Name, state, n.OfflineBy)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", n.Name, state, n.OfflineBy)
 					} else {
-						fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\n", n.Name, state)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\n", n.Name, state)
 					}
 				}
 				return nil
@@ -153,7 +153,7 @@ func newNodeDeleteCmd(f *cmdutil.Factory) *cobra.Command {
 				return fmt.Errorf("delete failed: %s", resp.Status())
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Deleted node %s\n", name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted node %s\n", name)
 			return nil
 		},
 	}
@@ -194,7 +194,7 @@ func toggleNode(cmd *cobra.Command, f *cmdutil.Factory, name string, offline boo
 	if offline {
 		state = "cordoned"
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Node %s marked %s\n", name, state)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Node %s marked %s\n", name, state)
 	return nil
 }
 

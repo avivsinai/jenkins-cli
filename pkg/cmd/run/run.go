@@ -139,7 +139,7 @@ func newRunStartCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			if !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) {
-				fmt.Fprintf(cmd.OutOrStdout(), "Triggered run for %s\n", args[0])
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered run for %s\n", args[0])
 			}
 
 			if !follow {
@@ -150,7 +150,7 @@ func newRunStartCmd(f *cmdutil.Factory) *cobra.Command {
 						QueueLocation: queueLocationFromResponse(resp),
 					}
 					return shared.PrintOutput(cmd, payload, func() error {
-						fmt.Fprintf(cmd.OutOrStdout(), "Triggered run for %s\n", args[0])
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered run for %s\n", args[0])
 						return nil
 					})
 				}
@@ -206,11 +206,11 @@ func newRunListCmd(f *cmdutil.Factory) *cobra.Command {
 
 			return shared.PrintOutput(cmd, output, func() error {
 				if len(output.Items) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "No runs found")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No runs found")
 					return nil
 				}
 				for _, item := range output.Items {
-					fmt.Fprintf(
+					_, _ = fmt.Fprintf(
 						cmd.OutOrStdout(),
 						"#%d\t%s\t%s\t%s\n",
 						item.Number,
@@ -220,7 +220,7 @@ func newRunListCmd(f *cmdutil.Factory) *cobra.Command {
 					)
 				}
 				if output.NextCursor != "" {
-					fmt.Fprintf(cmd.OutOrStdout(), "Next cursor: %s\n", output.NextCursor)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Next cursor: %s\n", output.NextCursor)
 				}
 				return nil
 			})
@@ -263,26 +263,26 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 			output := buildRunDetailOutput(args[0], detail, testReport)
 
 			return shared.PrintOutput(cmd, output, func() error {
-				fmt.Fprintf(cmd.OutOrStdout(), "Run #%d (%s)\n", output.Number, output.Status)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Run #%d (%s)\n", output.Number, output.Status)
 				if output.Result != "" {
-					fmt.Fprintf(cmd.OutOrStdout(), "Result: %s\n", output.Result)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Result: %s\n", output.Result)
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "URL: %s\n", output.URL)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "URL: %s\n", output.URL)
 				if output.StartTime != "" {
-					fmt.Fprintf(cmd.OutOrStdout(), "Started: %s\n", output.StartTime)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Started: %s\n", output.StartTime)
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Duration: %s\n", shared.DurationString(output.DurationMs))
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Duration: %s\n", shared.DurationString(output.DurationMs))
 				if output.SCM != nil && (output.SCM.Branch != "" || output.SCM.Commit != "" || output.SCM.Repo != "") {
-					fmt.Fprintf(cmd.OutOrStdout(), "SCM: branch=%s commit=%s repo=%s\n", output.SCM.Branch, output.SCM.Commit, output.SCM.Repo)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "SCM: branch=%s commit=%s repo=%s\n", output.SCM.Branch, output.SCM.Commit, output.SCM.Repo)
 				}
 				if len(output.Parameters) > 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "Parameters:")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Parameters:")
 					for _, p := range output.Parameters {
-						fmt.Fprintf(cmd.OutOrStdout(), "  %s=%v\n", p.Name, p.Value)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s=%v\n", p.Name, p.Value)
 					}
 				}
 				if output.Tests != nil {
-					fmt.Fprintf(cmd.OutOrStdout(), "Tests: total=%d failed=%d skipped=%d\n", output.Tests.Total, output.Tests.Failed, output.Tests.Skipped)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Tests: total=%d failed=%d skipped=%d\n", output.Tests.Total, output.Tests.Failed, output.Tests.Skipped)
 				}
 				return nil
 			})
@@ -332,12 +332,12 @@ func newRunCancelCmd(f *cmdutil.Factory) *cobra.Command {
 					"status":  "requested",
 				}
 				return shared.PrintOutput(cmd, payload, func() error {
-					fmt.Fprintf(cmd.OutOrStdout(), "Cancellation requested for %s #%d (%s)\n", args[0], num, action)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Cancellation requested for %s #%d (%s)\n", args[0], num, action)
 					return nil
 				})
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Cancellation requested for %s #%d (%s)\n", args[0], num, action)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Cancellation requested for %s #%d (%s)\n", args[0], num, action)
 			return nil
 		},
 	}
@@ -377,7 +377,7 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			if !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) {
-				fmt.Fprintf(cmd.OutOrStdout(), "Triggered rerun for %s #%d\n", args[0], num)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered rerun for %s #%d\n", args[0], num)
 			}
 
 			if !follow {
@@ -388,7 +388,7 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 						QueueLocation: queueLocationFromResponse(resp),
 					}
 					return shared.PrintOutput(cmd, payload, func() error {
-						fmt.Fprintf(cmd.OutOrStdout(), "Triggered rerun for %s #%d\n", args[0], num)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered rerun for %s #%d\n", args[0], num)
 						return nil
 					})
 				}
@@ -455,7 +455,7 @@ func followTriggeredRun(cmd *cobra.Command, client *jenkins.Client, jobPath stri
 		}
 		output := buildRunDetailOutput(jobPath, *detail, testReport)
 		if err := shared.PrintOutput(cmd, output, func() error {
-			fmt.Fprintf(cmd.OutOrStdout(), "Run #%d completed with status %s\n", output.Number, output.Result)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Run #%d completed with status %s\n", output.Number, output.Result)
 			return nil
 		}); err != nil {
 			return err
@@ -593,13 +593,13 @@ func monitorRun(cmd *cobra.Command, client *jenkins.Client, jobPath string, buil
 				result = "SUCCESS"
 			}
 			if streamLogs {
-				fmt.Fprintf(cmd.OutOrStdout(), "\nRun #%d completed with status %s\n", detail.Number, result)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nRun #%d completed with status %s\n", detail.Number, result)
 			}
 			return result, nil
 		}
 
 		if streamLogs && time.Since(lastStatus) >= 5*time.Second {
-			fmt.Fprintf(cmd.OutOrStdout(), "Run #%d still running...\n", detail.Number)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Run #%d still running...\n", detail.Number)
 			lastStatus = time.Now()
 		}
 		time.Sleep(2 * time.Second)

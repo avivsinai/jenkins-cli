@@ -39,7 +39,7 @@ func newContextListCmd(f *cmdutil.Factory) *cobra.Command {
 
 			cfgContexts := cfg.Contexts
 			if len(cfgContexts) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No contexts configured")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No contexts configured")
 				return nil
 			}
 
@@ -55,7 +55,7 @@ func newContextListCmd(f *cmdutil.Factory) *cobra.Command {
 				if name == active {
 					prefix = "*"
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s %s\t%s\n", prefix, name, cfgContexts[name].URL)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s %s\t%s\n", prefix, name, cfgContexts[name].URL)
 			}
 			return nil
 		},
@@ -85,7 +85,7 @@ func newContextUseCmd(f *cmdutil.Factory) *cobra.Command {
 				return fmt.Errorf("save config: %w", err)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Switched to context %s\n", name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Switched to context %s\n", name)
 			return nil
 		},
 	}
@@ -124,7 +124,7 @@ func newContextRemoveCmd(f *cmdutil.Factory) *cobra.Command {
 				return fmt.Errorf("delete token: %w", err)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Removed context %s\n", name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Removed context %s\n", name)
 			return nil
 		},
 	}

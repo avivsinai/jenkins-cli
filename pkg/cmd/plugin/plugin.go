@@ -75,7 +75,7 @@ func newPluginListCmd(f *cmdutil.Factory) *cobra.Command {
 
 			return shared.PrintOutput(cmd, rows, func() error {
 				if len(rows) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "No plugins installed")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No plugins installed")
 					return nil
 				}
 				for _, row := range rows {
@@ -86,7 +86,7 @@ func newPluginListCmd(f *cmdutil.Factory) *cobra.Command {
 					if row.Pinned {
 						status += " (pinned)"
 					}
-					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", row.Name, row.Version, status)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", row.Name, row.Version, status)
 				}
 				return nil
 			})
@@ -109,7 +109,7 @@ func newPluginInstallCmd(f *cmdutil.Factory) *cobra.Command {
 				if !ios.IsStdinTTY() {
 					return errors.New("confirmation required when stdin is not a TTY (use --yes)")
 				}
-				fmt.Fprintf(ios.ErrOut, "Install plugins: %s? [y/N]: ", strings.Join(args, ", "))
+				_, _ = fmt.Fprintf(ios.ErrOut, "Install plugins: %s? [y/N]: ", strings.Join(args, ", "))
 				reader := bufio.NewReader(ios.In)
 				answer, err := reader.ReadString('\n')
 				if err != nil && !errors.Is(err, bufio.ErrBufferFull) {
@@ -117,7 +117,7 @@ func newPluginInstallCmd(f *cmdutil.Factory) *cobra.Command {
 				}
 				answer = strings.ToLower(strings.TrimSpace(answer))
 				if answer != "y" && answer != "yes" {
-					fmt.Fprintln(cmd.OutOrStdout(), "Cancelled")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Cancelled")
 					return cmdutil.ErrSilent
 				}
 			}
@@ -141,7 +141,7 @@ func newPluginInstallCmd(f *cmdutil.Factory) *cobra.Command {
 				return fmt.Errorf("install failed: %s", resp.Status())
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), "Plugin installation triggered. Monitor Jenkins for progress.")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Plugin installation triggered. Monitor Jenkins for progress.")
 			return nil
 		},
 	}
@@ -217,7 +217,7 @@ func newPluginToggleCmd(f *cmdutil.Factory, enable bool) *cobra.Command {
 				return fmt.Errorf("%s failed: %s", verb, resp.Status())
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Plugin %s %sd\n", name, verb)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Plugin %s %sd\n", name, verb)
 			return nil
 		},
 	}

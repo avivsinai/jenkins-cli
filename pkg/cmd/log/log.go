@@ -118,7 +118,7 @@ func runLog(cmd *cobra.Command, f *cmdutil.Factory, opts *logOptions) error {
 func streamLogFollow(cmd *cobra.Command, client *jenkins.Client, opts *logOptions, buildNumber int, detail *runDetail, status, result string) error {
 	if !opts.plain && !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) {
 		printLogHeading(cmd.OutOrStdout(), opts.jobPath, int64(buildNumber), detail, status, result)
-		fmt.Fprintln(cmd.OutOrStdout())
+		_, _ = fmt.Fprintln(cmd.OutOrStdout())
 	}
 
 	ctx := cmd.Context()
@@ -131,9 +131,9 @@ func streamLogFollow(cmd *cobra.Command, client *jenkins.Client, opts *logOption
 	}
 
 	if !opts.plain {
-		fmt.Fprintln(cmd.OutOrStdout())
-		fmt.Fprintf(cmd.OutOrStdout(), "Run status: %s", strings.ToUpper(result))
-		fmt.Fprintln(cmd.OutOrStdout())
+		_, _ = fmt.Fprintln(cmd.OutOrStdout())
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Run status: %s", strings.ToUpper(result))
+		_, _ = fmt.Fprintln(cmd.OutOrStdout())
 	}
 	return nil
 }
@@ -169,25 +169,25 @@ func renderLogSnapshot(cmd *cobra.Command, client *jenkins.Client, opts *logOpti
 		writer := cmd.OutOrStdout()
 		if !opts.plain {
 			printLogHeading(writer, opts.jobPath, int64(buildNumber), detail, status, result)
-			fmt.Fprintln(writer)
+			_, _ = fmt.Fprintln(writer)
 		}
 
 		if buf.Len() == 0 {
 			if !opts.plain {
-				fmt.Fprintln(writer, "(log is empty)")
+				_, _ = fmt.Fprintln(writer, "(log is empty)")
 			}
 		} else {
 			if _, err := io.Copy(writer, bytes.NewReader(buf.Bytes())); err != nil {
 				return err
 			}
 			if !strings.HasSuffix(buf.String(), "\n") {
-				fmt.Fprintln(writer)
+				_, _ = fmt.Fprintln(writer)
 			}
 		}
 
 		if truncated && !opts.plain {
-			fmt.Fprintln(writer)
-			fmt.Fprintln(writer, "(log truncated; use --follow to stream live output)")
+			_, _ = fmt.Fprintln(writer)
+			_, _ = fmt.Fprintln(writer, "(log truncated; use --follow to stream live output)")
 		}
 		return nil
 	})
@@ -201,7 +201,7 @@ func statusFromFlags(building bool) string {
 }
 
 func printLogHeading(w io.Writer, jobPath string, buildNumber int64, detail *runDetail, status, result string) {
-	fmt.Fprintf(w, "==> %s #%d\n", jobPath, buildNumber)
+	_, _ = fmt.Fprintf(w, "==> %s #%d\n", jobPath, buildNumber)
 	var pieces []string
 	if status != "" {
 		pieces = append(pieces, fmt.Sprintf("status: %s", strings.ToUpper(status)))
@@ -218,6 +218,6 @@ func printLogHeading(w io.Writer, jobPath string, buildNumber int64, detail *run
 		}
 	}
 	if len(pieces) > 0 {
-		fmt.Fprintf(w, "   %s\n", strings.Join(pieces, "   "))
+		_, _ = fmt.Fprintf(w, "   %s\n", strings.Join(pieces, "   "))
 	}
 }

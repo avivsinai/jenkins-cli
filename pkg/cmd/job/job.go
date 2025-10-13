@@ -70,11 +70,11 @@ func newJobListCmd(f *cmdutil.Factory) *cobra.Command {
 
 			return shared.PrintOutput(cmd, resp.Jobs, func() error {
 				if len(resp.Jobs) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "No jobs found")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No jobs found")
 					return nil
 				}
 				for _, job := range resp.Jobs {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\n", job.Name, job.URL)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\n", job.Name, job.URL)
 				}
 				return nil
 			})
@@ -105,12 +105,12 @@ func newJobViewCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			return shared.PrintOutput(cmd, data, func() error {
-				fmt.Fprintf(cmd.OutOrStdout(), "Name: %v\n", data["name"])
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Name: %v\n", data["name"])
 				if desc, ok := data["description"].(string); ok && desc != "" {
-					fmt.Fprintf(cmd.OutOrStdout(), "Description: %s\n", desc)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Description: %s\n", desc)
 				}
 				if url, ok := data["url"].(string); ok {
-					fmt.Fprintf(cmd.OutOrStdout(), "URL: %s\n", url)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "URL: %s\n", url)
 				}
 				return nil
 			})

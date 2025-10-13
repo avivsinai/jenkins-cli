@@ -88,14 +88,14 @@ func newCredListCmd(f *cmdutil.Factory) *cobra.Command {
 
 			return shared.PrintOutput(cmd, data, func() error {
 				if len(data.Items) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "No credentials found")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No credentials found")
 					return nil
 				}
 				for _, item := range data.Items {
 					if item.Path != "" {
-						fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", item.ID, item.Type, item.Path)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", item.ID, item.Type, item.Path)
 					} else {
-						fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\n", item.ID, item.Type)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\n", item.ID, item.Type)
 					}
 				}
 				return nil
@@ -259,7 +259,7 @@ func newCredCreateSecretCmd(f *cmdutil.Factory) *cobra.Command {
 				return fmt.Errorf("create credential failed: %s", resp.Status())
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Created credential %s in %s scope\n", id, scopeVal)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created credential %s in %s scope\n", id, scopeVal)
 			return nil
 		},
 	}
@@ -318,7 +318,7 @@ func newCredDeleteCmd(f *cmdutil.Factory) *cobra.Command {
 				return fmt.Errorf("delete failed: %s", resp.Status())
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Deleted credential %s\n", credentialID)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted credential %s\n", credentialID)
 			return nil
 		},
 	}

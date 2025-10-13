@@ -12,7 +12,7 @@ func TestStopAlternateScreenBuffer(t *testing.T) {
 	ios.SetAlternateScreenBufferEnabled(true)
 
 	ios.StartAlternateScreenBuffer()
-	fmt.Fprint(ios.Out, "test")
+	_, _ = fmt.Fprint(ios.Out, "test")
 	ios.StopAlternateScreenBuffer()
 
 	// Stopping a subsequent time should no-op.

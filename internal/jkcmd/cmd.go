@@ -26,7 +26,7 @@ func Main() int {
 
 	rootCmd, err := root.NewCmdRoot(f)
 	if err != nil {
-		fmt.Fprintf(ios.ErrOut, "failed to create root command: %v\n", err)
+		_, _ = fmt.Fprintf(ios.ErrOut, "failed to create root command: %v\n", err)
 		return 1
 	}
 
@@ -34,12 +34,12 @@ func Main() int {
 		var exitErr *cmdutil.ExitError
 		if errors.As(err, &exitErr) {
 			if exitErr.Msg != "" {
-				fmt.Fprintln(ios.ErrOut, exitErr.Msg)
+				_, _ = fmt.Fprintln(ios.ErrOut, exitErr.Msg)
 			}
 			return exitErr.Code
 		}
 		if err != cmdutil.ErrSilent {
-			fmt.Fprintf(ios.ErrOut, "Error: %v\n", err)
+			_, _ = fmt.Fprintf(ios.ErrOut, "Error: %v\n", err)
 		}
 		return 1
 	}

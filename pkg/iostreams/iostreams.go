@@ -341,7 +341,7 @@ func (s *IOStreams) startTextualProgressIndicator(label string) {
 		label = label + ellipsis
 	}
 
-	fmt.Fprintf(s.ErrOut, "%s%s", s.ColorScheme().Cyan(label), "\n")
+	_, _ = fmt.Fprintf(s.ErrOut, "%s%s", s.ColorScheme().Cyan(label), "\n")
 }
 
 // StopProgressIndicator stops the progress indicator if it is running.
@@ -390,7 +390,7 @@ func (s *IOStreams) StopAlternateScreenBuffer() {
 	defer s.alternateScreenBufferMu.Unlock()
 
 	if s.alternateScreenBufferActive {
-		fmt.Fprint(s.Out, "\x1b[?1049l")
+		_, _ = fmt.Fprint(s.Out, "\x1b[?1049l")
 		s.alternateScreenBufferActive = false
 	}
 }
@@ -402,9 +402,9 @@ func (s *IOStreams) SetAlternateScreenBufferEnabled(enabled bool) {
 func (s *IOStreams) RefreshScreen() {
 	if s.IsStdoutTTY() {
 		// Move cursor to 0,0
-		fmt.Fprint(s.Out, "\x1b[0;0H")
+		_, _ = fmt.Fprint(s.Out, "\x1b[0;0H")
 		// Clear from cursor to bottom of screen
-		fmt.Fprint(s.Out, "\x1b[J")
+		_, _ = fmt.Fprint(s.Out, "\x1b[J")
 	}
 }
 

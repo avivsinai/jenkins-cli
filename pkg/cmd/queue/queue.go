@@ -55,12 +55,12 @@ func newQueueListCmd(f *cmdutil.Factory) *cobra.Command {
 
 			return shared.PrintOutput(cmd, resp.Items, func() error {
 				if len(resp.Items) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "Queue is empty")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Queue is empty")
 					return nil
 				}
 				for _, item := range resp.Items {
 					wait := time.Since(time.UnixMilli(item.InQueueSince))
-					fmt.Fprintf(cmd.OutOrStdout(), "#%d\t%s\twaiting %s\t%s\n", item.ID, item.Task.Name, wait.Truncate(time.Second), item.Why)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "#%d\t%s\twaiting %s\t%s\n", item.ID, item.Task.Name, wait.Truncate(time.Second), item.Why)
 				}
 				return nil
 			})
@@ -88,7 +88,7 @@ func newQueueCancelCmd(f *cmdutil.Factory) *cobra.Command {
 				return fmt.Errorf("cancel failed: %s", resp.Status())
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Cancelled queue item %s\n", args[0])
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Cancelled queue item %s\n", args[0])
 			return nil
 		},
 	}

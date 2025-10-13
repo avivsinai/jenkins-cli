@@ -62,7 +62,7 @@ func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error
 		if err != nil {
 			return err
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), string(encoded))
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(encoded))
 		return nil
 	}
 	if WantsYAML(cmd) {
@@ -70,7 +70,7 @@ func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error
 		if err != nil {
 			return err
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), string(encoded))
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(encoded))
 		return nil
 	}
 	return human()

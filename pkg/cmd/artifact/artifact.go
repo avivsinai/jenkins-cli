@@ -54,11 +54,11 @@ func newArtifactListCmd(f *cmdutil.Factory) *cobra.Command {
 
 			return shared.PrintOutput(cmd, items, func() error {
 				if len(items) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "No artifacts found")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No artifacts found")
 					return nil
 				}
 				for _, item := range items {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%d bytes\n", item.RelativePath, item.FileName, item.Size)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%d bytes\n", item.RelativePath, item.FileName, item.Size)
 				}
 				return nil
 			})
@@ -100,7 +100,7 @@ func newArtifactDownloadCmd(f *cmdutil.Factory) *cobra.Command {
 
 			if len(matched) == 0 {
 				if allowEmpty {
-					fmt.Fprintln(cmd.OutOrStdout(), "No artifacts matched pattern")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No artifacts matched pattern")
 					return nil
 				}
 				return shared.NewExitError(3, "no artifacts matched pattern")
