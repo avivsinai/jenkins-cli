@@ -61,13 +61,14 @@ Add `--json` or `--yaml` to supported commands for machine-readable output.
 Run the full test/build suite before opening a PR:
 
 ```bash
+make lint
 make build
 make test
 make e2e    # spins up a disposable Jenkins controller and runs dogfood scenarios
 make e2e-up # launches the same controller for manual exploration (default port 28080)
 ```
 
-The end-to-end harness requires a local Docker daemon (Colima/Docker Desktop/other). Use `make e2e-down` when you are finished, or run `JK_E2E_DISABLE=1 make test` to skip the harness in constrained environments (the Jenkins pipeline sets this automatically).
+The end-to-end harness requires a local Docker daemon (Colima/Docker Desktop/other) and auto-detects Colima sockets when present. If Docker is still unreachable on macOS, start Colima with `colima start --network-address` and export the variables described in [CONTRIBUTING.md](CONTRIBUTING.md#end-to-end-tests). Use `make e2e-down` when you are finished, or run `JK_E2E_DISABLE=1 make test` to skip the harness in constrained environments (the Jenkins pipeline sets this automatically).
 
 Update docs in `docs/` whenever behavior changes. See the [contributing guide](CONTRIBUTING.md) for release steps and review expectations.
 

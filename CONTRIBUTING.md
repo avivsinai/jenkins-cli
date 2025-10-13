@@ -9,13 +9,13 @@ pull requests, and feedback from the community.
 - Discuss large changes in an issue before opening a pull request.
 - Keep the documentation up to date with user-facing changes.
 - Add or update tests whenever behavior changes.
-- Run `make build` and `make test` locally before submitting.
+- Run `make lint`, `JK_E2E_DISABLE=1 make test`, and `make e2e` locally before submitting.
 
 ## Getting started
 
 1. Fork the repository and clone your fork.
 2. Install Go 1.25 and ensure `go env GOVERSION` reports `go1.25.x`.
-3. Run `make build` and `make test` to verify the baseline passes.
+3. Run `make lint`, `JK_E2E_DISABLE=1 make test`, and `make e2e` to verify the baseline passes.
 4. Create a feature branch for your changes.
 
 ## Pull requests
@@ -24,6 +24,19 @@ pull requests, and feedback from the community.
 - Include a summary of the change, tests performed, and any follow-up work.
 - If your change adds a command or flag, update the relevant docs in `docs/`.
 - For breaking changes, call out migration notes clearly in the PR description.
+
+## End-to-end tests
+
+- End-to-end coverage lives under `test/e2e` and is executed with `make e2e` (or `go test ./test/e2e -count=1`).
+- The harness auto-detects Colima on macOS and will set `DOCKER_HOST` for you when needed. If Docker is still unreachable, start Colima with `colima start --network-address` and retry; as a last resort export:
+
+  ```sh
+  export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+  export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="/var/run/docker.sock"
+  export TESTCONTAINERS_HOST_OVERRIDE="$(colima status --json | jq -r '.ip_address')"
+  ```
+
+- The harness keeps its configuration and keyring inside a temporary directory, so no extra setup is required on CI runners.
 
 ## Reporting issues
 
