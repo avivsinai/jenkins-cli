@@ -22,6 +22,14 @@ func Open() (*Store, error) {
 		ServiceName: serviceName,
 	}
 
+	if pwd := os.Getenv("KEYRING_FILE_PASSWORD"); pwd != "" {
+		cfg.FilePasswordFunc = keyring.FixedStringPrompt(pwd)
+	} else if pwd := os.Getenv("KEYRING_PASSWORD"); pwd != "" {
+		cfg.FilePasswordFunc = keyring.FixedStringPrompt(pwd)
+	} else {
+		cfg.FilePasswordFunc = keyring.TerminalPrompt
+	}
+
 	// Configure file caching in case the backend requires it.
 	if dir, err := os.UserConfigDir(); err == nil {
 		cfg.FileDir = filepath.Join(dir, serviceName, "secrets")

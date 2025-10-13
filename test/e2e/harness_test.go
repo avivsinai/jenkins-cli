@@ -42,6 +42,7 @@ var (
 const keyringFilePassword = "jk-e2e-secret"
 
 func init() {
+	ensureKeyringDefaults()
 	ensureDockerHost()
 
 	if os.Getenv("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE") != "" {
@@ -76,6 +77,15 @@ func ensureDockerHost() {
 			_ = os.Setenv("DOCKER_HOST", "unix://"+candidate)
 			return
 		}
+	}
+}
+
+func ensureKeyringDefaults() {
+	if os.Getenv("KEYRING_PASSWORD") == "" {
+		_ = os.Setenv("KEYRING_PASSWORD", keyringFilePassword)
+	}
+	if os.Getenv("KEYRING_FILE_PASSWORD") == "" {
+		_ = os.Setenv("KEYRING_FILE_PASSWORD", keyringFilePassword)
 	}
 }
 
