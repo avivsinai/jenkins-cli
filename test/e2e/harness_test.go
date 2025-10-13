@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -305,21 +306,23 @@ func launchJenkins(ctx context.Context, repoRoot, bareRepoPath string) (tc.Conta
 		"JAVA_OPTS":           "-Djenkins.install.runSetupWizard=false -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true",
 	}
 
+	targetArch, targetPlatform := detectTargetPlatform()
+
 	req := tc.ContainerRequest{
 		FromDockerfile: tc.FromDockerfile{
 			Context:    filepath.Join(repoRoot, "hack", "e2e"),
 			Dockerfile: "controller.Dockerfile",
 			BuildOptionsModifier: func(opts *build.ImageBuildOptions) {
 				opts.NoCache = true
-				opts.Platform = "linux/arm64"
+				opts.Platform = targetPlatform
 			},
 			BuildArgs: map[string]*string{
-				"TARGETARCH":     ptr("arm64"),
-				"TARGETPLATFORM": ptr("linux/arm64"),
+				"TARGETARCH":     ptr(targetArch),
+				"TARGETPLATFORM": ptr(targetPlatform),
 			},
 			BuildLogWriter: os.Stdout,
 		},
-		ImagePlatform: "linux/arm64",
+		ImagePlatform: targetPlatform,
 		Env:           env,
 		ExposedPorts:  []string{"8080/tcp"},
 		WaitingFor:    wait.ForLog("Jenkins is fully up and running").WithStartupTimeout(5 * time.Minute),
@@ -353,6 +356,14 @@ func launchJenkins(ctx context.Context, repoRoot, bareRepoPath string) (tc.Conta
 
 	baseURL := fmt.Sprintf("http://%s:%s", host, mappedPort.Port())
 	return container, baseURL, nil
+}
+
+func detectTargetPlatform() (string, string) {
+	arch := runtime.GOARCH
+	if arch == "" {
+		return "amd64", "linux/amd64"
+	}
+	return arch, "linux/" + arch
 }
 
 func (h *harness) waitForJob(ctx context.Context, jobPath string, timeout time.Duration) error {
