@@ -33,6 +33,7 @@ pull requests, and feedback from the community.
   ```sh
   export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
   export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="/var/run/docker.sock"
+  # Requires jq (install via 'brew install jq' on macOS).
   export TESTCONTAINERS_HOST_OVERRIDE="$(colima status --json | jq -r '.ip_address')"
   ```
 

@@ -68,6 +68,8 @@ make e2e    # spins up a disposable Jenkins controller and runs dogfood scenario
 make e2e-up # launches the same controller for manual exploration (default port 28080)
 ```
 
+`make lint` relies on [golangci-lint](https://golangci-lint.run/). Install it with `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest` (or the pinned version from the CI workflow) before running the target locally.
+
 The end-to-end harness requires a local Docker daemon (Colima/Docker Desktop/other) and auto-detects Colima sockets when present. If Docker is still unreachable on macOS, start Colima with `colima start --network-address` and export the variables described in [CONTRIBUTING.md](CONTRIBUTING.md#end-to-end-tests). Use `make e2e-down` when you are finished, or run `JK_E2E_DISABLE=1 make test` to skip the harness in constrained environments (the Jenkins pipeline sets this automatically).
 
 Update docs in `docs/` whenever behavior changes. See the [contributing guide](CONTRIBUTING.md) for release steps and review expectations.
