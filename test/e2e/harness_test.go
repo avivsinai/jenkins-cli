@@ -39,6 +39,8 @@ var (
 	skipReason    string
 )
 
+const keyringFilePassword = "jk-e2e-secret"
+
 func init() {
 	ensureDockerHost()
 
@@ -397,6 +399,8 @@ func (h *harness) runCLI(ctx context.Context, args ...string) (string, string, e
 		fmt.Sprintf("XDG_CONFIG_HOME=%s", h.configDir),
 		fmt.Sprintf("KEYRING_BACKEND=%s", "file"),
 		fmt.Sprintf("KEYRING_FILE_DIR=%s", h.secretsDir),
+		fmt.Sprintf("KEYRING_PASSWORD=%s", keyringFilePassword),
+		fmt.Sprintf("KEYRING_FILE_PASSWORD=%s", keyringFilePassword),
 		"JK_NO_COLOR=1",
 	)
 	cmd.Dir = h.repoRoot
