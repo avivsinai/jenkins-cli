@@ -13,19 +13,95 @@ import (
 )
 
 type runListOutput struct {
-	Items      []runListItem `json:"items"`
-	NextCursor string        `json:"nextCursor,omitempty"`
+	SchemaVersion string           `json:"schemaVersion"`
+	Items         []runListItem    `json:"items,omitempty"`
+	Groups        []runListGroup   `json:"groups,omitempty"`
+	NextCursor    string           `json:"nextCursor,omitempty"`
+	Metadata      *runListMetadata `json:"metadata,omitempty"`
+}
+
+type runSearchOutput struct {
+	SchemaVersion string             `json:"schemaVersion"`
+	Items         []runSearchItem    `json:"items"`
+	Metadata      *runSearchMetadata `json:"metadata,omitempty"`
 }
 
 type runListItem struct {
-	ID         string `json:"id"`
-	Number     int64  `json:"number"`
-	Status     string `json:"status"`
-	Result     string `json:"result,omitempty"`
-	DurationMs int64  `json:"durationMs"`
-	StartTime  string `json:"startTime,omitempty"`
-	Branch     string `json:"branch,omitempty"`
-	Commit     string `json:"commit,omitempty"`
+	ID         string         `json:"id"`
+	Number     int64          `json:"number"`
+	Status     string         `json:"status"`
+	Result     string         `json:"result,omitempty"`
+	DurationMs int64          `json:"durationMs"`
+	StartTime  string         `json:"startTime,omitempty"`
+	Branch     string         `json:"branch,omitempty"`
+	Commit     string         `json:"commit,omitempty"`
+	URL        string         `json:"url,omitempty"`
+	QueueID    int64          `json:"queueId,omitempty"`
+	Fields     map[string]any `json:"fields,omitempty"`
+}
+
+type runSearchItem struct {
+	JobPath    string         `json:"jobPath"`
+	ID         string         `json:"id"`
+	Number     int64          `json:"number"`
+	Status     string         `json:"status"`
+	Result     string         `json:"result,omitempty"`
+	DurationMs int64          `json:"durationMs"`
+	StartTime  string         `json:"startTime,omitempty"`
+	Branch     string         `json:"branch,omitempty"`
+	Commit     string         `json:"commit,omitempty"`
+	URL        string         `json:"url,omitempty"`
+	QueueID    int64          `json:"queueId,omitempty"`
+	Fields     map[string]any `json:"fields,omitempty"`
+}
+
+type runListGroup struct {
+	Key   string       `json:"key"`
+	Value string       `json:"value"`
+	Count int          `json:"count,omitempty"`
+	First *runListItem `json:"first,omitempty"`
+	Last  *runListItem `json:"last,omitempty"`
+}
+
+type runListMetadata struct {
+	Filters     *filterMetadata    `json:"filters,omitempty"`
+	Parameters  []runParameterInfo `json:"parameters,omitempty"`
+	Suggestions []string           `json:"suggestions,omitempty"`
+	Fields      []string           `json:"fields,omitempty"`
+	Selection   []string           `json:"selection,omitempty"`
+	Since       string             `json:"since,omitempty"`
+	GroupBy     string             `json:"groupBy,omitempty"`
+	Aggregation string             `json:"aggregation,omitempty"`
+}
+
+type runSearchMetadata struct {
+	Folder      string   `json:"folder,omitempty"`
+	JobGlob     string   `json:"jobGlob,omitempty"`
+	Filters     []string `json:"filters,omitempty"`
+	Since       string   `json:"since,omitempty"`
+	JobsScanned int      `json:"jobsScanned,omitempty"`
+	MaxScan     int      `json:"maxScan,omitempty"`
+	Selection   []string `json:"selection,omitempty"`
+}
+
+type filterMetadata struct {
+	Available []string `json:"available,omitempty"`
+	Operators []string `json:"operators,omitempty"`
+}
+
+type runParameterInfo struct {
+	Name         string   `json:"name"`
+	Type         string   `json:"type,omitempty"`
+	Default      string   `json:"default,omitempty"`
+	IsSecret     bool     `json:"isSecret"`
+	SampleValues []string `json:"sampleValues,omitempty"`
+	Frequency    float64  `json:"frequency,omitempty"`
+}
+
+type runParamsOutput struct {
+	JobPath    string             `json:"jobPath"`
+	Source     string             `json:"source"`
+	Parameters []runParameterInfo `json:"parameters"`
 }
 
 type runTriggerOutput struct {
@@ -105,52 +181,80 @@ type runCursorPayload struct {
 	Number  int64  `json:"number"`
 }
 
-func buildRunListOutput(jobPath, cursor string, builds []runSummary, limit int) (runListOutput, error) {
+func assembleRunListOutput(jobPath string, opts runListOptions, runs []*runInspection, groups map[string]*runGroupAccumulator, collector *metadataCollector, nextCursor string) runListOutput {
 	normalized := normalizeJobPath(jobPath)
-	sorted := make([]runSummary, len(builds))
-	copy(sorted, builds)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Number > sorted[j].Number
-	})
-
-	var cutoff int64
-	if cursor != "" {
-		payload, err := decodeRunCursor(cursor)
-		if err != nil {
-			return runListOutput{}, err
-		}
-		if payload.JobPath != "" && payload.JobPath != normalized {
-			return runListOutput{}, fmt.Errorf("cursor job path %q does not match %q", payload.JobPath, normalized)
-		}
-		cutoff = payload.Number
-	}
-
-	filtered := make([]runSummary, 0, len(sorted))
-	for _, build := range sorted {
-		if cutoff > 0 && build.Number >= cutoff {
+	items := make([]runListItem, 0, len(runs))
+	for _, run := range runs {
+		if run == nil {
 			continue
 		}
-		filtered = append(filtered, build)
+		items = append(items, buildRunListItem(normalized, run, opts))
 	}
 
-	count := limit
-	if count > len(filtered) {
-		count = len(filtered)
+	groupItems := make([]runListGroup, 0, len(groups))
+	if len(groups) > 0 {
+		for value, acc := range groups {
+			group := runListGroup{
+				Key:   opts.GroupBy,
+				Value: value,
+				Count: acc.Count,
+			}
+			if acc.First != nil {
+				first := buildRunListItem(normalized, acc.First, opts)
+				group.First = &first
+			}
+			if acc.Last != nil {
+				last := buildRunListItem(normalized, acc.Last, opts)
+				group.Last = &last
+			}
+			groupItems = append(groupItems, group)
+		}
+		sort.Slice(groupItems, func(i, j int) bool {
+			if groupItems[i].Count == groupItems[j].Count {
+				return strings.ToLower(groupItems[i].Value) < strings.ToLower(groupItems[j].Value)
+			}
+			return groupItems[i].Count > groupItems[j].Count
+		})
 	}
 
-	items := make([]runListItem, 0, count)
-	for i := 0; i < count; i++ {
-		items = append(items, buildRunListItem(normalized, filtered[i]))
+	output := runListOutput{
+		SchemaVersion: "1.0",
+		Items:         items,
+		Groups:        groupItems,
+		NextCursor:    nextCursor,
 	}
-
-	output := runListOutput{Items: items}
-	if len(filtered) > count && count > 0 {
-		output.NextCursor = encodeRunCursor(normalized, items[len(items)-1].Number)
+	if opts.WithMeta && collector != nil {
+		output.Metadata = collector.metadata(jobPath, opts)
 	}
-	return output, nil
+	return output
 }
 
-func buildRunListItem(jobPath string, summary runSummary) runListItem {
+func buildRunSearchItem(jobPath string, item runListItem) runSearchItem {
+	result := runSearchItem{
+		JobPath:    normalizeJobPath(jobPath),
+		ID:         item.ID,
+		Number:     item.Number,
+		Status:     item.Status,
+		Result:     item.Result,
+		DurationMs: item.DurationMs,
+		StartTime:  item.StartTime,
+		Branch:     item.Branch,
+		Commit:     item.Commit,
+		URL:        item.URL,
+		QueueID:    item.QueueID,
+	}
+	if len(item.Fields) > 0 {
+		fields := make(map[string]any, len(item.Fields))
+		for k, v := range item.Fields {
+			fields[k] = v
+		}
+		result.Fields = fields
+	}
+	return result
+}
+
+func buildRunListItem(jobPath string, inspection *runInspection, opts runListOptions) runListItem {
+	summary := inspection.Summary
 	status := statusFromFlags(summary.Building)
 	result := resultForList(summary.Result, summary.Building)
 	scm := extractSCMInfo(summary.Actions, summary.ChangeSet)
@@ -163,10 +267,69 @@ func buildRunListItem(jobPath string, summary runSummary) runListItem {
 		DurationMs: summary.Duration,
 		StartTime:  formatTimestamp(summary.Timestamp),
 	}
+
 	if scm != nil {
 		item.Branch = scm.Branch
 		item.Commit = scm.Commit
 	}
+	if summary.URL != "" {
+		item.URL = summary.URL
+	}
+	if summary.QueueID > 0 {
+		item.QueueID = summary.QueueID
+	}
+
+	if len(opts.SelectFields) > 0 {
+		fields := make(map[string]any, len(opts.SelectFields))
+		for _, field := range opts.SelectFields {
+			switch field {
+			case "number":
+				fields["number"] = item.Number
+			case "status":
+				fields["status"] = item.Status
+			case "result":
+				fields["result"] = item.Result
+			case "starttime":
+				fields["startTime"] = item.StartTime
+			case "durationms":
+				fields["durationMs"] = item.DurationMs
+			case "branch":
+				fields["branch"] = item.Branch
+			case "commit":
+				fields["commit"] = item.Commit
+			case "url":
+				fields["url"] = summary.URL
+			case "queueid":
+				if summary.QueueID > 0 {
+					fields["queueId"] = summary.QueueID
+				}
+			case "parameters":
+				if len(inspection.Parameters) > 0 {
+					copyParams := make(map[string]string, len(inspection.Parameters))
+					for k, v := range inspection.Parameters {
+						copyParams[k] = v
+					}
+					fields["parameters"] = copyParams
+				}
+			case "artifacts":
+				if len(inspection.Artifacts) > 0 {
+					fields["artifacts"] = inspection.Artifacts
+				}
+			case "causes":
+				if len(inspection.Causes) > 0 {
+					fields["causes"] = inspection.Causes
+				}
+			case "estimateddurationms":
+				if summary.EstimatedDuration > 0 {
+					fields["estimatedDurationMs"] = summary.EstimatedDuration
+				}
+			}
+		}
+		if len(fields) > 0 {
+			item.Fields = fields
+		}
+	}
+
 	return item
 }
 

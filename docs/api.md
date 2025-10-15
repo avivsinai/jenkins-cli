@@ -67,6 +67,7 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 ### 2.2 Run list (`jk run ls --json` and `/jk/api/runs`)
 ```json
 {
+  "schemaVersion": "1.0",
   "items": [
     {
       "id": "team/app/main/128",
@@ -76,24 +77,90 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
       "durationMs": 45000,
       "startTime": "2025-08-12T18:24:03Z",
       "branch": "main",
-      "commit": "abc123def456"
-    },
-    {
-      "id": "team/app/main/127",
-      "number": 127,
-      "status": "completed",
-      "result": "SUCCESS",
-      "durationMs": 42000,
-      "startTime": "2025-08-11T11:12:30Z",
-      "branch": "main",
-      "commit": "112233445566"
+      "commit": "abc123def456",
+      "fields": {
+        "parameters": {
+          "CHART_NAME": "nova-video-prod"
+        }
+      }
     }
   ],
-  "nextCursor": "g2wAAAABbQAAAGp..."
+  "groups": [
+    {
+      "key": "param.CHART_NAME",
+      "value": "nova-video-prod",
+      "count": 3,
+      "last": {
+        "id": "team/app/main/128",
+        "number": 128,
+        "status": "completed",
+        "result": "FAILURE",
+        "durationMs": 45000,
+        "startTime": "2025-08-12T18:24:03Z"
+      }
+    }
+  ],
+  "nextCursor": "g2wAAAABbQAAAGp...",
+  "metadata": {
+    "filters": {
+      "available": ["result", "status", "branch", "param.*", "artifact.*"],
+      "operators": ["=", "!=", "~", ">=", "<="]
+    },
+    "parameters": [
+      {
+        "name": "CHART_NAME",
+        "isSecret": false,
+        "sampleValues": ["nova-video-prod"],
+        "frequency": 1
+      }
+    ],
+    "fields": ["number", "result", "parameters"],
+    "selection": ["parameters"],
+    "groupBy": "param.CHART_NAME",
+    "aggregation": "last"
+  }
 }
 ```
 
-### 2.3 Progressive log pointer (`/jk/api/runs/<jobPath>/<build>/logs`)
+`groups` is omitted when no aggregation is requested, and `metadata` is present only when `--with-meta` is supplied.
+
+### 2.3 Run search (`jk run search --json`)
+```json
+{
+  "schemaVersion": "1.0",
+  "items": [
+    {
+      "jobPath": "releases/prod/deploy",
+      "id": "releases/prod/deploy/582",
+      "number": 582,
+      "status": "completed",
+      "result": "SUCCESS",
+      "durationMs": 540000,
+      "startTime": "2025-10-14T17:25:12Z",
+      "branch": "main",
+      "commit": "4af3d8b0",
+      "fields": {
+        "parameters": {
+          "CHART_NAME": "nova-video-prod"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "folder": "releases",
+    "jobGlob": "*/deploy-*",
+    "filters": [
+      "param.CHART_NAME=nova-video-prod"
+    ],
+    "since": "2025-10-13T17:25:12Z",
+    "jobsScanned": 6,
+    "maxScan": 500,
+    "selection": ["parameters"]
+  }
+}
+```
+
+### 2.4 Progressive log pointer (`/jk/api/runs/<jobPath>/<build>/logs`)
 ```json
 {
   "text": "Running on linux-agent-1...\n",
@@ -102,7 +169,7 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 }
 ```
 
-### 2.4 Trigger acknowledgement (`jk run start --json` or `jk run rerun --json` without `--follow`)
+### 2.5 Trigger acknowledgement (`jk run start --json` or `jk run rerun --json` without `--follow`)
 ```json
 {
   "jobPath": "team/app/main",
@@ -113,7 +180,7 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 
 When `--follow` is supplied with `--json`/`--yaml`, the CLI suppresses live log output and, after the run finishes, emits the run detail payload described in §2.1 instead of the acknowledgement.
 
-### 2.5 Cancel acknowledgement (`jk run cancel --json`)
+### 2.6 Cancel acknowledgement (`jk run cancel --json`)
 ```json
 {
   "jobPath": "team/app/main",
@@ -124,6 +191,31 @@ When `--follow` is supplied with `--json`/`--yaml`, the CLI suppresses live log 
 ```
 
 The CLI exits successfully once the cancellation request is accepted by Jenkins; it does not wait for the build to terminate.
+
+### 2.7 Run parameter discovery (`jk run params --json`)
+```json
+{
+  "jobPath": "team/app/main",
+  "source": "runs",
+  "parameters": [
+    {
+      "name": "CHART_NAME",
+      "type": "string",
+      "isSecret": false,
+      "sampleValues": ["nova"],
+      "frequency": 1
+    },
+    {
+      "name": "API_TOKEN",
+      "type": "password",
+      "isSecret": true,
+      "frequency": 1
+    }
+  ]
+}
+```
+
+`source` reflects the discovery path (`config`, `runs`, or `auto`), and `sampleValues`/`frequency` are derived from recent runs. Secret parameters omit defaults and sample values.
 
 ## 3. Logs
 
@@ -183,7 +275,50 @@ When the run is still executing the snapshot may be truncated; the `truncated` f
 }
 ```
 
-## 5. Events (SSE)
+## 5. CLI Introspection
+
+### 5.1 Command catalog (`jk help --json`)
+```json
+{
+  "schemaVersion": "1.0",
+  "commands": [
+    {
+      "name": "jk",
+      "use": "jk",
+      "description": "jk is the Jenkins CLI for developers",
+      "flags": [
+        {"name": "context", "shorthand": "c", "type": "string", "description": "Active Jenkins context name", "default": "", "persistent": true},
+        {"name": "json", "type": "bool", "description": "Output in JSON format when supported", "default": "false", "persistent": true},
+        {"name": "yaml", "type": "bool", "description": "Output in YAML format when supported", "default": "false", "persistent": true}
+      ],
+      "subcommands": [
+        {
+          "name": "run",
+          "use": "run",
+          "description": "Interact with job runs",
+          "subcommands": [
+            {"name": "ls", "use": "run ls <jobPath>", "description": "List recent runs"},
+            {"name": "search", "use": "run search", "description": "Search runs across jobs"}
+          ]
+        }
+      ]
+    }
+  ],
+  "exitCodes": {
+    "0": "Success",
+    "1": "General error",
+    "2": "Validation error",
+    "3": "Not found",
+    "4": "Authentication failure",
+    "5": "Permission denied",
+    "6": "Connectivity/DNS/TLS failure",
+    "7": "Timeout",
+    "8": "Feature unsupported"
+  }
+}
+```
+
+## 6. Events (SSE)
 
 - Endpoint: `/jk/events/stream?topics=run,queue,node`
 - Frames are JSON objects encoded as UTF-8 text events.
@@ -199,7 +334,7 @@ When the run is still executing the snapshot may be truncated; the `truncated` f
 }
 ```
 
-## 6. Plugin status handshake
+## 7. Plugin status handshake
 
 - Endpoint: `GET /jk/api/status`
 - Response schema:
@@ -213,13 +348,13 @@ When the run is still executing the snapshot may be truncated; the `truncated` f
 ```
 - Clients send `X-JK-Client: <semver>` and `X-JK-Features: <csv>` headers. If the CLI version is below `minClient`, it must fall back to baseline Jenkins APIs and surface a warning to the user.
 
-## 7. Pagination cursors
+## 8. Pagination cursors
 
 - Cursors are opaque URL-safe base64 strings produced by the server; clients cannot introspect them.
 - Requests accept `cursor=<value>` and `limit=<n>`. Servers may ignore `limit` in favor of their own defaults but must not return more than requested.
 - When `nextCursor` is omitted or `null`, the collection is exhausted. Clients may pass `--cursor @prev` to reuse the last seen cursor.
 
-## 8. Enumerations
+## 9. Enumerations
 
 | Field    | Allowed values                                                       |
 |----------|---------------------------------------------------------------------|

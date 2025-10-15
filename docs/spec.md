@@ -141,7 +141,7 @@ Key workflows the CLI must make trivial:
 | `auth`         | `jk auth login`, `jk auth status`, `jk auth logout`             | Stores contexts securely. |
 | `context`      | `jk context ls`, `jk context use`, `jk context rename`          | Config stored under `$XDG_CONFIG_HOME/jk/config.yml`. |
 | `job`          | `jk job ls`, `jk job view`, `jk job create`, `jk job import-config`, `jk job delete` | `jk job create` consumes high-level YAML when plugin present. |
-| `run`          | `jk run start`, `jk run ls`, `jk run view`, `jk run cancel`, `jk run rerun`, `jk run restart-from` | Capability flags printed in `jk run view`. |
+| `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run cancel`, `jk run rerun`, `jk run restart-from` | Capability flags printed in `jk run view`. |
 | `log`          | `jk log`, `jk log --follow`                                     | Snapshot default; `--follow` streams like `gh run view --log`. |
 | `artifact`     | `jk artifact ls`, `jk artifact download`                        | Glob filtering via `--pattern`. |
 | `test`         | `jk test report`, `jk test junit`                               | Format options `--summary`, `--json`. |
@@ -217,23 +217,60 @@ Key workflows the CLI must make trivial:
 
 Other commands keep the general-purpose codes, surfaced consistently in help text and docs.
 
-### 9.7 Pagination, cursors & limits
-- List commands accept `--limit` and `--cursor` today; `--since` and `--until` remain TODO items tracked for the next CLI iteration.
-- Responses follow the cursor contract:
+### 9.7 Discovery flags, cursors & metadata
+- `jk run ls` accepts composable discovery flags:
+  - `--filter key[op]value` (repeatable) covering result/status/branch, parameter prefixes (`param.*`), artifact prefixes (`artifact.*`), and cause data.
+  - `--since` with RFC3339 timestamps or human durations (`72h`, `7d`) to short-circuit scans.
+  - `--select field1,field2` to project additional fields into a stable `fields{}` map for agents.
+  - `--group-by FIELD` with `--agg count|first|last` to surface grouped aggregates alongside recent items.
+  - `--with-meta` to attach machine-readable metadata (available filters/operators, inferred parameters, selectable fields, applied selections, grouping context).
+- Responses now include a `schemaVersion` (currently `1.0`), optional `groups[]`, and a `metadata` block when requested:
   ```json
   {
+    "schemaVersion": "1.0",
     "items": [...],
-    "nextCursor": "g2wAAA..."
+    "groups": [...],
+    "nextCursor": "g2wAAA...",
+    "metadata": {
+      "filters": {"available": [...], "operators": [...]},
+      "parameters": [{"name": "CHART_NAME", "sampleValues": ["nova", "gamma"], "frequency": 1}],
+      "fields": ["number", "result", "parameters"],
+      "selection": ["parameters"],
+      "groupBy": "param.CHART_NAME",
+      "aggregation": "last"
+    }
   }
   ```
-- Human-readable output surfaces `Next cursor: <value>`; persistence for `--cursor @prev` is a tracked enhancement.
-- Against baseline Jenkins endpoints, the CLI enforces `--limit` client-side while the companion plugin can honor server-side cursors.
+- Human-readable output mirrors the classic `#<number> RESULT START DURATION` table, switches to a grouped summary when `--group-by` is provided, and still emits `Next cursor: <value>` when more data is available.
+- Against baseline Jenkins endpoints, the CLI enforces `--limit` client-side with a bounded fetch window; the companion plugin can honor server-side limits/cursors directly.
 
 #### 9.7.1 Run command structured output
-- `jk run ls --json` returns the schema documented in `docs/api.md` (`items[]`, `nextCursor`), and human output mirrors the branch/result summary plus the next cursor hint.
+- `jk run ls --json` follows the enhanced schema above. When `--select` is used, the selected attributes appear under `item.fields{}` while the canonical columns remain stable for humans.
 - `jk run view --json` emits the normative run detail payload (parameters, SCM, causes, stages, artifacts, tests, queue/node metadata). Human output now highlights parameters, SCM, and test counts inline.
 - `jk run start` and `jk run rerun` emit `{jobPath, message, queueLocation}` in JSON/YAML modes when not following. When `--follow` is combined with structured output, the CLI suppresses live log streaming and instead waits for completion before printing the full run detail document, keeping machine-readable pipelines intact.
 - `jk run cancel` accepts `--mode stop|term|kill` and returns a short `{jobPath, build, action, status}` acknowledgement in JSON/YAML.
+
+#### 9.7.2 Parameter discovery (`jk run params`)
+- `jk run params <jobPath>` surfaces parameter metadata for scripts and agents. Sources:
+  - `--source config` parses `<parameterDefinitions>` from `config.xml`, capturing type, defaults, and curated choice lists.
+  - `--source runs` scans the last *N* runs (default 50) and infers usage frequency plus sample values from observed parameters (`executeRunList` powers the inference path).
+  - `--source auto` (default) attempts config first, then falls back to run inference when definitions are absent or Jenkins denies config access.
+- Output includes `{jobPath, source, parameters[]}` where each parameter surfaces `name`, `type`, `default`, `isSecret`, `sampleValues[]`, and `frequency` (fraction of scanned runs containing the parameter). Secret heuristics hide defaults and samples by name/type and re-use the `filter.IsLikelySecret` helper.
+- Human-readable output lists parameters with type/required status (`frequency≈1`), default value when safe, highlighted secrecy, and representative sample values.
+
+#### 9.7.3 Cross-job search (`jk run search`)
+- `jk run search` traverses folders (default depth 5) and aggregates matching runs across jobs without requiring the companion plugin.
+- Flags mirror `run ls`: `--filter`, `--since`, `--select`, plus:
+  - `--folder` to anchor discovery.
+  - `--job-glob` (doublestar) to limit jobs by name/path.
+  - `--max-scan` to cap runs inspected per job (default 500).
+- Results are sorted by start time descending and returned as `schemaVersion: 1.0` documents with `items[]` and lightweight metadata (`folder`, `jobGlob`, `filters`, `jobsScanned`, `selection`). Each item includes `jobPath`, `number`, `status/result`, duration, timestamps, optional SCM, and any selected `fields{}`.
+- Human output prints `jobPath	#<run>	RESULT	start	elapsed` per match; structured output enables agents to fan out without scraping.
+
+#### 9.7.4 Command introspection (`jk help --json`)
+- `jk help --json [command]` emits a versioned (`schemaVersion: 1.0`) catalog of commands, subcommands, flags (including inherited/persistent), examples, and (for the root command) documented exit codes.
+- The schema mirrors the Cobra tree, enabling agents to self-discover supported commands without scraping text help.
+- `help` respects `--json` globally: `jk --json` falls back to the same representation when help is invoked implicitly.
 
 ### 9.8 Job path encoding
 - Accept human-readable job paths such as `team/app/main`.

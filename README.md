@@ -11,6 +11,7 @@
 
 - **Context-aware auth** – store multiple controllers, switch with `jk context use`, or pin a context via `JK_CONTEXT`.
 - **Friendly pipelines** – trigger, rerun, follow, and summarize jobs with human or JSON/YAML output.
+- **Discovery-first runs** – filter with `--filter`, bound history with `--since`, group by parameters, and attach machine-readable metadata for agents.
 - **Artifacts & tests** – browse artifacts, download filtered sets, and surface aggregated test reports.
 - **Platform operations** – cordon nodes, manage credentials, inspect queues, and view installed plugins.
 - **GitHub CLI parity** – command structure and UX mirror `gh`, easing adoption in developer toolchains.
@@ -37,7 +38,9 @@ Prebuilt release archives will land with the first tagged version.
 ```bash
 jk auth login https://jenkins.company.example      # authenticate and create a context
 jk context ls                                      # list available contexts
-jk run ls team/app/pipeline                        # inspect recent runs
+jk run ls team/app/pipeline --filter result=SUCCESS --since 7d --limit 5 --json --with-meta
+jk run params team/app/pipeline                    # inspect inferred parameter metadata
+jk run search --folder releases --filter param.CHART_NAME~nova-video-prod --limit 1 --json
 jk run view team/app/pipeline 128 --follow         # stream logs until completion
 jk artifact download team/app/pipeline 128 -p "**/*.xml" -o out/
 ```
@@ -48,6 +51,7 @@ Add `--json` or `--yaml` to supported commands for machine-readable output.
 
 - [Specification](docs/spec.md) – architecture, scope, and design decisions.
 - [API contracts](docs/api.md) – JSON schemas for structured output.
+- [Agent cookbook](docs/agent-cookbook.md) – ready-to-use automation recipes.
 - [Changelog](CHANGELOG.md) – release notes and migration guidance.
 
 ## Community

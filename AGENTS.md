@@ -28,6 +28,13 @@ When editing Go files manually, run `gofmt -w` on touched packages.
 
 Avoid creating new top-level directories without first updating `docs/spec.md` and the quick start section in `README.md`.
 
+## Agent discovery patterns
+
+- Use `jk run ls <job>` with `--filter`, `--since`, `--select`, and `--with-meta` to retrieve focused run slices plus metadata for schema-aware automation.
+- Reach across folders with `jk run search` (supports `--folder`, `--job-glob`, and the same filter syntax) before falling back to bespoke scripts.
+- Harvest parameter definitions via `jk run params <job>` (`--source auto|config|runs`) ahead of composing trigger payloads.
+- Prefer `jk help --json` when programmatically enumerating commands, flags, and exit codes.
+
 ## Documentation expectations
 
 - User-facing changes must mention affected commands in `README.md` and, when relevant, update `docs/spec.md` / `docs/api.md`.

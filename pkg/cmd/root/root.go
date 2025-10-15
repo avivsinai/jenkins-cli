@@ -61,5 +61,7 @@ func NewCmdRoot(f *cmdutil.Factory) (*cobra.Command, error) {
 	root.SetOut(ios.Out)
 	root.SetErr(ios.ErrOut)
 
+	attachJSONHelp(root)
+
 	return root, nil
 }
