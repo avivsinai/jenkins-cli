@@ -3,6 +3,7 @@ package queue
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -74,13 +75,17 @@ func newQueueCancelCmd(f *cmdutil.Factory) *cobra.Command {
 		Short: "Cancel a queued item",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if _, err := strconv.Atoi(args[0]); err != nil {
+				return fmt.Errorf("invalid queue id %q: %w", args[0], err)
+			}
+
 			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
 				return err
 			}
 
-			path := fmt.Sprintf("/queue/cancelItem?id=%s", args[0])
-			resp, err := client.Do(client.NewRequest(), http.MethodPost, path, nil)
+			req := client.NewRequest().SetQueryParam("id", args[0])
+			resp, err := client.Do(req, http.MethodPost, "/queue/cancelItem", nil)
 			if err != nil {
 				return err
 			}

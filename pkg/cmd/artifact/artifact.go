@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/spf13/cobra"
@@ -25,6 +28,51 @@ type artifactItem struct {
 	FileName     string `json:"fileName"`
 	RelativePath string `json:"relativePath"`
 	Size         int64  `json:"size"`
+}
+
+type artifactResponse interface {
+	StatusCode() int
+	Status() string
+	RawBody() io.ReadCloser
+}
+
+func sanitizeArtifactPath(outputDirAbs, outputDir, relativePath string) (destPath, displayPath, cleanRel string, err error) {
+	normalized := strings.ReplaceAll(relativePath, "\\", "/")
+	cleanRel = path.Clean(normalized)
+	switch {
+	case cleanRel == ".":
+		return "", "", "", fmt.Errorf("unsafe artifact path %q", relativePath)
+	case cleanRel == "..",
+		strings.HasPrefix(cleanRel, "../"),
+		strings.Contains(cleanRel, "/../"):
+		return "", "", "", fmt.Errorf("unsafe artifact path %q", relativePath)
+	case strings.HasPrefix(cleanRel, "/"):
+		return "", "", "", fmt.Errorf("artifact path escapes output dir: %q", relativePath)
+	}
+
+	destPath = filepath.Join(outputDirAbs, filepath.FromSlash(cleanRel))
+	relPath, relErr := filepath.Rel(outputDirAbs, destPath)
+	if relErr != nil || strings.HasPrefix(relPath, "..") {
+		return "", "", "", fmt.Errorf("artifact path escapes output dir: %q", relativePath)
+	}
+
+	displayPath = filepath.Join(outputDir, filepath.FromSlash(cleanRel))
+	return destPath, displayPath, cleanRel, nil
+}
+
+func ensureArtifactResponse(rel string, resp artifactResponse) (io.ReadCloser, error) {
+	if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
+		if rb := resp.RawBody(); rb != nil {
+			_, _ = io.Copy(io.Discard, rb)
+			_ = rb.Close()
+		}
+		return nil, fmt.Errorf("download %q failed: %s", rel, resp.Status())
+	}
+	body := resp.RawBody()
+	if body == nil {
+		return nil, errors.New("artifact response empty")
+	}
+	return body, nil
 }
 
 func NewCmdArtifact(f *cmdutil.Factory) *cobra.Command {
@@ -118,27 +166,40 @@ func newArtifactDownloadCmd(f *cmdutil.Factory) *cobra.Command {
 
 			encoded := jenkins.EncodeJobPath(args[0])
 			base := fmt.Sprintf("/%s/%d/artifact", encoded, num)
+			outputDirAbs, err := filepath.Abs(outputDir)
+			if err != nil {
+				return fmt.Errorf("resolve output dir: %w", err)
+			}
 
 			for _, art := range matched {
-				destPath := filepath.Join(outputDir, art.RelativePath)
+				destPath, displayPath, cleanRel, err := sanitizeArtifactPath(outputDirAbs, outputDir, art.RelativePath)
+				if err != nil {
+					return err
+				}
+
 				if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
 					return err
 				}
 
 				req := client.NewRequest().SetDoNotParseResponse(true)
-				resp, err := client.Do(req, http.MethodGet, fmt.Sprintf("%s/%s", base, art.RelativePath), nil)
+				segs := strings.Split(cleanRel, "/")
+				for i, s := range segs {
+					segs[i] = url.PathEscape(s)
+				}
+				artifactPath := base + "/" + strings.Join(segs, "/")
+				resp, err := client.Do(req, http.MethodGet, artifactPath, nil)
 				if err != nil {
 					return err
 				}
 
-				body := resp.RawBody()
-				if body == nil {
-					return errors.New("artifact response empty")
+				body, err := ensureArtifactResponse(art.RelativePath, resp)
+				if err != nil {
+					return err
 				}
 				if err := saveArtifact(destPath, body); err != nil {
 					return err
 				}
-				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Downloaded %s\n", destPath); err != nil {
+				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Downloaded %s\n", displayPath); err != nil {
 					return err
 				}
 			}

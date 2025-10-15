@@ -7,7 +7,7 @@ services:
       CASC_JENKINS_CONFIG: /var/jenkins_home/casc/jenkins.yaml
       JAVA_OPTS: -Djenkins.install.runSetupWizard=false -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true
     ports:
-      - "${JK_E2E_HTTP_PORT:-28080}:8080"
+      - "127.0.0.1:${JK_E2E_HTTP_PORT:-28080}:8080"
     volumes:
       - ./casc:/var/jenkins_home/casc:ro
       - ${JK_E2E_BARE_REPO:-./tmp/jenkins-cli.git}:/fixtures/repos/jenkins-cli.git:ro

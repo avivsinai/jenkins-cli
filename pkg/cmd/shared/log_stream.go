@@ -131,6 +131,7 @@ func CollectLogSnapshot(ctx context.Context, client *jenkins.Client, jobPath str
 
 		if resp.StatusCode() == http.StatusRequestedRangeNotSatisfiable {
 			offset = 0
+			time.Sleep(150 * time.Millisecond)
 			continue
 		}
 
