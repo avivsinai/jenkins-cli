@@ -14,9 +14,25 @@ pull requests, and feedback from the community.
 ## Getting started
 
 1. Fork the repository and clone your fork.
-2. Install Go 1.25 and ensure `go env GOVERSION` reports `go1.25.x`.
-3. Run `make lint`, `JK_E2E_DISABLE=1 make test`, and `make e2e` to verify the baseline passes.
-4. Create a feature branch for your changes.
+2. Install dependencies:
+   ```bash
+   # Go 1.25+
+   go version  # should report go1.25.x
+
+   # Dev tools (macOS)
+   brew install golangci-lint gitleaks pre-commit
+   ```
+3. Set up pre-commit hooks:
+   ```bash
+   make pre-commit-install
+   ```
+4. Verify everything works:
+   ```bash
+   make security  # runs: gitleaks, pre-commit
+   make lint
+   make test
+   ```
+5. Create a feature branch for your changes.
 
 ## Pull requests
 

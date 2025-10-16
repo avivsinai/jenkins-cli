@@ -2,8 +2,12 @@
 
 <p align="center"><em>GitHub CLI–style workflows for Jenkins controllers</em></p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8.svg)](go.mod)
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.25+-00ADD8.svg" alt="Go Version"></a>
+  <a href="https://github.com/avivsinai/jenkins-cli/actions/workflows/ci.yml"><img src="https://github.com/avivsinai/jenkins-cli/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/avivsinai/jenkins-cli/actions/workflows/gitleaks.yml"><img src="https://github.com/avivsinai/jenkins-cli/actions/workflows/gitleaks.yml/badge.svg" alt="Security"></a>
+</p>
 
 `jk` gives developers and operators a modern, scriptable interface to Jenkins: inspect runs, stream logs, manage credentials, and administer controllers from a single cross-platform binary.
 
@@ -21,7 +25,7 @@
 ### From source
 
 ```bash
-go install github.com/your-org/jenkins-cli/cmd/jk@latest
+go install github.com/avivsinai/jenkins-cli/cmd/jk@latest
 ```
 
 or clone and build:
@@ -49,34 +53,61 @@ Add `--json` or `--yaml` to supported commands for machine-readable output.
 
 ## Documentation
 
-- [Specification](docs/spec.md) – architecture, scope, and design decisions.
-- [API contracts](docs/api.md) – JSON schemas for structured output.
-- [Agent cookbook](docs/agent-cookbook.md) – ready-to-use automation recipes.
-- [Changelog](CHANGELOG.md) – release notes and migration guidance.
+- [Specification](docs/spec.md) - Architecture and design decisions
+- [API Contracts](docs/api.md) - JSON/YAML schemas for structured output
+- [Agent Cookbook](docs/agent-cookbook.md) - Automation recipes and examples
+- [Changelog](CHANGELOG.md) - Release notes and migration guidance
+
+## Security
+
+This project uses automated secret scanning ([gitleaks](https://github.com/gitleaks/gitleaks)), dependency updates ([Dependabot](https://github.com/dependabot)), and security posture tracking ([OSSF Scorecard](https://github.com/ossf/scorecard)).
+
+Found a security issue? See our [security policy](SECURITY.md) for responsible disclosure.
 
 ## Community
 
-- Read the [code of conduct](CODE_OF_CONDUCT.md) and [contributing guide](CONTRIBUTING.md).
-- Ask questions or propose ideas via GitHub Discussions (coming soon) or issues.
-- Follow the [support guidelines](SUPPORT.md) for help, and our [security policy](SECURITY.md) for private reports.
+- Read the [code of conduct](CODE_OF_CONDUCT.md) and [contributing guide](CONTRIBUTING.md)
+- Ask questions or propose ideas via GitHub Discussions (coming soon) or issues
+- Follow the [support guidelines](SUPPORT.md) for help
 
 ## Development
 
-Run the full test/build suite before opening a PR:
+### Quick Start
 
 ```bash
-make lint
-make build
-make test
-make e2e    # spins up a disposable Jenkins controller and runs dogfood scenarios
-make e2e-up # launches the same controller for manual exploration (default port 28080)
+# First-time setup
+make pre-commit-install  # Install git hooks (gitleaks, formatting, etc.)
+
+# Standard workflow
+make build      # Build the binary
+make test       # Run unit tests
+make lint       # Run linters
+make security   # Run security checks (gitleaks + pre-commit)
 ```
 
-`make lint` relies on [golangci-lint](https://golangci-lint.run/). Install it with `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest` (or the pinned version from the CI workflow) before running the target locally.
+### Full Test Suite
 
-The end-to-end harness requires a local Docker daemon (Colima/Docker Desktop/other) and auto-detects Colima sockets when present. If Docker is still unreachable on macOS, start Colima with `colima start --network-address` and export the variables described in [CONTRIBUTING.md](CONTRIBUTING.md#end-to-end-tests). Use `make e2e-down` when you are finished, or run `JK_E2E_DISABLE=1 make test` to skip the harness in constrained environments (the Jenkins pipeline sets this automatically).
+```bash
+make e2e        # End-to-end tests (requires Docker)
+make e2e-up     # Launch test Jenkins (port 28080)
+make e2e-down   # Tear down test environment
+```
 
-Update docs in `docs/` whenever behavior changes. See the [contributing guide](CONTRIBUTING.md) for release steps and review expectations.
+**Prerequisites:**
+- [golangci-lint](https://golangci-lint.run/) for linting
+- [gitleaks](https://github.com/gitleaks/gitleaks) for secret scanning
+- [pre-commit](https://pre-commit.com/) for git hooks
+- Docker/Colima for e2e tests
+
+**Note:** E2e tests require Docker. On macOS with Colima, use `colima start --network-address`. See [CONTRIBUTING.md](CONTRIBUTING.md#end-to-end-tests) for details. Skip with `JK_E2E_DISABLE=1 make test`.
+
+### Before Submitting PRs
+
+```bash
+make security   # Gitleaks + pre-commit checks
+make lint       # Run linter
+make test       # Run tests
+```
 
 ## License
 

@@ -24,3 +24,14 @@
 # Plugin build outputs
 plugin/target/
 .tmp-jk-e2e/
+
+# Security scanning reports
+gitleaks-report.json
+gitleaks-report.sarif
+results.sarif
+*.sarif
+
+# Coverage reports
+coverage.out
+coverage.html
+*.coverprofile

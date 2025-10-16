@@ -12,6 +12,7 @@ require (
 	github.com/cli/go-gh/v2 v2.12.2
 	github.com/cli/safeexec v1.0.1
 	github.com/creack/pty v1.1.24
+	github.com/docker/docker v28.3.3+incompatible
 	github.com/go-resty/resty/v2 v2.12.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
@@ -20,6 +21,7 @@ require (
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.8.0
+	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.39.0
 	golang.org/x/term v0.34.0
@@ -41,7 +43,6 @@ require (
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v28.3.3+incompatible // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
@@ -78,7 +79,6 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/shirou/gopsutil/v4 v4.25.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect

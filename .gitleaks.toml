@@ -1,0 +1,79 @@
+# Gitleaks configuration for jenkins-cli
+# https://github.com/gitleaks/gitleaks
+
+title = "gitleaks config for jenkins-cli"
+
+[extend]
+# Extend the base config with all default rules
+useDefault = true
+
+[allowlist]
+description = "Allowlist for test fixtures and known false positives"
+
+# Paths to exclude from scanning
+paths = [
+  '''test/fixtures/.*''',
+  '''examples/.*\.example''',
+  '''.tmp-jk-e2e/.*''',
+  '''.*_test\.go$''',  # Test files may contain mock credentials
+  '''docs/.*\.md$''',  # Documentation with examples
+]
+
+# Common test values and patterns that are not real secrets
+regexes = [
+  '''password123''',
+  '''test-api-key''',
+  '''fake-token''',
+  '''dummy-secret''',
+  '''example\.com''',
+  '''localhost''',
+  '''127\.0\.0\.1''',
+  '''192\.168\..*''',
+  '''0\.0\.0\.0''',
+  '''jenkins\.company\.example''',  # Example domain from README
+]
+
+# Allow dependency lock files and generated content
+files = [
+  '''go\.sum$''',
+  '''go\.mod$''',
+  '''package-lock\.json$''',
+  '''yarn\.lock$''',
+  '''pnpm-lock\.yaml$''',
+]
+
+# Commit SHAs that are known to be clean (add fingerprints here)
+commits = []
+
+# Custom rules for Jenkins-specific secrets
+[[rules]]
+id = "jenkins-api-token"
+description = "Jenkins API Token (32-char hex format)"
+regex = '''(?i)(jenkins[_-]?(api[_-]?)?token)\s*[:=]\s*['"]?([0-9a-f]{32})['"]?'''
+entropy = 3.5
+secretGroup = 3
+keywords = [
+  "jenkins",
+  "token",
+  "api",
+]
+
+[[rules]]
+id = "jenkins-credentials"
+description = "Potential Jenkins credentials in config"
+regex = '''(?i)(jenkins[_-]?(password|user|secret))\s*[:=]\s*['"]?([^'"\s]{8,})['"]?'''
+secretGroup = 3
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey)\s*[:=]\s*['"]?([0-9a-zA-Z_\-]{20,})['"]?'''
+secretGroup = 2
+entropy = 3.0
+
+[[rules]]
+id = "bearer-token"
+description = "Bearer Token in Authorization Headers"
+regex = '''(?i)authorization\s*[:=]\s*['"]?bearer\s+([0-9a-zA-Z\-_\.]{20,})['"]?'''
+secretGroup = 1
+entropy = 3.5
