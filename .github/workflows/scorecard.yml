@@ -4,16 +4,14 @@
 name: OSSF Scorecard
 
 on:
-  # For branch protection checks
-  branch_protection_rule:
-  # Weekly scan on schedule
-  schedule:
-    - cron: '30 2 * * 0'  # Weekly on Sunday at 2:30 AM UTC
-  # Allow manual trigger
-  workflow_dispatch:
-  # Run on pushes to main (optional, can be removed to reduce CI load)
-  push:
-    branches: [main]
+  # Disabled until repository is public - OSSF Scorecard requires public repo access
+  # Uncomment when repository is public:
+  workflow_dispatch:  # Manual trigger only
+  # branch_protection_rule:
+  # schedule:
+  #   - cron: '30 2 * * 0'  # Weekly on Sunday at 2:30 AM UTC
+  # push:
+  #   branches: [main]
 
 # Declare default permissions as read only
 permissions: read-all
