@@ -4,14 +4,12 @@
 name: OSSF Scorecard
 
 on:
-  # Disabled until repository is public - OSSF Scorecard requires public repo access
-  # Uncomment when repository is public:
-  workflow_dispatch:  # Manual trigger only
-  # branch_protection_rule:
-  # schedule:
-  #   - cron: '30 2 * * 0'  # Weekly on Sunday at 2:30 AM UTC
-  # push:
-  #   branches: [main]
+  branch_protection_rule:
+  schedule:
+    - cron: '30 2 * * 0'  # Weekly on Sunday at 2:30 AM UTC
+  push:
+    branches: [main]
+  workflow_dispatch:  # Manual trigger
 
 # Declare default permissions as read only
 permissions: read-all
@@ -40,8 +38,8 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          # Uncomment to enable publishing results to OpenSSF REST API
-          # publish_results: true
+          # Publish results to OpenSSF REST API for badge
+          publish_results: true
 
       # Upload the results as artifacts (optional)
       - name: Upload artifact
