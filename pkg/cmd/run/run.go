@@ -328,6 +328,11 @@ func newRunStartCmd(f *cmdutil.Factory) *cobra.Command {
 				paramMap[strings.TrimSpace(parts[0])] = parts[1]
 			}
 
+			// Validate job is buildable before attempting to trigger
+			if err := validateJobIsBuildable(client, args[0]); err != nil {
+				return err
+			}
+
 			resp, err := triggerBuild(client, args[0], paramMap)
 			if err != nil {
 				return err
@@ -1113,6 +1118,55 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().BoolVar(&follow, "follow", false, "Follow the rerun progress until completion")
 	cmd.Flags().DurationVar(&interval, "interval", 500*time.Millisecond, "Polling interval when following runs")
 	return cmd
+}
+
+// jobMetadata represents job information including its type
+type jobMetadata struct {
+	Class string         `json:"_class"`
+	Jobs  []jobListEntry `json:"jobs"`
+}
+
+// validateJobIsBuildable checks if a job can be built directly.
+// Returns an error with helpful guidance if the job is a folder or multibranch pipeline.
+func validateJobIsBuildable(client *jenkins.Client, jobPath string) error {
+	// Fetch job metadata to check its type
+	path := fmt.Sprintf("/%s/api/json", jenkins.EncodeJobPath(jobPath))
+	var metadata jobMetadata
+	resp, err := client.Do(
+		client.NewRequest().SetQueryParam("tree", "jobs[name,_class],_class"),
+		http.MethodGet,
+		path,
+		&metadata,
+	)
+	if err != nil {
+		return err
+	}
+
+	// If 404, the job doesn't exist - let triggerBuild handle it
+	if resp.StatusCode() == http.StatusNotFound {
+		return nil
+	}
+
+	// Check if it's a multibranch pipeline
+	if isMultibranchClass(metadata.Class) {
+		msg := fmt.Sprintf("'%s' is a Multibranch Pipeline and cannot be built directly", jobPath)
+		if len(metadata.Jobs) > 0 {
+			msg += "\n\nAvailable branches:"
+			for _, job := range metadata.Jobs {
+				msg += fmt.Sprintf("\n  %s/%s", jobPath, job.Name)
+			}
+			msg += fmt.Sprintf("\n\nUsage: jk run start \"%s/<branch>\"", jobPath)
+			msg += fmt.Sprintf("\nExample: jk run start \"%s/%s\"", jobPath, metadata.Jobs[0].Name)
+		}
+		return errors.New(msg)
+	}
+
+	// Check if it's a folder
+	if isFolderClass(metadata.Class) {
+		return fmt.Errorf("'%s' is a folder, not a buildable job", jobPath)
+	}
+
+	return nil
 }
 
 func triggerBuild(client *jenkins.Client, jobPath string, params map[string]string) (*resty.Response, error) {

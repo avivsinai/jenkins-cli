@@ -40,7 +40,8 @@ func newJobListCmd(f *cmdutil.Factory) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "ls",
-		Short: "List jobs",
+		Short: "List job names in a folder",
+		Long:  "List job names and URLs. Use this to discover what jobs exist, not to search build history.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {

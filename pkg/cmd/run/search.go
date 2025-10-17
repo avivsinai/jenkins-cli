@@ -59,12 +59,16 @@ func newRunSearchCmd(f *cmdutil.Factory) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "search",
-		Short: "Search runs across jobs",
-		Example: `  # Find the latest production deploy across a folder
-  jk run search --folder releases --filter param.CHART_NAME~nova-video-prod --limit 5 --json
+		Short: "Search build history across multiple jobs",
+		Long:  "Search through build/run history across jobs. Unlike 'jk job ls' which lists job names, this searches actual build records.",
+		Example: `  # Find recent failed builds across a folder
+  jk run search --folder ci-jobs --filter result=FAILURE --limit 10
 
-  # Search jobs matching a glob and select additional fields
-  jk run search --folder team --job-glob "*/deploy-*" --filter result=FAILURE --select parameters --since 30d`,
+  # Search for builds with specific parameter value
+  jk run search --job-glob "*/deploy-*" --filter param.ENVIRONMENT=production --since 7d
+
+  # Find builds by user across all jobs
+  jk run search --filter cause.user~john --select parameters --limit 5`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
