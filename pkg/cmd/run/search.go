@@ -236,13 +236,36 @@ func discoverJobs(ctx context.Context, client *jenkins.Client, folderPath, jobGl
 
 		for _, job := range payload.Jobs {
 			childPath := joinJobPath(current, job.Name)
+
+			// Check if this job matches the glob BEFORE deciding how to handle it
+			matches := matchJobGlob(jobGlob, folderPath, childPath)
+
+			// Handle multibranch projects specially
+			if isMultibranchClass(job.Class) {
+				if matches {
+					// Matched multibranch: add ALL its branches (don't filter children)
+					if err := walkAndAddAllBranches(ctx, client, childPath, &results, visited); err != nil {
+						return err
+					}
+				} else {
+					// Multibranch didn't match: recurse normally (children might match)
+					if err := walk(childPath, depth+1); err != nil {
+						return err
+					}
+				}
+				continue
+			}
+
+			// Handle regular folders: recurse into them
 			if isFolderClass(job.Class) {
 				if err := walk(childPath, depth+1); err != nil {
 					return err
 				}
 				continue
 			}
-			if matchJobGlob(jobGlob, folderPath, childPath) {
+
+			// Regular job: add if it matches
+			if matches {
 				if _, ok := visited[childPath]; !ok {
 					visited[childPath] = struct{}{}
 					results = append(results, childPath)
@@ -268,29 +291,89 @@ func joinJobPath(parent, child string) string {
 	return fmt.Sprintf("%s/%s", parent, child)
 }
 
+func walkAndAddAllBranches(ctx context.Context, client *jenkins.Client, multibranchPath string, results *[]string, visited map[string]struct{}) error {
+	// Fetch branches of matched multibranch project
+	encoded := fmt.Sprintf("/%s/api/json", jenkins.EncodeJobPath(multibranchPath))
+	tree := "jobs[name,_class]"
+
+	var payload jobListPayload
+	resp, err := client.Do(
+		client.NewRequest().
+			SetContext(ctx).
+			SetQueryParam("tree", tree),
+		http.MethodGet,
+		encoded,
+		&payload,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Propagate HTTP errors (permission denied, server errors, etc.)
+	if resp.StatusCode() >= 400 {
+		return fmt.Errorf("list branches for %s: %s", multibranchPath, resp.Status())
+	}
+
+	// Add all branches without glob filtering (user matched parent project)
+	for _, branch := range payload.Jobs {
+		branchPath := joinJobPath(multibranchPath, branch.Name)
+		// Only add actual branches (not nested folders)
+		if !isFolderClass(branch.Class) && !isMultibranchClass(branch.Class) {
+			if _, ok := visited[branchPath]; !ok {
+				visited[branchPath] = struct{}{}
+				*results = append(*results, branchPath)
+			}
+		}
+	}
+
+	return nil
+}
+
+func isMultibranchClass(className string) bool {
+	return strings.Contains(strings.ToLower(className), "multibranch")
+}
+
 func isFolderClass(className string) bool {
 	className = strings.ToLower(className)
-	return strings.Contains(className, "folder") || strings.Contains(className, "multibranch")
+	// Check for folder-like classes, but exclude multibranch (handled separately)
+	return strings.Contains(className, "folder") && !strings.Contains(className, "multibranch")
 }
 
 func matchJobGlob(glob, folder, jobPath string) bool {
 	if glob == "" {
 		return true
 	}
+
+	// Strategy 1: Full path match (supports ** globstar)
 	if ok, err := doublestar.Match(glob, jobPath); err == nil && ok {
 		return true
 	}
+
+	// Strategy 2: Base name match
 	base := path.Base(jobPath)
 	if ok, err := doublestar.Match(glob, base); err == nil && ok {
 		return true
 	}
-	if folder != "" && strings.HasPrefix(jobPath, folder) {
-		rel := strings.TrimPrefix(jobPath, folder)
-		rel = strings.TrimPrefix(rel, "/")
+
+	// Strategy 3: Parent path component matching
+	// If jobPath is "Tools/ada/master" and glob is "*ada*"
+	// Check each path component: ["Tools", "ada", "master"]
+	// This allows "*ada*" to match "Tools/ada/master" because "ada" component matches
+	parts := strings.Split(jobPath, "/")
+	for i := 0; i < len(parts)-1; i++ { // -1 to exclude base (already checked above)
+		if ok, err := doublestar.Match(glob, parts[i]); err == nil && ok {
+			return true
+		}
+	}
+
+	// Strategy 4: Relative path match (when folder specified)
+	if folder != "" && strings.HasPrefix(jobPath, folder+"/") {
+		rel := strings.TrimPrefix(jobPath, folder+"/")
 		if ok, err := doublestar.Match(glob, rel); err == nil && ok {
 			return true
 		}
 	}
+
 	return false
 }
 
