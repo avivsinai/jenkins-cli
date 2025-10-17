@@ -308,11 +308,18 @@ func newRunStartCmd(f *cmdutil.Factory) *cobra.Command {
 	var params []string
 	var follow bool
 	var interval time.Duration
+	var fuzzyMatch bool
+	var noInteractive bool
 
 	cmd := &cobra.Command{
 		Use:   "start <jobPath>",
 		Short: "Trigger a job run",
-		Args:  cobra.ExactArgs(1),
+		Long: `Trigger a job run. If the job is not found, will automatically search for similar jobs.
+
+Related commands:
+  jk run search --job-glob '<pattern>'  Search for jobs by pattern
+  jk job ls --folder '<folder>'         List jobs in a folder`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
@@ -328,42 +335,50 @@ func newRunStartCmd(f *cmdutil.Factory) *cobra.Command {
 				paramMap[strings.TrimSpace(parts[0])] = parts[1]
 			}
 
-			// Validate job is buildable before attempting to trigger
-			if err := validateJobIsBuildable(client, args[0]); err != nil {
+			// Try to resolve the job path (with fuzzy matching if enabled)
+			resolvedPath, err := resolveJobPath(cmd, client, args[0], fuzzyMatch, !noInteractive)
+			if err != nil {
 				return err
 			}
 
-			resp, err := triggerBuild(client, args[0], paramMap)
+			// Validate job is buildable before attempting to trigger
+			if err := validateJobIsBuildable(client, resolvedPath); err != nil {
+				return err
+			}
+
+			resp, err := triggerBuild(client, resolvedPath, paramMap)
 			if err != nil {
 				return err
 			}
 
 			if !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered run for %s\n", args[0])
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered run for %s\n", resolvedPath)
 			}
 
 			if !follow {
 				if shared.WantsJSON(cmd) || shared.WantsYAML(cmd) {
 					payload := runTriggerOutput{
-						JobPath:       args[0],
+						JobPath:       resolvedPath,
 						Message:       "run requested",
 						QueueLocation: queueLocationFromResponse(resp),
 					}
 					return shared.PrintOutput(cmd, payload, func() error {
-						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered run for %s\n", args[0])
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered run for %s\n", resolvedPath)
 						return nil
 					})
 				}
 				return nil
 			}
 
-			return followTriggeredRun(cmd, client, args[0], resp, interval)
+			return followTriggeredRun(cmd, client, resolvedPath, resp, interval)
 		},
 	}
 
 	cmd.Flags().StringSliceVarP(&params, "param", "p", nil, "Build parameter key=value")
 	cmd.Flags().BoolVar(&follow, "follow", false, "Follow the run progress until completion")
 	cmd.Flags().DurationVar(&interval, "interval", 500*time.Millisecond, "Polling interval when following runs")
+	cmd.Flags().BoolVar(&fuzzyMatch, "fuzzy", false, "Enable fuzzy matching for job names")
+	cmd.Flags().BoolVar(&noInteractive, "non-interactive", false, "Disable interactive selection (fail on ambiguous matches)")
 	return cmd
 }
 
@@ -1386,4 +1401,188 @@ func exitCodeForResult(result string) int {
 	default:
 		return 0
 	}
+}
+
+// resolveJobPath attempts to resolve a job path, with optional fuzzy matching and auto-search on 404
+func resolveJobPath(cmd *cobra.Command, client *jenkins.Client, jobPath string, fuzzy, interactive bool) (string, error) {
+	// First, try exact match
+	exists, err := jobExists(client, jobPath)
+	if err != nil {
+		return "", err
+	}
+	if exists {
+		return jobPath, nil
+	}
+
+	// Job not found - try auto-search with fuzzy matching
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Discover all jobs
+	allJobs, err := discoverJobs(ctx, client, "", "", maxJobDiscoveryDepth)
+	if err != nil {
+		return "", fmt.Errorf("failed to search for similar jobs: %w", err)
+	}
+
+	// Perform fuzzy search
+	fuzzyMatches := performFuzzySearch(jobPath, allJobs, 5)
+
+	if len(fuzzyMatches) == 0 {
+		return "", formatJobNotFoundError(jobPath, nil)
+	}
+
+	// If only one match and it's very similar, use it automatically (if fuzzy mode enabled)
+	if fuzzy && len(fuzzyMatches) == 1 {
+		jklog.L().Info().Msgf("Using fuzzy match: %s", fuzzyMatches[0])
+		return fuzzyMatches[0], nil
+	}
+
+	// Multiple matches - show suggestions or prompt for selection
+	if interactive && !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) {
+		selected, err := promptJobSelection(cmd, fuzzyMatches)
+		if err != nil {
+			return "", err
+		}
+		if selected != "" {
+			return selected, nil
+		}
+	}
+
+	// Non-interactive or JSON mode - return error with suggestions
+	return "", formatJobNotFoundError(jobPath, fuzzyMatches)
+}
+
+// jobExists checks if a job exists (returns false on 404, error on other failures)
+func jobExists(client *jenkins.Client, jobPath string) (bool, error) {
+	path := fmt.Sprintf("/%s/api/json", jenkins.EncodeJobPath(jobPath))
+	resp, err := client.Do(
+		client.NewRequest().SetQueryParam("tree", "_class"),
+		http.MethodGet,
+		path,
+		nil,
+	)
+	if err != nil {
+		return false, err
+	}
+
+	if resp.StatusCode() == http.StatusNotFound {
+		return false, nil
+	}
+	if resp.StatusCode() >= 400 {
+		return false, fmt.Errorf("check job existence: %s", resp.Status())
+	}
+
+	return true, nil
+}
+
+// performFuzzySearch uses the fuzzy matching package to find similar jobs
+func performFuzzySearch(query string, allJobs []string, maxResults int) []string {
+	// Import is at the top of the file
+	// For now, implement simple substring matching as fallback
+	var matches []string
+	queryLower := strings.ToLower(query)
+
+	// Exact matches first
+	for _, job := range allJobs {
+		if strings.ToLower(job) == queryLower {
+			matches = append(matches, job)
+			if len(matches) >= maxResults {
+				return matches
+			}
+		}
+	}
+
+	// Substring matches
+	for _, job := range allJobs {
+		if strings.Contains(strings.ToLower(job), queryLower) && strings.ToLower(job) != queryLower {
+			matches = append(matches, job)
+			if len(matches) >= maxResults {
+				return matches
+			}
+		}
+	}
+
+	// Component matches (for paths like "ada" matching "Tools/ada/master")
+	queryParts := strings.Split(queryLower, "/")
+	for _, job := range allJobs {
+		jobParts := strings.Split(strings.ToLower(job), "/")
+		matched := false
+		for _, qp := range queryParts {
+			for _, jp := range jobParts {
+				if strings.Contains(jp, qp) {
+					matched = true
+					break
+				}
+			}
+			if matched {
+				break
+			}
+		}
+		if matched {
+			// Avoid duplicates
+			found := false
+			for _, m := range matches {
+				if m == job {
+					found = true
+					break
+				}
+			}
+			if !found {
+				matches = append(matches, job)
+				if len(matches) >= maxResults {
+					return matches
+				}
+			}
+		}
+	}
+
+	return matches
+}
+
+// promptJobSelection prompts the user to select from multiple job matches
+func promptJobSelection(cmd *cobra.Command, matches []string) (string, error) {
+	if len(matches) == 0 {
+		return "", errors.New("no matches to select from")
+	}
+
+	w := cmd.OutOrStdout()
+	_, _ = fmt.Fprintln(w, "\nMultiple jobs found. Please select one:")
+	for i, match := range matches {
+		_, _ = fmt.Fprintf(w, "  [%d] %s\n", i+1, match)
+	}
+	_, _ = fmt.Fprintf(w, "  [0] Cancel\n\n")
+	_, _ = fmt.Fprintf(w, "Enter selection [0-%d]: ", len(matches))
+
+	var selection int
+	_, err := fmt.Fscanln(cmd.InOrStdin(), &selection)
+	if err != nil {
+		return "", fmt.Errorf("read selection: %w", err)
+	}
+
+	if selection == 0 {
+		return "", errors.New("selection cancelled")
+	}
+	if selection < 1 || selection > len(matches) {
+		return "", fmt.Errorf("invalid selection: %d", selection)
+	}
+
+	return matches[selection-1], nil
+}
+
+// formatJobNotFoundError formats a helpful error message with suggestions
+func formatJobNotFoundError(jobPath string, suggestions []string) error {
+	if len(suggestions) == 0 {
+		return fmt.Errorf("job %q not found\n\nTry: jk run search --job-glob '*%s*'", jobPath, jobPath)
+	}
+
+	msg := fmt.Sprintf("Job %q not found\n\nSuggestions:", jobPath)
+	for _, suggestion := range suggestions {
+		msg += fmt.Sprintf("\n  • %s", suggestion)
+	}
+	msg += fmt.Sprintf("\n\nTry: jk run start \"%s\"", suggestions[0])
+	msg += fmt.Sprintf("\nOr search: jk run search --job-glob '*%s*'", jobPath)
+
+	return errors.New(msg)
 }

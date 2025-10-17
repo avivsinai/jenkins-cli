@@ -39,18 +39,31 @@ func newJobListCmd(f *cmdutil.Factory) *cobra.Command {
 	var folder string
 
 	cmd := &cobra.Command{
-		Use:   "ls",
+		Use:   "ls [folder]",
 		Short: "List job names in a folder",
-		Long:  "List job names and URLs. Use this to discover what jobs exist, not to search build history.",
+		Long: `List job names and URLs. Use this to discover what jobs exist, not to search build history.
+
+Related commands:
+  jk run search --job-glob '<pattern>'  Search for jobs by pattern`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
 				return err
 			}
 
+			// Support both positional arg and --folder flag
+			targetFolder := folder
+			if len(args) > 0 {
+				if folder != "" {
+					return fmt.Errorf("cannot specify folder both as argument and flag")
+				}
+				targetFolder = args[0]
+			}
+
 			path := "/api/json"
-			if folder != "" {
-				path = fmt.Sprintf("/%s/api/json", jenkins.EncodeJobPath(folder))
+			if targetFolder != "" {
+				path = fmt.Sprintf("/%s/api/json", jenkins.EncodeJobPath(targetFolder))
 			}
 
 			var resp jobListResponse

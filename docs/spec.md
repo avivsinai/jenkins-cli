@@ -139,7 +139,7 @@ Key workflows the CLI must make trivial:
 | Group          | Example commands                                                | Notes |
 |----------------|-----------------------------------------------------------------|-------|
 | `auth`         | `jk auth login`, `jk auth status`, `jk auth logout`             | Stores contexts securely. |
-| `context`      | `jk context ls`, `jk context use`, `jk context rename`          | Config stored under `$XDG_CONFIG_HOME/jk/config.yml`. |
+| `context`      | `jk context ls`, `jk context use`, `jk context rename`          | Config stored under `$XDG_CONFIG_HOME/jk/config.yaml`. |
 | `job`          | `jk job ls`, `jk job view`, `jk job create`, `jk job import-config`, `jk job delete` | `jk job create` consumes high-level YAML when plugin present. |
 | `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run cancel`, `jk run rerun`, `jk run restart-from` | Capability flags printed in `jk run view`. |
 | `log`          | `jk log`, `jk log --follow`                                     | Snapshot default; `--follow` streams like `gh run view --log`. |
@@ -158,7 +158,7 @@ Key workflows the CLI must make trivial:
 | Global flags   | `--context`, `--url`, `--token`, `--insecure`, `--json`, `--yaml`, `--quiet`, `--color=auto|always|never`, `--trace` | CLI resolves context precedence: flag > env > active context. |
 
 ### 9.2 Configuration & State
-- Config file `config.yml` holds contexts (name, URL, username), toggles (color, pager).
+- Config file `config.yaml` holds contexts (name, URL, username), toggles (color, pager).
 - Secrets (API tokens) stored in OS keychain via `go-keyring`; fallback encrypted file only when the user passes `--allow-insecure-store` and confirms interactively.
 - Proxy configuration precedence is `flag (--proxy) > environment (HTTPS_PROXY/HTTP_PROXY/NO_PROXY) > context config`. CLI also honors custom CA bundles via `--ca-file` and `JK_CA_FILE`.
 - Per-context cache directory stores crumb and small metadata (capabilities, plugin detection caches) with short TTL.

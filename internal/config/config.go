@@ -11,7 +11,6 @@ import (
 )
 
 const (
-	configFileName = "config.yml"
 	currentVersion = 1
 )
 
@@ -46,32 +45,42 @@ type Preferences struct {
 }
 
 // Load retrieves configuration from disk, returning default values when the
-// file does not exist.
+// file does not exist. Supports both config.yaml and config.yml filenames.
 func Load() (*Config, error) {
-	path, err := DefaultPath()
+	dir, err := os.UserConfigDir()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve config dir: %w", err)
 	}
+	baseDir := filepath.Join(dir, "jk")
 
 	cfg := &Config{
 		Version:  currentVersion,
 		Contexts: make(map[string]*Context),
-		path:     path,
 	}
 
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return cfg, nil
+	// Try both .yaml and .yml extensions
+	for _, name := range []string{"config.yaml", "config.yml"} {
+		path := filepath.Join(baseDir, name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				// File exists but can't be read (permissions, I/O error, etc.)
+				return nil, fmt.Errorf("read config: %w", err)
+			}
+			// File doesn't exist, try next name
+			continue
 		}
-		return nil, fmt.Errorf("read config: %w", err)
+
+		if err := yaml.Unmarshal(data, cfg); err != nil {
+			return nil, fmt.Errorf("decode config: %w", err)
+		}
+
+		cfg.path = path
+		return cfg, nil
 	}
 
-	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, fmt.Errorf("decode config: %w", err)
-	}
-
-	cfg.path = path
+	// No config file found - use default path for future saves
+	cfg.path = filepath.Join(baseDir, "config.yaml")
 	return cfg, nil
 }
 
@@ -137,7 +146,7 @@ func DefaultPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve config dir: %w", err)
 	}
-	return filepath.Join(dir, "jk", configFileName), nil
+	return filepath.Join(dir, "jk", "config.yaml"), nil
 }
 
 // Path returns the config file path on disk.
