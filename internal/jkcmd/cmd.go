@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/your-org/jenkins-cli/internal/build"
-	jkfactory "github.com/your-org/jenkins-cli/pkg/cmd/factory"
-	"github.com/your-org/jenkins-cli/pkg/cmd/root"
-	"github.com/your-org/jenkins-cli/pkg/cmdutil"
+	"github.com/avivsinai/jenkins-cli/internal/build"
+	jkfactory "github.com/avivsinai/jenkins-cli/pkg/cmd/factory"
+	"github.com/avivsinai/jenkins-cli/pkg/cmd/root"
+	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
 )
 
 func Main() int {

@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/your-org/jenkins-cli/internal/config"
-	"github.com/your-org/jenkins-cli/internal/secret"
-	"github.com/your-org/jenkins-cli/pkg/cmdutil"
+	"github.com/avivsinai/jenkins-cli/internal/config"
+	"github.com/avivsinai/jenkins-cli/internal/secret"
+	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
 )
 
 func NewCmdContext(f *cmdutil.Factory) *cobra.Command {

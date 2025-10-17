@@ -13,9 +13,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/your-org/jenkins-cli/internal/jenkins"
-	"github.com/your-org/jenkins-cli/pkg/cmd/shared"
-	"github.com/your-org/jenkins-cli/pkg/cmdutil"
+	"github.com/avivsinai/jenkins-cli/internal/jenkins"
+	"github.com/avivsinai/jenkins-cli/pkg/cmd/shared"
+	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
 )
 
 type logOptions struct {

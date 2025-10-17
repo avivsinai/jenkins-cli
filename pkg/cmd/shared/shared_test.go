@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
-	"github.com/your-org/jenkins-cli/internal/config"
+	"github.com/avivsinai/jenkins-cli/internal/config"
 )
 
 func TestResolveContextNamePrecedence(t *testing.T) {

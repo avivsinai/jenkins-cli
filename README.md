@@ -22,20 +22,29 @@
 
 ## Installation
 
-### From source
+### Go Install (Recommended)
 
 ```bash
+# Install latest version
 go install github.com/avivsinai/jenkins-cli/cmd/jk@latest
+
+# Or install specific version
+go install github.com/avivsinai/jenkins-cli/cmd/jk@v0.1.0
 ```
 
-or clone and build:
+Binary will be installed to `$GOPATH/bin` (or `$HOME/go/bin` by default).
+
+### Binary Downloads
+
+Download prebuilt binaries for your platform from [GitHub Releases](https://github.com/avivsinai/jenkins-cli/releases).
+
+### From Source
 
 ```bash
+git clone https://github.com/avivsinai/jenkins-cli.git
+cd jenkins-cli
 make build   # produces ./bin/jk
-make test    # runs go test ./...
 ```
-
-Prebuilt release archives will land with the first tagged version.
 
 ## Quickstart
 

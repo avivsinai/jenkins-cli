@@ -13,11 +13,11 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/spf13/cobra"
 
-	"github.com/your-org/jenkins-cli/internal/filter"
-	"github.com/your-org/jenkins-cli/internal/jenkins"
-	jklog "github.com/your-org/jenkins-cli/internal/log"
-	"github.com/your-org/jenkins-cli/pkg/cmd/shared"
-	"github.com/your-org/jenkins-cli/pkg/cmdutil"
+	"github.com/avivsinai/jenkins-cli/internal/filter"
+	"github.com/avivsinai/jenkins-cli/internal/jenkins"
+	jklog "github.com/avivsinai/jenkins-cli/internal/log"
+	"github.com/avivsinai/jenkins-cli/pkg/cmd/shared"
+	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
 )
 
 type runListResponse struct {

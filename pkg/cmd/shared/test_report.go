@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/your-org/jenkins-cli/internal/jenkins"
+	"github.com/avivsinai/jenkins-cli/internal/jenkins"
 )
 
 type TestCase struct {

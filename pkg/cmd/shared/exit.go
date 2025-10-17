@@ -1,7 +1,7 @@
 package shared
 
 import (
-	"github.com/your-org/jenkins-cli/pkg/cmdutil"
+	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
 )
 
 func NewExitError(code int, msg string) error {

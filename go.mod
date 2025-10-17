@@ -1,4 +1,4 @@
-module github.com/your-org/jenkins-cli
+module github.com/avivsinai/jenkins-cli
 
 go 1.25
 

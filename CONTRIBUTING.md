@@ -61,12 +61,61 @@ pull requests, and feedback from the community.
 - Include the `jk` version (`jk version`) and Jenkins version when possible.
 - Attach logs or stack traces if they help illustrate the problem.
 
+## Versioning
+
+This project follows [Semantic Versioning](https://semver.org/):
+- **MAJOR** version for incompatible API changes
+- **MINOR** version for backwards-compatible functionality additions
+- **PATCH** version for backwards-compatible bug fixes
+
+### Version Formats
+
+- **Release versions**: `v1.2.3` (tagged releases)
+- **Development builds**: `dev-abc1234[-dirty]` (local builds, no tag)
+- **Snapshot builds**: `1.2.4-next+abc1234` (GoReleaser snapshots for testing)
+
+### Local Development
+
+When building locally with `make build`:
+- If on a tagged commit: version shows the tag (e.g., `v0.1.0`)
+- If between tags: version shows `dev-<commit>[-dirty]` (e.g., `dev-9a63037-dirty`)
+
+Check your build version:
+```bash
+./bin/jk version
+```
+
+### Testing Snapshot Releases
+
+To test the release process without publishing:
+```bash
+goreleaser release --snapshot --clean
+ls -la dist/
+```
+
+This creates binaries in `dist/` with versions like `0.1.1-next+abc1234`.
+
 ## Release process
 
-- Maintainers update `CHANGELOG.md` each release following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-- Tag releases with semantic versioning (`vMAJOR.MINOR.PATCH`).
-- Upload compiled binaries for macOS, Linux, and Windows to the release page.
-- Announce releases in the repository discussions or mailing list when available.
+Releases are automated using [GoReleaser](https://goreleaser.com/) and triggered by pushing a version tag:
+
+1. **Create a release tag** following [semantic versioning](https://semver.org/):
+   ```bash
+   git tag -a v1.0.0 -m "Release v1.0.0"
+   git push origin v1.0.0
+   ```
+
+2. **Automated steps** (via `.github/workflows/release.yml`):
+   - Runs tests
+   - Builds binaries for Linux, macOS, and Windows (amd64 + arm64)
+   - Generates changelog from [conventional commits](https://www.conventionalcommits.org/)
+   - Creates GitHub release with artifacts and checksums
+   - Updates Homebrew tap formula (requires `HOMEBREW_TAP_GITHUB_TOKEN`)
+   - Publishes Docker images to GitHub Container Registry
+
+3. **Conventional commits**: Use prefixes like `feat:`, `fix:`, `deps:` for automatic changelog categorization.
+
+**Note**: The `HOMEBREW_TAP_GITHUB_TOKEN` secret must be configured for Homebrew tap updates. Docker publishing requires appropriate registry permissions.
 
 ## Questions?
 

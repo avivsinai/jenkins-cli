@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/your-org/jenkins-cli/pkg/cmd/shared"
+	"github.com/avivsinai/jenkins-cli/pkg/cmd/shared"
 )
 
 type runListOutput struct {

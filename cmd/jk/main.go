@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/your-org/jenkins-cli/internal/jkcmd"
+	"github.com/avivsinai/jenkins-cli/internal/jkcmd"
 )
 
 func main() {

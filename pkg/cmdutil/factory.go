@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/your-org/jenkins-cli/internal/config"
-	"github.com/your-org/jenkins-cli/internal/jenkins"
-	"github.com/your-org/jenkins-cli/pkg/iostreams"
+	"github.com/avivsinai/jenkins-cli/internal/config"
+	"github.com/avivsinai/jenkins-cli/internal/jenkins"
+	"github.com/avivsinai/jenkins-cli/pkg/iostreams"
 )
 
 // Factory wires together shared services used by Cobra commands. It mirrors the

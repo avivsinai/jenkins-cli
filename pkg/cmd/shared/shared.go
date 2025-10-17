@@ -11,9 +11,9 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/your-org/jenkins-cli/internal/config"
-	"github.com/your-org/jenkins-cli/internal/jenkins"
-	"github.com/your-org/jenkins-cli/pkg/cmdutil"
+	"github.com/avivsinai/jenkins-cli/internal/config"
+	"github.com/avivsinai/jenkins-cli/internal/jenkins"
+	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
 )
 
 func ResolveContextName(cmd *cobra.Command, cfg *config.Config) (string, error) {

@@ -1,0 +1,127 @@
+# GoReleaser configuration
+# https://goreleaser.com
+
+version: 2
+
+before:
+  hooks:
+    # Ensure dependencies are up to date
+    - go mod tidy
+
+builds:
+  - id: jk
+    binary: jk
+    main: ./cmd/jk
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Ignore specific combinations
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/avivsinai/jenkins-cli/internal/build.Version={{.Version}}
+      - -X github.com/avivsinai/jenkins-cli/internal/build.Commit={{.Commit}}
+      - -X github.com/avivsinai/jenkins-cli/internal/build.Date={{.Date}}
+    flags:
+      - -trimpath
+
+archives:
+  - id: jk-archive
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next+{{ .ShortCommit }}"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: '🚀 Features'
+      regexp: '^feat(\(.+\))?:'
+      order: 0
+    - title: '🐛 Bug Fixes'
+      regexp: '^fix(\(.+\))?:'
+      order: 1
+    - title: '📦 Dependencies'
+      regexp: '^deps(\(.+\))?:'
+      order: 2
+    - title: '🔧 Other Changes'
+      order: 999
+
+release:
+  github:
+    owner: avivsinai
+    name: jenkins-cli
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## jk {{ .Tag }} ({{ .Date }})
+
+    Welcome to this new release of `jk`!
+  footer: |
+    ---
+
+    **Full Changelog**: https://github.com/avivsinai/jenkins-cli/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+    ## Installation
+
+    ### Go Install
+    ```bash
+    go install github.com/avivsinai/jenkins-cli/cmd/jk@{{ .Tag }}
+    ```
+
+    ### Binary Downloads
+    Download the appropriate binary for your platform from the assets below.
+
+# Homebrew tap (disabled - not set up yet)
+# Uncomment and configure HOMEBREW_TAP_GITHUB_TOKEN secret when ready
+# brews:
+#   - repository:
+#       owner: avivsinai
+#       name: homebrew-tap
+#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+#     directory: Formula
+#     homepage: https://github.com/avivsinai/jenkins-cli
+#     description: "GitHub CLI-style workflows for Jenkins controllers"
+#     license: MIT
+#     test: |
+#       system "#{bin}/jk version"
+#     install: |
+#       bin.install "jk"

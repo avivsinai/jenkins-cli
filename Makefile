@@ -3,7 +3,7 @@ BIN_DIR ?= bin
 CMD := ./cmd/jk
 SOURCES := $(shell find cmd internal -name '*.go')
 
-VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo dev)
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null | awk '{if ($$0 ~ /^v[0-9]/) {sub(/^v/, ""); print} else {print "dev-" $$0}}')
 COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -s -w \
@@ -48,7 +48,12 @@ fmt:
 
 .PHONY: clean
 clean:
-	rm -rf $(BIN_DIR)
+	rm -rf $(BIN_DIR) dist/
+
+.PHONY: snapshot
+snapshot:
+	@command -v goreleaser >/dev/null 2>&1 || { echo "goreleaser not installed. Run: brew install goreleaser"; exit 1; }
+	goreleaser release --snapshot --clean --skip=publish
 
 # Security and OSS tooling
 .PHONY: security
