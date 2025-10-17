@@ -7,6 +7,7 @@
   <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.25+-00ADD8.svg" alt="Go Version"></a>
   <a href="https://github.com/avivsinai/jenkins-cli/actions/workflows/ci.yml"><img src="https://github.com/avivsinai/jenkins-cli/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/avivsinai/jenkins-cli/actions/workflows/gitleaks.yml"><img src="https://github.com/avivsinai/jenkins-cli/actions/workflows/gitleaks.yml/badge.svg" alt="Security"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/avivsinai/jenkins-cli"><img src="https://api.scorecard.dev/projects/github.com/avivsinai/jenkins-cli/badge" alt="OpenSSF Scorecard"></a>
 </p>
 
 `jk` gives developers and operators a modern, scriptable interface to Jenkins: inspect runs, stream logs, manage credentials, and administer controllers from a single cross-platform binary.
