@@ -3,7 +3,18 @@ BIN_DIR ?= bin
 CMD := ./cmd/jk
 SOURCES := $(shell find cmd internal -name '*.go')
 
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null | awk '{if ($$0 ~ /^v[0-9]/) {sub(/^v/, ""); print} else {print "dev-" $$0}}')
+VERSION ?= $(shell \
+	if git describe --tags --exact-match >/dev/null 2>&1; then \
+		git describe --tags --exact-match; \
+	else \
+		short=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
+		if git diff-index --quiet HEAD 2>/dev/null; then \
+			echo "dev-$$short"; \
+		else \
+			echo "dev-$$short-dirty"; \
+		fi; \
+	fi \
+)
 COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -s -w \

@@ -110,12 +110,9 @@ Releases are automated using [GoReleaser](https://goreleaser.com/) and triggered
    - Builds binaries for Linux, macOS, and Windows (amd64 + arm64)
    - Generates changelog from [conventional commits](https://www.conventionalcommits.org/)
    - Creates GitHub release with artifacts and checksums
-   - Updates Homebrew tap formula (requires `HOMEBREW_TAP_GITHUB_TOKEN`)
-   - Publishes Docker images to GitHub Container Registry
+   - Uploads archives and checksums as a GitHub Actions artifact for auditing
 
 3. **Conventional commits**: Use prefixes like `feat:`, `fix:`, `deps:` for automatic changelog categorization.
-
-**Note**: The `HOMEBREW_TAP_GITHUB_TOKEN` secret must be configured for Homebrew tap updates. Docker publishing requires appropriate registry permissions.
 
 ## Questions?
 
