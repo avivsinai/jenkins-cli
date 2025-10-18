@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/avivsinai/jenkins-cli/internal/filter"
+	"github.com/avivsinai/jenkins-cli/internal/fuzzy"
 	"github.com/avivsinai/jenkins-cli/internal/jenkins"
 	jklog "github.com/avivsinai/jenkins-cli/internal/log"
 	"github.com/avivsinai/jenkins-cli/pkg/cmd/shared"
@@ -1479,66 +1480,60 @@ func jobExists(client *jenkins.Client, jobPath string) (bool, error) {
 
 // performFuzzySearch uses the fuzzy matching package to find similar jobs
 func performFuzzySearch(query string, allJobs []string, maxResults int) []string {
-	// Import is at the top of the file
-	// For now, implement simple substring matching as fallback
-	var matches []string
+	if query == "" {
+		return nil
+	}
+
+	matches := fuzzy.Search(query, allJobs, maxResults)
+	if len(matches) > 0 {
+		return fuzzy.ExtractValues(matches)
+	}
+
+	// Fallback to lightweight substring/component matching for edge cases
 	queryLower := strings.ToLower(query)
-
-	// Exact matches first
-	for _, job := range allJobs {
-		if strings.ToLower(job) == queryLower {
-			matches = append(matches, job)
-			if len(matches) >= maxResults {
-				return matches
-			}
-		}
-	}
-
-	// Substring matches
-	for _, job := range allJobs {
-		if strings.Contains(strings.ToLower(job), queryLower) && strings.ToLower(job) != queryLower {
-			matches = append(matches, job)
-			if len(matches) >= maxResults {
-				return matches
-			}
-		}
-	}
-
-	// Component matches (for paths like "ada" matching "Tools/ada/master")
 	queryParts := strings.Split(queryLower, "/")
+	seen := make(map[string]struct{})
+	var fallback []string
+
 	for _, job := range allJobs {
-		jobParts := strings.Split(strings.ToLower(job), "/")
-		matched := false
-		for _, qp := range queryParts {
-			for _, jp := range jobParts {
-				if strings.Contains(jp, qp) {
-					matched = true
+		if len(fallback) >= maxResults && maxResults > 0 {
+			break
+		}
+
+		jobLower := strings.ToLower(job)
+		match := false
+
+		if strings.Contains(jobLower, queryLower) {
+			match = true
+		} else {
+			jobParts := strings.Split(jobLower, "/")
+			for _, qp := range queryParts {
+				qp = strings.TrimSpace(qp)
+				if qp == "" {
+					continue
+				}
+				for _, jp := range jobParts {
+					if strings.Contains(jp, qp) {
+						match = true
+						break
+					}
+				}
+				if match {
 					break
 				}
-			}
-			if matched {
-				break
 			}
 		}
-		if matched {
-			// Avoid duplicates
-			found := false
-			for _, m := range matches {
-				if m == job {
-					found = true
-					break
-				}
+
+		if match {
+			if _, exists := seen[job]; exists {
+				continue
 			}
-			if !found {
-				matches = append(matches, job)
-				if len(matches) >= maxResults {
-					return matches
-				}
-			}
+			seen[job] = struct{}{}
+			fallback = append(fallback, job)
 		}
 	}
 
-	return matches
+	return fallback
 }
 
 // promptJobSelection prompts the user to select from multiple job matches

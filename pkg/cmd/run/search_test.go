@@ -1,6 +1,7 @@
 package run
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -111,5 +112,40 @@ func TestSortSearchItems(t *testing.T) {
 	}
 	if items[2].JobPath != "b/job" {
 		t.Fatalf("expected remaining item last, got %#v", items[2])
+	}
+}
+
+func TestPerformFuzzySearchRanksByScore(t *testing.T) {
+	allJobs := []string{
+		"Team/ada-runner",
+		"Tools/ada/feature/test",
+		"Tools/ada/master",
+		"Legacy/service",
+	}
+
+	got := performFuzzySearch("ada", allJobs, 3)
+	want := []string{
+		"Tools/ada/master",
+		"Tools/ada/feature/test",
+		"Team/ada-runner",
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected fuzzy ranking order: got %v, want %v", got, want)
+	}
+
+	gotLimited := performFuzzySearch("ada", allJobs, 2)
+	if len(gotLimited) != 2 {
+		t.Fatalf("expected 2 results with maxResults limit, got %d", len(gotLimited))
+	}
+	if gotLimited[0] != "Tools/ada/master" {
+		t.Fatalf("expected highest score to remain first with limit; got %q", gotLimited[0])
+	}
+}
+
+func TestPerformFuzzySearchEmptyQuery(t *testing.T) {
+	allJobs := []string{"Team/ada-runner", "Tools/ada/master"}
+	if got := performFuzzySearch("", allJobs, 5); got != nil {
+		t.Fatalf("expected nil results for empty query, got %v", got)
 	}
 }
