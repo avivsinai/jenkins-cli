@@ -30,11 +30,12 @@ type Config struct {
 
 // Context represents a Jenkins connection configuration.
 type Context struct {
-	URL      string `yaml:"url"`
-	Username string `yaml:"username,omitempty"`
-	Insecure bool   `yaml:"insecure,omitempty"`
-	Proxy    string `yaml:"proxy,omitempty"`
-	CAFile   string `yaml:"ca_file,omitempty"`
+	URL                string `yaml:"url"`
+	Username           string `yaml:"username,omitempty"`
+	Insecure           bool   `yaml:"insecure,omitempty"`
+	Proxy              string `yaml:"proxy,omitempty"`
+	CAFile             string `yaml:"ca_file,omitempty"`
+	AllowInsecureStore bool   `yaml:"allow_insecure_store,omitempty"`
 }
 
 // Preferences capture user-level CLI options.
