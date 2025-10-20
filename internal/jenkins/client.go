@@ -94,13 +94,35 @@ func NewClient(ctx context.Context, cfg *config.Config, contextName string) (*Cl
 		return nil, err
 	}
 
-	store, err := secret.Open()
-	if err != nil {
-		return nil, err
+	storeOpts := []secret.Option{}
+	if ctxDef.AllowInsecureStore {
+		storeOpts = append(storeOpts, secret.WithAllowFileFallback(true))
 	}
-	token, err := store.Get(secret.TokenKey(contextName))
-	if err != nil {
-		return nil, fmt.Errorf("load token for context %s: %w", contextName, err)
+
+	store, err := secret.Open(storeOpts...)
+	var token string
+	switch {
+	case err == nil:
+		token, err = store.Get(secret.TokenKey(contextName))
+		if err != nil {
+			return nil, fmt.Errorf("load token for context %s: %w", contextName, err)
+		}
+	case !ctxDef.AllowInsecureStore && secret.IsNoKeyringError(err):
+		legacyOpts := append([]secret.Option{}, storeOpts...)
+		legacyOpts = append(legacyOpts, secret.WithAllowFileFallback(true))
+		legacyStore, legacyErr := secret.Open(legacyOpts...)
+		if legacyErr != nil {
+			return nil, errors.Join(err, legacyErr)
+		}
+		token, legacyErr = legacyStore.Get(secret.TokenKey(contextName))
+		switch {
+		case errors.Is(legacyErr, os.ErrNotExist):
+			return nil, err
+		case legacyErr != nil:
+			return nil, fmt.Errorf("load token for context %s: %w", contextName, legacyErr)
+		}
+	default:
+		return nil, err
 	}
 
 	parsedURL, err := url.Parse(ctxDef.URL)
