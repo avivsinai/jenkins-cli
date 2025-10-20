@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.7] - 2025-10-20
+- Fixed macOS release binaries by enabling cgo so the CLI can access the system Keychain again.
+
 ## [0.0.6] - 2025-10-20
 - Restored the encrypted file keyring fallback for existing contexts without `allow_insecure_store`, fixing authentication for headless hosts upgrading from earlier releases.
 
