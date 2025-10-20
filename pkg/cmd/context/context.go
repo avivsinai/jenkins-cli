@@ -103,14 +103,20 @@ func newContextRemoveCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 			name := args[0]
 
-			if _, err := cfg.Context(name); err != nil {
+			ctxDef, err := cfg.Context(name)
+			if err != nil {
 				if errors.Is(err, config.ErrContextNotFound) {
 					return fmt.Errorf("context %q not found", name)
 				}
 				return err
 			}
 
-			store, err := secret.Open()
+			storeOpts := []secret.Option{}
+			if ctxDef != nil && ctxDef.AllowInsecureStore {
+				storeOpts = append(storeOpts, secret.WithAllowFileFallback(true))
+			}
+
+			store, err := secret.Open(storeOpts...)
 			if err != nil {
 				return fmt.Errorf("open secret store: %w", err)
 			}

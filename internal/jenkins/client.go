@@ -35,6 +35,7 @@ const (
 // Client provides authenticated communication with Jenkins.
 type Client struct {
 	resty            *resty.Client
+	restyStream      *resty.Client
 	contextName      string
 	ctxConfig        *config.Context
 	capabilities     Capabilities
@@ -156,8 +157,12 @@ func NewClient(ctx context.Context, cfg *config.Config, contextName string) (*Cl
 		}
 	}
 
+	restyStream := restyClient.Clone()
+	restyStream.SetTimeout(0)
+
 	client := &Client{
 		resty:       restyClient,
+		restyStream: restyStream,
 		contextName: contextName,
 		ctxConfig:   ctxDef,
 	}
@@ -192,6 +197,14 @@ func applyCustomCA(client *resty.Client, path string) error {
 // NewRequest creates a prepared resty request.
 func (c *Client) NewRequest() *resty.Request {
 	return c.resty.R().SetHeader("Accept", "application/json")
+}
+
+// NewStreamingRequest creates a Resty request that uses the streaming client with no timeout.
+func (c *Client) NewStreamingRequest() *resty.Request {
+	if c.restyStream == nil {
+		return c.resty.R()
+	}
+	return c.restyStream.R()
 }
 
 // Context returns the underlying Jenkins context configuration.
@@ -233,7 +246,8 @@ func (c *Client) execute(req *resty.Request, method, path string, allowRetry boo
 		return nil, err
 	}
 
-	if resp.StatusCode() == http.StatusForbidden && allowRetry && needsCrumb(method) {
+	if allowRetry && needsCrumb(method) &&
+		(resp.StatusCode() == http.StatusForbidden || resp.StatusCode() == http.StatusUnauthorized) {
 		c.clearCrumb()
 		return c.execute(req, method, path, false)
 	}
@@ -349,6 +363,7 @@ func (c *Client) refreshCapabilities(ctx context.Context) error {
 
 	c.capabilities = caps
 	c.lastCapProbe = time.Now()
+	c.applyFeaturesHeader(caps)
 	return nil
 }
 
@@ -371,4 +386,32 @@ func (c *Client) probeEndpoint(ctx context.Context, path string) bool {
 
 	status := resp.StatusCode()
 	return status >= 200 && status < 400
+}
+
+func (c *Client) applyFeaturesHeader(caps Capabilities) {
+	header := composeFeaturesHeader(caps)
+	c.resty.SetHeader(headerJKFeatures, header)
+	if c.restyStream != nil {
+		c.restyStream.SetHeader(headerJKFeatures, header)
+	}
+}
+
+func composeFeaturesHeader(caps Capabilities) string {
+	features := []string{defaultFeatures}
+	if caps.RunsFacade {
+		features = append(features, "runs")
+	}
+	if caps.CredentialFacade {
+		features = append(features, "credentials")
+	}
+	if caps.Events {
+		features = append(features, "events")
+	}
+	if caps.SSEGateway {
+		features = append(features, "sse")
+	}
+	if caps.Prometheus {
+		features = append(features, "prometheus")
+	}
+	return strings.Join(features, ",")
 }

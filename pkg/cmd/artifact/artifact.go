@@ -181,7 +181,7 @@ func newArtifactDownloadCmd(f *cmdutil.Factory) *cobra.Command {
 					return err
 				}
 
-				req := client.NewRequest().SetDoNotParseResponse(true)
+				req := client.NewStreamingRequest().SetDoNotParseResponse(true)
 				segs := strings.Split(cleanRel, "/")
 				for i, s := range segs {
 					segs[i] = url.PathEscape(s)

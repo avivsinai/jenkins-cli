@@ -30,13 +30,14 @@ func NewCmdAuth(f *cmdutil.Factory) *cobra.Command {
 }
 
 type authLoginOptions struct {
-	name      string
-	username  string
-	token     string
-	insecure  bool
-	proxy     string
-	caFile    string
-	setActive bool
+	name               string
+	username           string
+	token              string
+	insecure           bool
+	proxy              string
+	caFile             string
+	setActive          bool
+	allowInsecureStore bool
 }
 
 func newAuthLoginCmd(f *cmdutil.Factory) *cobra.Command {
@@ -62,6 +63,7 @@ func newAuthLoginCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&opts.proxy, "proxy", "", "Proxy URL for this context")
 	cmd.Flags().StringVar(&opts.caFile, "ca-file", "", "Custom CA bundle for TLS verification")
 	cmd.Flags().BoolVar(&opts.setActive, "set-active", true, "Set the context as active after login")
+	cmd.Flags().BoolVar(&opts.allowInsecureStore, "allow-insecure-store", false, "Allow encrypted file-based secret storage")
 
 	return cmd
 }
@@ -92,17 +94,23 @@ func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions
 		}
 	}
 
-	store, err := secret.Open()
+	storeOpts := []secret.Option{}
+	if opts.allowInsecureStore {
+		storeOpts = append(storeOpts, secret.WithAllowFileFallback(true))
+	}
+
+	store, err := secret.Open(storeOpts...)
 	if err != nil {
 		return fmt.Errorf("open secret store: %w", err)
 	}
 
 	cfg.SetContext(contextName, &config.Context{
-		URL:      parsed.String(),
-		Username: username,
-		Insecure: opts.insecure,
-		Proxy:    opts.proxy,
-		CAFile:   opts.caFile,
+		URL:                parsed.String(),
+		Username:           username,
+		Insecure:           opts.insecure,
+		Proxy:              opts.proxy,
+		CAFile:             opts.caFile,
+		AllowInsecureStore: opts.allowInsecureStore,
 	})
 
 	if opts.setActive {
@@ -157,7 +165,20 @@ func newAuthLogoutCmd(f *cmdutil.Factory) *cobra.Command {
 				contextName = name
 			}
 
-			store, err := secret.Open()
+			ctxDef, err := cfg.Context(contextName)
+			if err != nil {
+				if errors.Is(err, config.ErrContextNotFound) {
+					return fmt.Errorf("context %q not found", contextName)
+				}
+				return err
+			}
+
+			storeOpts := []secret.Option{}
+			if ctxDef != nil && ctxDef.AllowInsecureStore {
+				storeOpts = append(storeOpts, secret.WithAllowFileFallback(true))
+			}
+
+			store, err := secret.Open(storeOpts...)
 			if err != nil {
 				return fmt.Errorf("open secret store: %w", err)
 			}

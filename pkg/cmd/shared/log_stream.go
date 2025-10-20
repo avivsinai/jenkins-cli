@@ -31,7 +31,7 @@ func StreamProgressiveLog(ctx context.Context, client *jenkins.Client, jobPath s
 			}
 		}
 
-		req := client.NewRequest().
+		req := client.NewStreamingRequest().
 			SetHeader("Accept", "text/plain").
 			SetQueryParam("start", strconv.Itoa(offset)).
 			SetDoNotParseResponse(true)
@@ -112,7 +112,7 @@ func CollectLogSnapshot(ctx context.Context, client *jenkins.Client, jobPath str
 			}
 		}
 
-		req := client.NewRequest().
+		req := client.NewStreamingRequest().
 			SetHeader("Accept", "text/plain").
 			SetQueryParam("start", strconv.Itoa(offset)).
 			SetDoNotParseResponse(true)
