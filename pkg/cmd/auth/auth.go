@@ -165,7 +165,20 @@ func newAuthLogoutCmd(f *cmdutil.Factory) *cobra.Command {
 				contextName = name
 			}
 
-			store, err := secret.Open()
+			ctxDef, err := cfg.Context(contextName)
+			if err != nil {
+				if errors.Is(err, config.ErrContextNotFound) {
+					return fmt.Errorf("context %q not found", contextName)
+				}
+				return err
+			}
+
+			storeOpts := []secret.Option{}
+			if ctxDef != nil && ctxDef.AllowInsecureStore {
+				storeOpts = append(storeOpts, secret.WithAllowFileFallback(true))
+			}
+
+			store, err := secret.Open(storeOpts...)
 			if err != nil {
 				return fmt.Errorf("open secret store: %w", err)
 			}
