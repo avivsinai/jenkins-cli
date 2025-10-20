@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.6] - 2025-10-20
+- Restored the encrypted file keyring fallback for existing contexts without `allow_insecure_store`, fixing authentication for headless hosts upgrading from earlier releases.
+
 ## [0.0.5] - 2025-10-20
 - Added top-level `jk search` alias (wrapping `jk run search`) with refreshed help text, documentation, and CLI hints for job discovery ergonomics.
 - Redesigned `jk --help` output with gh-style command groups, flag summaries, and examples for improved discoverability.
