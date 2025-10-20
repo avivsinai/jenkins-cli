@@ -49,12 +49,14 @@ make build   # produces ./bin/jk
 
 ## Quickstart
 
+Find jobs fast with `jk search` (alias for `jk run search`) before drilling into specific pipelines.
+
 ```bash
 jk auth login https://jenkins.company.example      # authenticate and create a context
 jk context ls                                      # list available contexts
+jk search --job-glob '*deploy-*' --limit 5 --json --with-meta   # discover job paths across folders
 jk run ls team/app/pipeline --filter result=SUCCESS --since 7d --limit 5 --json --with-meta
 jk run params team/app/pipeline                    # inspect inferred parameter metadata
-jk run search --folder releases --filter param.CHART_NAME~nova-video-prod --limit 1 --json
 jk run view team/app/pipeline 128 --follow         # stream logs until completion
 jk artifact download team/app/pipeline 128 -p "**/*.xml" -o out/
 ```

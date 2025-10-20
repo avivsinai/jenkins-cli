@@ -295,7 +295,7 @@ func NewCmdRun(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(
 		newRunStartCmd(f),
 		newRunListCmd(f),
-		newRunSearchCmd(f),
+		NewCmdRunSearch(f),
 		newRunParamsCmd(f),
 		newRunViewCmd(f),
 		newRunCancelCmd(f),
@@ -318,7 +318,7 @@ func newRunStartCmd(f *cmdutil.Factory) *cobra.Command {
 		Long: `Trigger a job run. If the job is not found, will automatically search for similar jobs.
 
 Related commands:
-  jk run search --job-glob '<pattern>'  Search for jobs by pattern
+  jk search --job-glob '<pattern>'      Search for jobs by pattern
   jk job ls --folder '<folder>'         List jobs in a folder`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1569,7 +1569,7 @@ func promptJobSelection(cmd *cobra.Command, matches []string) (string, error) {
 // formatJobNotFoundError formats a helpful error message with suggestions
 func formatJobNotFoundError(jobPath string, suggestions []string) error {
 	if len(suggestions) == 0 {
-		return fmt.Errorf("job %q not found\n\nTry: jk run search --job-glob '*%s*'", jobPath, jobPath)
+		return fmt.Errorf("job %q not found\n\nTry: jk search --job-glob '*%s*'", jobPath, jobPath)
 	}
 
 	msg := fmt.Sprintf("Job %q not found\n\nSuggestions:", jobPath)
@@ -1577,7 +1577,7 @@ func formatJobNotFoundError(jobPath string, suggestions []string) error {
 		msg += fmt.Sprintf("\n  • %s", suggestion)
 	}
 	msg += fmt.Sprintf("\n\nTry: jk run start \"%s\"", suggestions[0])
-	msg += fmt.Sprintf("\nOr search: jk run search --job-glob '*%s*'", jobPath)
+	msg += fmt.Sprintf("\nOr search: jk search --job-glob '*%s*'", jobPath)
 
 	return errors.New(msg)
 }

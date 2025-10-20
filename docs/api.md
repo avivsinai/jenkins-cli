@@ -124,7 +124,7 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 
 `groups` is omitted when no aggregation is requested, and `metadata` is present only when `--with-meta` is supplied.
 
-### 2.3 Run search (`jk run search --json`)
+### 2.3 Run search (`jk search --json`, `jk run search --json`)
 ```json
 {
   "schemaVersion": "1.0",

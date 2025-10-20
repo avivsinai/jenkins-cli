@@ -45,7 +45,7 @@ type jobListPayload struct {
 	Jobs []jobListEntry `json:"jobs"`
 }
 
-func newRunSearchCmd(f *cmdutil.Factory) *cobra.Command {
+func NewCmdRunSearch(f *cmdutil.Factory) *cobra.Command {
 	var (
 		folder      string
 		jobGlob     string
@@ -59,9 +59,12 @@ func newRunSearchCmd(f *cmdutil.Factory) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "search",
-		Short: "Search build history across multiple jobs",
-		Long:  "Search through build/run history across jobs. Unlike 'jk job ls' which lists job names, this searches actual build records.",
-		Example: `  # Find recent failed builds across a folder
+		Short: "Search Jenkins jobs and runs across folders",
+		Long:  "Discover Jenkins jobs and runs without knowing exact folder paths. Combine job globs and run filters to home in on the builds you need.",
+		Example: `  # Discover job paths that contain "ada"
+  jk run search --job-glob "*ada*" --limit 5
+
+  # Find recent failed builds across a folder
   jk run search --folder ci-jobs --filter result=FAILURE --limit 10
 
   # Search for builds with specific parameter value

@@ -140,6 +140,7 @@ Key workflows the CLI must make trivial:
 |----------------|-----------------------------------------------------------------|-------|
 | `auth`         | `jk auth login`, `jk auth status`, `jk auth logout`             | Stores contexts securely. |
 | `context`      | `jk context ls`, `jk context use`, `jk context rename`          | Config stored under `$XDG_CONFIG_HOME/jk/config.yaml`. |
+| `search`       | `jk search --job-glob '*ada*'`, `jk search --folder tools`      | Top-level alias for cross-job discovery (`run search`). |
 | `job`          | `jk job ls`, `jk job view`, `jk job create`, `jk job import-config`, `jk job delete` | `jk job create` consumes high-level YAML when plugin present. |
 | `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run cancel`, `jk run rerun`, `jk run restart-from` | Capability flags printed in `jk run view`. |
 | `log`          | `jk log`, `jk log --follow`                                     | Snapshot default; `--follow` streams like `gh run view --log`. |
@@ -258,8 +259,8 @@ Other commands keep the general-purpose codes, surfaced consistently in help tex
 - Output includes `{jobPath, source, parameters[]}` where each parameter surfaces `name`, `type`, `default`, `isSecret`, `sampleValues[]`, and `frequency` (fraction of scanned runs containing the parameter). Secret heuristics hide defaults and samples by name/type and re-use the `filter.IsLikelySecret` helper.
 - Human-readable output lists parameters with type/required status (`frequency≈1`), default value when safe, highlighted secrecy, and representative sample values.
 
-#### 9.7.3 Cross-job search (`jk run search`)
-- `jk run search` traverses folders (default depth 5) and aggregates matching runs across jobs without requiring the companion plugin.
+#### 9.7.3 Cross-job search (`jk search`, `jk run search`)
+- `jk search` (alias: `jk run search`) traverses folders (default depth 5) and aggregates matching runs across jobs without requiring the companion plugin.
 - Flags mirror `run ls`: `--filter`, `--since`, `--select`, plus:
   - `--folder` to anchor discovery.
   - `--job-glob` (doublestar) to limit jobs by name/path.

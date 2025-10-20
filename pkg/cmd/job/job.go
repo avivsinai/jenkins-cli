@@ -44,7 +44,7 @@ func newJobListCmd(f *cmdutil.Factory) *cobra.Command {
 		Long: `List job names and URLs. Use this to discover what jobs exist, not to search build history.
 
 Related commands:
-  jk run search --job-glob '<pattern>'  Search for jobs by pattern`,
+  jk search --job-glob '<pattern>'      Search for jobs by pattern`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := shared.JenkinsClient(cmd, f)
@@ -84,7 +84,12 @@ Related commands:
 
 			return shared.PrintOutput(cmd, resp.Jobs, func() error {
 				if len(resp.Jobs) == 0 {
-					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No jobs found")
+					if targetFolder != "" {
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "No jobs found in %s\n", targetFolder)
+					} else {
+						_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No jobs found")
+					}
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Hint: use `jk search --job-glob '*<pattern>*'` to discover job paths by name")
 					return nil
 				}
 				for _, job := range resp.Jobs {

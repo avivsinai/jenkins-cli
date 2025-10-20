@@ -31,7 +31,7 @@ Avoid creating new top-level directories without first updating `docs/spec.md` a
 ## Agent discovery patterns
 
 - Use `jk run ls <job>` with `--filter`, `--since`, `--select`, and `--with-meta` to retrieve focused run slices plus metadata for schema-aware automation.
-- Reach across folders with `jk run search` (supports `--folder`, `--job-glob`, and the same filter syntax) before falling back to bespoke scripts.
+- Reach across folders with `jk search` (alias: `jk run search`) (supports `--folder`, `--job-glob`, and the same filter syntax) before falling back to bespoke scripts.
 - Harvest parameter definitions via `jk run params <job>` (`--source auto|config|runs`) ahead of composing trigger payloads.
 - Prefer `jk help --json` when programmatically enumerating commands, flags, and exit codes.
 

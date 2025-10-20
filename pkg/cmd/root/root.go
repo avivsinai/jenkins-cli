@@ -16,6 +16,7 @@ import (
 	"github.com/avivsinai/jenkins-cli/pkg/cmd/plugin"
 	"github.com/avivsinai/jenkins-cli/pkg/cmd/queue"
 	runcmd "github.com/avivsinai/jenkins-cli/pkg/cmd/run"
+	searchcmd "github.com/avivsinai/jenkins-cli/pkg/cmd/search"
 	testcmd "github.com/avivsinai/jenkins-cli/pkg/cmd/test"
 	"github.com/avivsinai/jenkins-cli/pkg/cmd/version"
 	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
@@ -28,8 +29,13 @@ func NewCmdRoot(f *cmdutil.Factory) (*cobra.Command, error) {
 	}
 
 	root := &cobra.Command{
-		Use:          f.ExecutableName,
-		Short:        "jk is the Jenkins CLI for developers",
+		Use:   f.ExecutableName,
+		Short: "Work seamlessly with Jenkins from the command line.",
+		Long: `Work seamlessly with Jenkins from the command line.
+
+Quick start:
+  jk search --job-glob "*ada*" --limit 5    # discover jobs across folders
+  jk run start <jobPath> --follow           # trigger and watch a build`,
 		SilenceUsage: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = cmd.Help()
@@ -47,6 +53,7 @@ func NewCmdRoot(f *cmdutil.Factory) (*cobra.Command, error) {
 		contextcmd.NewCmdContext(f),
 		job.NewCmdJob(f),
 		cred.NewCmdCred(f),
+		searchcmd.NewCmdSearch(f),
 		runcmd.NewCmdRun(f),
 		logcmd.NewCmdLog(f),
 		artifact.NewCmdArtifact(f),
