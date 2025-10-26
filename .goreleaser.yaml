@@ -27,9 +27,9 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X github.com/avivsinai/jenkins-cli/internal/build.Version={{.Version}}
-      - -X github.com/avivsinai/jenkins-cli/internal/build.Commit={{.Commit}}
-      - -X github.com/avivsinai/jenkins-cli/internal/build.Date={{.Date}}
+      - -X github.com/avivsinai/jenkins-cli/internal/build.versionFromLdflags={{.Version}}
+      - -X github.com/avivsinai/jenkins-cli/internal/build.commitFromLdflags={{.Commit}}
+      - -X github.com/avivsinai/jenkins-cli/internal/build.dateFromLdflags={{.Date}}
     flags:
       - -trimpath
 

@@ -18,9 +18,9 @@ VERSION ?= $(shell \
 COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -s -w \
-	-X github.com/avivsinai/jenkins-cli/internal/build.Version=$(VERSION) \
-	-X github.com/avivsinai/jenkins-cli/internal/build.Commit=$(COMMIT) \
-	-X github.com/avivsinai/jenkins-cli/internal/build.Date=$(BUILD_DATE)
+	-X github.com/avivsinai/jenkins-cli/internal/build.versionFromLdflags=$(VERSION) \
+	-X github.com/avivsinai/jenkins-cli/internal/build.commitFromLdflags=$(COMMIT) \
+	-X github.com/avivsinai/jenkins-cli/internal/build.dateFromLdflags=$(BUILD_DATE)
 
 .PHONY: build
 build: $(BIN_DIR)/jk

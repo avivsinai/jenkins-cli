@@ -2,6 +2,7 @@
 /bin/
 /dist/
 /build/
+/tmp_release/
 *.exe
 *.exe~
 *.dll
