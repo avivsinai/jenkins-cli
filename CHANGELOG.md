@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.9] - 2025-10-26
+- Fixed version information display for `go install` users by adding runtime/debug.ReadBuildInfo() fallback, showing proper version instead of "dev".
+
+## [0.0.8] - 2025-10-20
+- Fixed authentication streaming issues.
+
 ## [0.0.7] - 2025-10-20
 - Fixed macOS release binaries by enabling cgo so the CLI can access the system Keychain again.
 
