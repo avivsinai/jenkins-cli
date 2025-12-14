@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.10] - 2025-12-10
+- Updated dependencies (go-gh, docker, resty, cobra, x/term).
+
 ## [0.0.9] - 2025-10-26
 - Fixed version information display for `go install` users by adding runtime/debug.ReadBuildInfo() fallback, showing proper version instead of "dev".
 
