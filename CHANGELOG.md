@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.11] - 2025-12-14
+- CI: upgraded golangci-lint-action to v9 and golangci-lint to v2.
+- CI: stabilized required check names for branch protection.
+
 ## [0.0.10] - 2025-12-10
 - Updated dependencies (go-gh, docker, resty, cobra, x/term).
 
