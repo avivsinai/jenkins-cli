@@ -37,9 +37,9 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: v1.64.8
+          version: v2.7.2
           install-mode: goinstall
           args: --timeout=5m ./...
 
@@ -48,9 +48,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint
     timeout-minutes: 25
-    strategy:
-      matrix:
-        go-version: ["1.25.x"]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -58,7 +55,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: "1.25.x"
 
       - name: Cache Go build
         uses: actions/cache@v4
@@ -66,9 +63,9 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-1.25.x-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go-version }}-
+            ${{ runner.os }}-go-1.25.x-
             ${{ runner.os }}-go-
 
       - name: Build
