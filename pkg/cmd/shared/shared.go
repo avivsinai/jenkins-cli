@@ -57,7 +57,15 @@ func WantsYAML(cmd *cobra.Command) bool {
 }
 
 func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error {
+	// Validate --jq requires --json
+	if WantsJQ(cmd) && !WantsJSON(cmd) {
+		return fmt.Errorf("--jq requires --json flag")
+	}
+
 	if WantsJSON(cmd) {
+		if WantsJQ(cmd) {
+			return ApplyJQ(data, GetJQExpression(cmd), cmd.OutOrStdout())
+		}
 		encoded, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			return err

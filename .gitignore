@@ -36,3 +36,20 @@ results.sarif
 coverage.out
 coverage.html
 *.coverprofile
+
+# Kapsis protective patterns (auto-added)
+# These patterns prevent accidental commits of internal files
+# Do not remove - they protect against agent misconfigurations
+
+# Kapsis internal files
+.kapsis/
+
+# Literal tilde paths (failed tilde expansion creates directory named "~")
+# This is NOT the same as *~ which matches backup files ending in ~
+~
+~/
+
+# AI tool configuration directories (should stay local)
+.claude/
+.codex/
+.aider/
