@@ -311,6 +311,9 @@ func newRunStartCmd(f *cmdutil.Factory) *cobra.Command {
 	var interval time.Duration
 	var fuzzyMatch bool
 	var noInteractive bool
+	var waitEnabled bool
+	var waitInterval time.Duration
+	var waitTimeout time.Duration
 
 	cmd := &cobra.Command{
 		Use:   "start <jobPath>",
@@ -322,6 +325,11 @@ Related commands:
   jk job ls --folder '<folder>'         List jobs in a folder`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate --wait and --follow are mutually exclusive
+			if waitEnabled && follow {
+				return fmt.Errorf("--wait and --follow are mutually exclusive")
+			}
+
 			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
 				return err
@@ -356,6 +364,47 @@ Related commands:
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered run for %s\n", resolvedPath)
 			}
 
+			// Handle --wait flag (mutually exclusive with --follow)
+			if waitEnabled {
+				queueLocation := queueLocationFromResponse(resp)
+				buildNumber, err := waitForBuildNumber(client, queueLocation, 5*time.Minute)
+				if err != nil {
+					return err
+				}
+
+				ctx := cmd.Context()
+				if ctx == nil {
+					ctx = context.Background()
+				}
+
+				result, err := waitForCompletion(ctx, client, resolvedPath, buildNumber, waitInterval, waitTimeout)
+				if err != nil {
+					return err
+				}
+
+				// Fetch full details for JSON/YAML/human output
+				detail, err := fetchRunDetail(client, resolvedPath, buildNumber)
+				if err != nil {
+					return err
+				}
+				testReport, _ := shared.FetchTestReport(client, resolvedPath, buildNumber)
+				output := buildRunDetailOutput(resolvedPath, *detail, testReport)
+
+				if err := shared.PrintOutput(cmd, output, func() error {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Build #%d completed: %s\n", buildNumber, result)
+					return nil
+				}); err != nil {
+					return err
+				}
+
+				// --wait always returns exit codes
+				code := exitCodeForResult(result)
+				if code != 0 {
+					return shared.NewExitError(code, "")
+				}
+				return nil
+			}
+
 			if !follow {
 				if shared.WantsJSON(cmd) || shared.WantsYAML(cmd) {
 					payload := runTriggerOutput{
@@ -380,6 +429,9 @@ Related commands:
 	cmd.Flags().DurationVar(&interval, "interval", 500*time.Millisecond, "Polling interval when following runs")
 	cmd.Flags().BoolVar(&fuzzyMatch, "fuzzy", false, "Enable fuzzy matching for job names")
 	cmd.Flags().BoolVar(&noInteractive, "non-interactive", false, "Disable interactive selection (fail on ambiguous matches)")
+	cmd.Flags().BoolVar(&waitEnabled, "wait", false, "Wait for build to complete (no log streaming)")
+	cmd.Flags().DurationVar(&waitInterval, "wait-interval", 2*time.Second, "Polling interval when waiting")
+	cmd.Flags().DurationVar(&waitTimeout, "wait-timeout", 0, "Maximum time to wait (0 = no timeout)")
 	return cmd
 }
 
@@ -965,6 +1017,10 @@ func renderRunListHuman(cmd *cobra.Command, output runListOutput, opts runListOp
 }
 
 func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
+	var waitEnabled bool
+	var waitInterval time.Duration
+	var waitTimeout time.Duration
+
 	cmd := &cobra.Command{
 		Use:   "view <jobPath> <buildNumber>",
 		Short: "View run details",
@@ -987,6 +1043,28 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
+			// Handle --wait flag - wait for completion if build is still running
+			if waitEnabled && detail.Building {
+				ctx := cmd.Context()
+				if ctx == nil {
+					ctx = context.Background()
+				}
+
+				result, err := waitForCompletion(ctx, client, args[0], num, waitInterval, waitTimeout)
+				if err != nil {
+					return err
+				}
+
+				// Refresh detail after wait completes
+				_, err = client.Do(client.NewRequest(), http.MethodGet, path, &detail)
+				if err != nil {
+					return err
+				}
+
+				// Store result for exit code handling after output
+				_ = result
+			}
+
 			testReport, err := shared.FetchTestReport(client, args[0], num)
 			if err != nil {
 				jklog.L().Debug().Err(err).Msg("fetch test report failed")
@@ -994,7 +1072,7 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 
 			output := buildRunDetailOutput(args[0], detail, testReport)
 
-			return shared.PrintOutput(cmd, output, func() error {
+			if err := shared.PrintOutput(cmd, output, func() error {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Run #%d (%s)\n", output.Number, output.Status)
 				if output.Result != "" {
 					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Result: %s\n", output.Result)
@@ -1017,9 +1095,25 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Tests: total=%d failed=%d skipped=%d\n", output.Tests.Total, output.Tests.Failed, output.Tests.Skipped)
 				}
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
+
+			// --wait always returns exit codes (consistent with --follow)
+			if waitEnabled {
+				code := exitCodeForResult(output.Result)
+				if code != 0 {
+					return shared.NewExitError(code, "")
+				}
+			}
+
+			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&waitEnabled, "wait", false, "Wait for build to complete (no log streaming)")
+	cmd.Flags().DurationVar(&waitInterval, "interval", 2*time.Second, "Polling interval when waiting")
+	cmd.Flags().DurationVar(&waitTimeout, "timeout", 0, "Maximum time to wait (0 = no timeout)")
 
 	return cmd
 }
@@ -1081,12 +1175,20 @@ func newRunCancelCmd(f *cmdutil.Factory) *cobra.Command {
 func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 	var follow bool
 	var interval time.Duration
+	var waitEnabled bool
+	var waitInterval time.Duration
+	var waitTimeout time.Duration
 
 	cmd := &cobra.Command{
 		Use:   "rerun <jobPath> <buildNumber>",
 		Short: "Rerun a job using the previous parameters",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate --wait and --follow are mutually exclusive
+			if waitEnabled && follow {
+				return fmt.Errorf("--wait and --follow are mutually exclusive")
+			}
+
 			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
 				return err
@@ -1112,6 +1214,47 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered rerun for %s #%d\n", args[0], num)
 			}
 
+			// Handle --wait flag (mutually exclusive with --follow)
+			if waitEnabled {
+				queueLocation := queueLocationFromResponse(resp)
+				buildNumber, err := waitForBuildNumber(client, queueLocation, 5*time.Minute)
+				if err != nil {
+					return err
+				}
+
+				ctx := cmd.Context()
+				if ctx == nil {
+					ctx = context.Background()
+				}
+
+				result, err := waitForCompletion(ctx, client, args[0], buildNumber, waitInterval, waitTimeout)
+				if err != nil {
+					return err
+				}
+
+				// Fetch full details for JSON/YAML/human output
+				newDetail, err := fetchRunDetail(client, args[0], buildNumber)
+				if err != nil {
+					return err
+				}
+				testReport, _ := shared.FetchTestReport(client, args[0], buildNumber)
+				output := buildRunDetailOutput(args[0], *newDetail, testReport)
+
+				if err := shared.PrintOutput(cmd, output, func() error {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Build #%d completed: %s\n", buildNumber, result)
+					return nil
+				}); err != nil {
+					return err
+				}
+
+				// --wait always returns exit codes
+				code := exitCodeForResult(result)
+				if code != 0 {
+					return shared.NewExitError(code, "")
+				}
+				return nil
+			}
+
 			if !follow {
 				if shared.WantsJSON(cmd) || shared.WantsYAML(cmd) {
 					payload := runTriggerOutput{
@@ -1133,6 +1276,9 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 
 	cmd.Flags().BoolVar(&follow, "follow", false, "Follow the rerun progress until completion")
 	cmd.Flags().DurationVar(&interval, "interval", 500*time.Millisecond, "Polling interval when following runs")
+	cmd.Flags().BoolVar(&waitEnabled, "wait", false, "Wait for build to complete (no log streaming)")
+	cmd.Flags().DurationVar(&waitInterval, "wait-interval", 2*time.Second, "Polling interval when waiting")
+	cmd.Flags().DurationVar(&waitTimeout, "wait-timeout", 0, "Maximum time to wait (0 = no timeout)")
 	return cmd
 }
 
@@ -1401,6 +1547,48 @@ func exitCodeForResult(result string) int {
 		return 13
 	default:
 		return 0
+	}
+}
+
+// waitForCompletion polls until the build completes or timeout is reached.
+// Unlike monitorRun, this does NOT stream logs - just polls for completion.
+// Returns the final build result string.
+func waitForCompletion(ctx context.Context, client *jenkins.Client,
+	jobPath string, buildNumber int64, interval, timeout time.Duration) (string, error) {
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	var timeoutCh <-chan time.Time
+	if timeout > 0 {
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+		timeoutCh = timer.C
+	}
+
+	statusPath := fmt.Sprintf("/%s/%d/api/json", jenkins.EncodeJobPath(jobPath), buildNumber)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-timeoutCh:
+			return "", fmt.Errorf("timeout after %v waiting for build to complete", timeout)
+		case <-ticker.C:
+			var detail runDetail
+			_, err := client.Do(client.NewRequest(), http.MethodGet, statusPath, &detail)
+			if err != nil {
+				return "", fmt.Errorf("fetching build status: %w", err)
+			}
+
+			if !detail.Building {
+				result := strings.ToUpper(detail.Result)
+				if result == "" {
+					result = "UNKNOWN"
+				}
+				return result, nil
+			}
+		}
 	}
 }
 
