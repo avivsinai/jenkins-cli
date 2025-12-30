@@ -965,11 +965,18 @@ func renderRunListHuman(cmd *cobra.Command, output runListOutput, opts runListOp
 }
 
 func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
+	var summaryOnly bool
+
 	cmd := &cobra.Command{
 		Use:   "view <jobPath> <buildNumber>",
 		Short: "View run details",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate --summary cannot be combined with --json or --yaml
+			if summaryOnly && (shared.WantsJSON(cmd) || shared.WantsYAML(cmd)) {
+				return fmt.Errorf("--summary cannot be combined with --json or --yaml")
+			}
+
 			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
 				return err
@@ -993,6 +1000,11 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			output := buildRunDetailOutput(args[0], detail, testReport)
+
+			// Handle --summary flag
+			if summaryOnly {
+				return printRunSummary(cmd, output)
+			}
 
 			return shared.PrintOutput(cmd, output, func() error {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Run #%d (%s)\n", output.Number, output.Status)
@@ -1021,6 +1033,7 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&summaryOnly, "summary", false, "Show human-readable build summary")
 	return cmd
 }
 

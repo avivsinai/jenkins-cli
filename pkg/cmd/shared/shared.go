@@ -46,18 +46,43 @@ func ResolveContextName(cmd *cobra.Command, cfg *config.Config) (string, error) 
 	return name, nil
 }
 
+// GetOutputFormat returns the requested output format from --output flag.
+// Returns empty string for default human-readable output.
+func GetOutputFormat(cmd *cobra.Command) string {
+	v, _ := cmd.Root().PersistentFlags().GetString("output")
+	return strings.ToLower(strings.TrimSpace(v))
+}
+
 func WantsJSON(cmd *cobra.Command) bool {
-	v, _ := cmd.Root().PersistentFlags().GetBool("json")
-	return v
+	if v, _ := cmd.Root().PersistentFlags().GetBool("json"); v {
+		return true
+	}
+	return GetOutputFormat(cmd) == "json"
 }
 
 func WantsYAML(cmd *cobra.Command) bool {
-	v, _ := cmd.Root().PersistentFlags().GetBool("yaml")
-	return v
+	if v, _ := cmd.Root().PersistentFlags().GetBool("yaml"); v {
+		return true
+	}
+	return GetOutputFormat(cmd) == "yaml"
+}
+
+// WantsTable returns true if table output is requested via --output=table
+func WantsTable(cmd *cobra.Command) bool {
+	return GetOutputFormat(cmd) == "table"
 }
 
 func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error {
+	// Validate --template requires --json
+	if WantsTemplate(cmd) && !WantsJSON(cmd) {
+		return fmt.Errorf("--template requires --json flag")
+	}
+
 	if WantsJSON(cmd) {
+		// Handle --template flag
+		if WantsTemplate(cmd) {
+			return ApplyTemplate(data, GetTemplate(cmd), cmd.OutOrStdout())
+		}
 		encoded, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			return err

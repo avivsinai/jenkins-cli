@@ -47,6 +47,8 @@ Quick start:
 	root.PersistentFlags().StringP("context", "c", "", "Active Jenkins context name")
 	root.PersistentFlags().Bool("json", false, "Output in JSON format when supported")
 	root.PersistentFlags().Bool("yaml", false, "Output in YAML format when supported")
+	root.PersistentFlags().StringP("output", "o", "", "Output format: json, yaml, table")
+	root.PersistentFlags().StringP("template", "t", "", "Format output using Go template (requires --json)")
 
 	root.AddCommand(
 		auth.NewCmdAuth(f),
