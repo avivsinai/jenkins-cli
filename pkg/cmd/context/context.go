@@ -16,6 +16,10 @@ func NewCmdContext(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "context",
 		Short: "Manage Jenkins contexts",
+		Long: `Manage Jenkins contexts.
+
+Environment variable JK_CONTEXT can be used instead of the --context flag.
+Precedence: --context flag > JK_CONTEXT env var > active context in config`,
 	}
 
 	cmd.AddCommand(

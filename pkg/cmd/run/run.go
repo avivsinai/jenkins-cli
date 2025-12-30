@@ -352,7 +352,7 @@ Related commands:
 				return err
 			}
 
-			if !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) {
+			if !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) && !shared.WantsQuiet(cmd) {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered run for %s\n", resolvedPath)
 			}
 
@@ -367,6 +367,16 @@ Related commands:
 						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered run for %s\n", resolvedPath)
 						return nil
 					})
+				}
+				// In quiet mode, output just the build number
+				if shared.WantsQuiet(cmd) {
+					queueLocation := queueLocationFromResponse(resp)
+					buildNumber, err := waitForBuildNumber(client, queueLocation, 5*time.Minute)
+					if err != nil {
+						return err
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), buildNumber)
+					return nil
 				}
 				return nil
 			}
@@ -1108,7 +1118,7 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			if !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) {
+			if !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) && !shared.WantsQuiet(cmd) {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered rerun for %s #%d\n", args[0], num)
 			}
 
@@ -1123,6 +1133,16 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered rerun for %s #%d\n", args[0], num)
 						return nil
 					})
+				}
+				// In quiet mode, output just the build number
+				if shared.WantsQuiet(cmd) {
+					queueLocation := queueLocationFromResponse(resp)
+					buildNumber, err := waitForBuildNumber(client, queueLocation, 5*time.Minute)
+					if err != nil {
+						return err
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), buildNumber)
+					return nil
 				}
 				return nil
 			}
@@ -1373,13 +1393,13 @@ func monitorRun(cmd *cobra.Command, client *jenkins.Client, jobPath string, buil
 			if result == "" {
 				result = "SUCCESS"
 			}
-			if streamLogs {
+			if streamLogs && !shared.WantsQuiet(cmd) {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nRun #%d completed with status %s\n", detail.Number, result)
 			}
 			return result, nil
 		}
 
-		if streamLogs && time.Since(lastStatus) >= 5*time.Second {
+		if streamLogs && !shared.WantsQuiet(cmd) && time.Since(lastStatus) >= 5*time.Second {
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Run #%d still running...\n", detail.Number)
 			lastStatus = time.Now()
 		}

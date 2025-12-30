@@ -56,6 +56,12 @@ func WantsYAML(cmd *cobra.Command) bool {
 	return v
 }
 
+// WantsQuiet returns true if --quiet/-q flag is set.
+func WantsQuiet(cmd *cobra.Command) bool {
+	v, _ := cmd.Root().PersistentFlags().GetBool("quiet")
+	return v
+}
+
 func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error {
 	if WantsJSON(cmd) {
 		encoded, err := json.MarshalIndent(data, "", "  ")
