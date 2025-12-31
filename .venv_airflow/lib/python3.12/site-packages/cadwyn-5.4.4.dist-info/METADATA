@@ -1,0 +1,113 @@
+Metadata-Version: 2.4
+Name: cadwyn
+Version: 5.4.4
+Summary: Production-ready community-driven modern Stripe-like API versioning in FastAPI
+Project-URL: Source code, https://github.com/zmievsa/cadwyn
+Project-URL: Documentation, https://docs.cadwyn.dev
+Author-email: Stanislav Zmiev <zmievsa@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: api,api-versioning,code-generation,fastapi,hints,json-schema,pydantic,python,python310,python311,python312,python313,python39,stripe,versioning
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Framework :: AsyncIO
+Classifier: Framework :: FastAPI
+Classifier: Framework :: Pydantic
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Internet
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Requires-Dist: backports-strenum<2,>=1.3.1; python_version < '3.11'
+Requires-Dist: fastapi>=0.112.4
+Requires-Dist: jinja2>=3.1.2
+Requires-Dist: pydantic>=2.11.0
+Requires-Dist: starlette>=0.30.0
+Requires-Dist: typing-extensions>=4.8.0
+Requires-Dist: typing-inspection>=0.4.0
+Provides-Extra: standard
+Requires-Dist: fastapi[standard]>=0.112.3; extra == 'standard'
+Requires-Dist: typer>=0.7.0; extra == 'standard'
+Description-Content-Type: text/markdown
+
+# Cadwyn
+
+Production-ready community-driven modern [Stripe-like](https://stripe.com/blog/api-versioning) API versioning in FastAPI
+
+---
+
+<p align="center">
+<a href="https://github.com/zmievsa/cadwyn/actions/workflows/ci.yaml?branch=main&event=push" target="_blank">
+    <img src="https://github.com/zmievsa/cadwyn/actions/workflows/ci.yaml/badge.svg?branch=main&event=push" alt="Test">
+</a>
+<a href="https://codecov.io/gh/zmievsa/cadwyn" target="_blank">
+    <img src="https://img.shields.io/codecov/c/github/zmievsa/cadwyn?color=%2334D058&logo=codecov" alt="Coverage">
+</a>
+<a href="https://pypi.org/project/cadwyn/" target="_blank">
+    <img alt="PyPI" src="https://img.shields.io/pypi/v/cadwyn?color=%2334D058&logo=pypi&label=PyPI" alt="Package version">
+</a>
+<a href="https://pypi.org/project/cadwyn/" target="_blank">
+    <img src="https://img.shields.io/pypi/pyversions/cadwyn?color=%2334D058&logo=python" alt="Supported Python versions">
+</a>
+<a href="https://discord.gg/yRmcWF7rxE" target="_blank">
+    <img alt="Discord" src="https://img.shields.io/discord/1183145640407076864?color=%2334D058&logo=discord">
+</a>
+</p>
+
+## Who is this for?
+
+Cadwyn allows you to maintain the implementation just for your newest API version and get all the older versions generated automatically. You keep API backward compatibility encapsulated in small and independent "version change" modules while your business logic stays simple and knows nothing about versioning.
+
+This [approach](https://docs.cadwyn.dev/theory/how_we_got_here/#ii-migration-based-response-building) may be useful if you want to:
+
+1. Support many API versions for a long time
+2. Have features and bugfixes automatically backported to older API versions
+
+Whether you are a newbie in API versioning, a pro looking for a sophisticated tool, an experimenter looking to build a similar framework, or even someone who just wants to learn about all approaches to API versioning -- Cadwyn has the functionality, theory, and documentation to cover all the mentioned use cases.
+
+## Get started
+
+The [documentation](https://docs.cadwyn.dev) has everything you need to succeed.
+
+## Sponsors
+
+These are our gorgeous sponsors. They are using Cadwyn and are sponsoring it through various means. Contact [me](https://github.com/zmievsa) if you would like to become one, too!
+
+## Contributors
+
+<details>
+
+<summary>Thanks goes to these wonderful people:</summary>
+<a href="https://allcontributors.org/docs/en/emoji-key">Emoji Key </a>
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification.
+Contributions are welcome!
+
+</details>
+
+<!-- contributors-end -->

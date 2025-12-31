@@ -1,0 +1,3 @@
+[apache_airflow_provider]
+provider_info=airflow.providers.smtp.get_provider_info:get_provider_info
+

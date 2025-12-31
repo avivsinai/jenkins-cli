@@ -1,0 +1,89 @@
+Metadata-Version: 2.4
+Name: apache-airflow-task-sdk
+Version: 1.1.0
+Summary: Python Task SDK for Apache Airflow DAG Authors
+Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
+Project-URL: Documentation, https://airflow.apache.org/docs/
+Project-URL: Homepage, https://airflow.apache.org/
+Project-URL: Slack Chat, https://s.apache.org/airflow-slack
+Project-URL: Source Code, https://github.com/apache/airflow
+Project-URL: Mastodon, https://fosstodon.org/@airflow
+Project-URL: Bluesky, https://bsky.app/profile/apache-airflow.bsky.social
+Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
+Author-email: Apache Software Foundation <dev@airflow.apache.org>
+Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
+License-File: LICENSE
+Keywords: airflow,automation,dag,data,orchestration,pipelines,workflow
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Apache Airflow
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: System :: Monitoring
+Requires-Python: <3.14,>=3.10
+Requires-Dist: apache-airflow-core<3.2.0,>=3.1.0
+Requires-Dist: asgiref>=2.3.0
+Requires-Dist: attrs!=25.2.0,>=24.2.0
+Requires-Dist: colorlog>=6.8.2
+Requires-Dist: fsspec>=2023.10.0
+Requires-Dist: greenback>=1.2.1
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: jinja2>=3.1.5
+Requires-Dist: methodtools>=0.4.7
+Requires-Dist: msgspec>=0.19.0
+Requires-Dist: pendulum>=3.1.0
+Requires-Dist: psutil>=6.1.0
+Requires-Dist: pydantic>2.11.0
+Requires-Dist: pygtrie>=2.5.0
+Requires-Dist: python-dateutil>=2.7.0
+Requires-Dist: requests<3,>=2.31.0
+Requires-Dist: retryhttp!=1.3.0,>=1.2.0
+Requires-Dist: structlog>=25.4.0
+Requires-Dist: tenacity>=8.3.0
+Requires-Dist: types-requests>=2.31.0
+Description-Content-Type: text/markdown
+
+<!--
+ Licensed to the Apache Software Foundation (ASF) under one
+ or more contributor license agreements.  See the NOTICE file
+ distributed with this work for additional information
+ regarding copyright ownership.  The ASF licenses this file
+ to you under the Apache License, Version 2.0 (the
+ "License"); you may not use this file except in compliance
+ with the License.  You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing,
+ software distributed under the License is distributed on an
+ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ KIND, either express or implied.  See the License for the
+ specific language governing permissions and limitations
+ under the License.
+ -->
+
+# Apache Airflow Task SDK
+
+[![PyPI version](https://badge.fury.io/py/apache-airflow-task-sdk.svg)](https://badge.fury.io/py/apache-airflow-task-sdk)
+[![License](https://img.shields.io/:license-Apache%202-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.txt)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/apache-airflow-task-sdk.svg)](https://pypi.org/project/apache-airflow-task-sdk/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/apache-airflow-task-sdk)](https://pypi.org/project/apache-airflow-task-sdk/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://s.apache.org/airflow-slack)
+
+
+The Apache Airflow Task SDK includes interfaces for Dag authors and Task execution logic for Python.
+
+## Installation
+
+To install the Task SDK, use pip:
+
+```bash
+pip install apache-airflow-task-sdk
+```

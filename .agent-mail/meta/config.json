@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "created_utc": "2025-12-30T21:28:41Z",
+  "agents": [
+    "claude",
+    "codex"
+  ]
+}

@@ -1,0 +1,2 @@
+[console_scripts]
+cadwyn = cadwyn.__main__:app

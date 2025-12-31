@@ -1,0 +1,162 @@
+Metadata-Version: 2.4
+Name: apache-airflow-core
+Version: 3.1.0
+Summary: Core packages for Apache Airflow, schedule and API server
+Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
+Project-URL: Documentation, https://airflow.apache.org/docs/
+Project-URL: Downloads, https://archive.apache.org/dist/airflow/
+Project-URL: Homepage, https://airflow.apache.org/
+Project-URL: Release Notes, https://airflow.apache.org/docs/apache-airflow/stable/release_notes.html
+Project-URL: Slack Chat, https://s.apache.org/airflow-slack
+Project-URL: Source Code, https://github.com/apache/airflow
+Project-URL: LinkedIn, https://www.linkedin.com/company/apache-airflow/
+Project-URL: Mastodon, https://fosstodon.org/@airflow
+Project-URL: Bluesky, https://bsky.app/profile/apache-airflow.bsky.social
+Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
+Author-email: Apache Software Foundation <dev@airflow.apache.org>
+Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
+License-File: 3rd-party-licenses/LICENSE-bootstrap.txt
+License-File: 3rd-party-licenses/LICENSE-bootstrap3-typeahead.txt
+License-File: 3rd-party-licenses/LICENSE-d3-shape.txt
+License-File: 3rd-party-licenses/LICENSE-d3-tip.txt
+License-File: 3rd-party-licenses/LICENSE-d3js.txt
+License-File: 3rd-party-licenses/LICENSE-dagre-d3.txt
+License-File: 3rd-party-licenses/LICENSE-datatables.txt
+License-File: 3rd-party-licenses/LICENSE-elasticmock.txt
+License-File: 3rd-party-licenses/LICENSE-eonasdan-bootstrap-datetimepicker.txt
+License-File: 3rd-party-licenses/LICENSE-flask-kerberos.txt
+License-File: 3rd-party-licenses/LICENSE-hue.txt
+License-File: 3rd-party-licenses/LICENSE-jqclock.txt
+License-File: 3rd-party-licenses/LICENSE-jquery.txt
+License-File: 3rd-party-licenses/LICENSE-moment.txt
+License-File: 3rd-party-licenses/LICENSE-normalize.txt
+License-File: 3rd-party-licenses/LICENSE-pytest-capture-warnings.txt
+License-File: 3rd-party-licenses/LICENSE-reproducible.txt
+License-File: LICENSE
+License-File: NOTICE
+Keywords: airflow,automation,dag,data,orchestration,pipelines,workflow
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Apache Airflow
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: System :: Monitoring
+Requires-Python: <3.14,>=3.10
+Requires-Dist: a2wsgi>=1.10.8
+Requires-Dist: aiosqlite>=0.20.0
+Requires-Dist: alembic<2.0,>=1.13.1
+Requires-Dist: apache-airflow-providers-common-compat>=1.6.0
+Requires-Dist: apache-airflow-providers-common-io>=1.5.3
+Requires-Dist: apache-airflow-providers-common-sql>=1.26.0
+Requires-Dist: apache-airflow-providers-smtp>=2.0.2
+Requires-Dist: apache-airflow-providers-standard>=0.4.0
+Requires-Dist: apache-airflow-task-sdk<1.2.0,>=1.1.0
+Requires-Dist: argcomplete>=1.10
+Requires-Dist: asgiref>=2.3.0
+Requires-Dist: attrs!=25.2.0,>=22.1.0
+Requires-Dist: cadwyn>=5.2.1
+Requires-Dist: colorlog>=6.8.2
+Requires-Dist: cron-descriptor>=1.2.24
+Requires-Dist: croniter>=2.0.2
+Requires-Dist: cryptography>=41.0.0
+Requires-Dist: deprecated>=1.2.13
+Requires-Dist: dill>=0.2.2
+Requires-Dist: fastapi[standard-no-fastapi-cloud-cli]>=0.116.0
+Requires-Dist: httpx>=0.25.0
+Requires-Dist: importlib-metadata>=6.5; python_version < '3.12'
+Requires-Dist: importlib-metadata>=7.0; python_version >= '3.12'
+Requires-Dist: itsdangerous>=2.0
+Requires-Dist: jinja2>=3.1.5
+Requires-Dist: jsonschema>=4.19.1
+Requires-Dist: lazy-object-proxy>=1.2.0
+Requires-Dist: libcst>=1.8.2
+Requires-Dist: linkify-it-py>=2.0.0
+Requires-Dist: lockfile>=0.12.2
+Requires-Dist: methodtools>=0.4.7
+Requires-Dist: msgspec>=0.19.0
+Requires-Dist: opentelemetry-api>=1.27.0
+Requires-Dist: opentelemetry-exporter-otlp>=1.27.0
+Requires-Dist: opentelemetry-proto<9999,>=1.27.0
+Requires-Dist: packaging>=25.0
+Requires-Dist: pathspec>=0.9.0
+Requires-Dist: pendulum>=3.1.0
+Requires-Dist: pluggy>=1.5.0
+Requires-Dist: psutil>=5.8.0
+Requires-Dist: pydantic>=2.11.0
+Requires-Dist: pygments!=2.19.0,>=2.0.1
+Requires-Dist: pygtrie>=2.5.0
+Requires-Dist: pyjwt>=2.10.0
+Requires-Dist: python-daemon>=3.0.0
+Requires-Dist: python-dateutil>=2.7.0
+Requires-Dist: python-slugify>=5.0
+Requires-Dist: requests<3,>=2.32.0
+Requires-Dist: rich-argparse>=1.0.0
+Requires-Dist: rich>=13.6.0
+Requires-Dist: setproctitle>=1.3.3
+Requires-Dist: sqlalchemy-jsonfield>=1.0
+Requires-Dist: sqlalchemy-utils>=0.41.2
+Requires-Dist: sqlalchemy[asyncio]>=1.4.49
+Requires-Dist: starlette>=0.45.0
+Requires-Dist: structlog>=25.4.0
+Requires-Dist: svcs>=25.1.0
+Requires-Dist: tabulate>=0.9.0
+Requires-Dist: tenacity>=8.3.0
+Requires-Dist: termcolor>=3.0.0
+Requires-Dist: typing-extensions>=4.14.1
+Requires-Dist: universal-pathlib!=0.2.4,>=0.2.2
+Requires-Dist: uuid6>=2024.7.10
+Provides-Extra: all
+Requires-Dist: blinker>=1.1; extra == 'all'
+Requires-Dist: graphviz>=0.20; (sys_platform != 'darwin') and extra == 'all'
+Requires-Dist: opentelemetry-exporter-prometheus>=0.47b0; extra == 'all'
+Requires-Dist: pykerberos>=1.1.13; extra == 'all'
+Requires-Dist: requests-kerberos>=0.14.0; extra == 'all'
+Requires-Dist: sentry-sdk[flask]>=2.30.0; extra == 'all'
+Requires-Dist: statsd>=3.3.0; extra == 'all'
+Requires-Dist: thrift-sasl>=0.4.2; extra == 'all'
+Provides-Extra: async
+Requires-Dist: eventlet>=0.37.0; extra == 'async'
+Requires-Dist: gevent>=25.4.1; extra == 'async'
+Requires-Dist: greenback>=1.2.1; extra == 'async'
+Requires-Dist: greenlet>=3.1.0; extra == 'async'
+Provides-Extra: graphviz
+Requires-Dist: graphviz>=0.20; (sys_platform != 'darwin') and extra == 'graphviz'
+Provides-Extra: kerberos
+Requires-Dist: pykerberos>=1.1.13; extra == 'kerberos'
+Requires-Dist: requests-kerberos>=0.14.0; extra == 'kerberos'
+Requires-Dist: thrift-sasl>=0.4.2; extra == 'kerberos'
+Provides-Extra: otel
+Requires-Dist: opentelemetry-exporter-prometheus>=0.47b0; extra == 'otel'
+Provides-Extra: sentry
+Requires-Dist: blinker>=1.1; extra == 'sentry'
+Requires-Dist: sentry-sdk[flask]>=2.30.0; extra == 'sentry'
+Provides-Extra: statsd
+Requires-Dist: statsd>=3.3.0; extra == 'statsd'
+Description-Content-Type: text/markdown
+
+<!--
+ Licensed to the Apache Software Foundation (ASF) under one
+ or more contributor license agreements.  See the NOTICE file
+ distributed with this work for additional information
+ regarding copyright ownership.  The ASF licenses this file
+ to you under the Apache License, Version 2.0 (the
+ "License"); you may not use this file except in compliance
+ with the License.  You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing,
+ software distributed under the License is distributed on an
+ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ KIND, either express or implied.  See the License for the
+ specific language governing permissions and limitations
+ under the License.
+ -->
+
+This is a core airflow package that contains the functionality of Apache Airflow components:
+scheduler, API server, dag file processor and triggerer.

@@ -311,6 +311,7 @@ func newRunStartCmd(f *cmdutil.Factory) *cobra.Command {
 	var interval time.Duration
 	var fuzzyMatch bool
 	var noInteractive bool
+	var resultOnly bool
 	var waitEnabled bool
 	var waitInterval time.Duration
 	var waitTimeout time.Duration
@@ -325,6 +326,10 @@ Related commands:
   jk job ls --folder '<folder>'         List jobs in a folder`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate --result requires --follow
+			if resultOnly && !follow {
+				return fmt.Errorf("--result requires --follow flag")
+			}
 			// Validate --wait and --follow are mutually exclusive
 			if waitEnabled && follow {
 				return fmt.Errorf("--wait and --follow are mutually exclusive")
@@ -360,7 +365,7 @@ Related commands:
 				return err
 			}
 
-			if !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) {
+			if !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) && !resultOnly {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered run for %s\n", resolvedPath)
 			}
 
@@ -420,7 +425,7 @@ Related commands:
 				return nil
 			}
 
-			return followTriggeredRun(cmd, client, resolvedPath, resp, interval)
+			return followTriggeredRun(cmd, client, resolvedPath, resp, interval, resultOnly)
 		},
 	}
 
@@ -429,6 +434,7 @@ Related commands:
 	cmd.Flags().DurationVar(&interval, "follow-interval", 500*time.Millisecond, "Polling interval when following runs")
 	cmd.Flags().BoolVar(&fuzzyMatch, "fuzzy", false, "Enable fuzzy matching for job names")
 	cmd.Flags().BoolVar(&noInteractive, "non-interactive", false, "Disable interactive selection (fail on ambiguous matches)")
+	cmd.Flags().BoolVar(&resultOnly, "result", false, "Output only the final build result (requires --follow)")
 	cmd.Flags().BoolVar(&waitEnabled, "wait", false, "Wait for build to complete (no log streaming)")
 	cmd.Flags().DurationVar(&waitInterval, "interval", 2*time.Second, "Polling interval when waiting")
 	cmd.Flags().DurationVar(&waitTimeout, "timeout", 0, "Maximum time to wait (0 = no timeout)")
@@ -1017,6 +1023,8 @@ func renderRunListHuman(cmd *cobra.Command, output runListOutput, opts runListOp
 }
 
 func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
+	var resultOnly bool
+	var exitStatus bool
 	var waitEnabled bool
 	var waitInterval time.Duration
 	var waitTimeout time.Duration
@@ -1026,6 +1034,11 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 		Short: "View run details",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate mutual exclusivity
+			if resultOnly && (shared.WantsJSON(cmd) || shared.WantsYAML(cmd)) {
+				return fmt.Errorf("--result cannot be combined with --json or --yaml")
+			}
+
 			client, err := shared.JenkinsClient(cmd, f)
 			if err != nil {
 				return err
@@ -1071,6 +1084,25 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 
 			output := buildRunDetailOutput(args[0], detail, testReport)
 
+			// Handle --result flag
+			if resultOnly {
+				result := strings.ToUpper(output.Result)
+				if result == "" || detail.Building {
+					result = "RUNNING"
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), result)
+
+				// Apply exit-status if requested
+				if exitStatus {
+					code := exitCodeForResult(result)
+					if code != 0 {
+						return shared.NewExitError(code, "")
+					}
+				}
+				return nil
+			}
+
+			// Normal output
 			if err := shared.PrintOutput(cmd, output, func() error {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Run #%d (%s)\n", output.Number, output.Status)
 				if output.Result != "" {
@@ -1098,6 +1130,14 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
+			// Apply exit-status after normal output
+			if exitStatus {
+				code := exitCodeForResult(output.Result)
+				if code != 0 {
+					return shared.NewExitError(code, "")
+				}
+			}
+
 			// --wait always returns exit codes (consistent with --follow)
 			// Use waitResult from waitForCompletion when available, otherwise use output.Result
 			if waitEnabled {
@@ -1115,6 +1155,8 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&resultOnly, "result", false, "Output only the build result (e.g., SUCCESS, FAILURE)")
+	cmd.Flags().BoolVar(&exitStatus, "exit-status", false, "Exit with code based on build result")
 	cmd.Flags().BoolVar(&waitEnabled, "wait", false, "Wait for build to complete (no log streaming)")
 	cmd.Flags().DurationVar(&waitInterval, "interval", 2*time.Second, "Polling interval when waiting")
 	cmd.Flags().DurationVar(&waitTimeout, "timeout", 0, "Maximum time to wait (0 = no timeout)")
@@ -1179,6 +1221,7 @@ func newRunCancelCmd(f *cmdutil.Factory) *cobra.Command {
 func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 	var follow bool
 	var interval time.Duration
+	var resultOnly bool
 	var waitEnabled bool
 	var waitInterval time.Duration
 	var waitTimeout time.Duration
@@ -1188,6 +1231,10 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 		Short: "Rerun a job using the previous parameters",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate --result requires --follow
+			if resultOnly && !follow {
+				return fmt.Errorf("--result requires --follow flag")
+			}
 			// Validate --wait and --follow are mutually exclusive
 			if waitEnabled && follow {
 				return fmt.Errorf("--wait and --follow are mutually exclusive")
@@ -1214,7 +1261,7 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			if !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) {
+			if !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) && !resultOnly {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Triggered rerun for %s #%d\n", args[0], num)
 			}
 
@@ -1274,12 +1321,13 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 				return nil
 			}
 
-			return followTriggeredRun(cmd, client, args[0], resp, interval)
+			return followTriggeredRun(cmd, client, args[0], resp, interval, resultOnly)
 		},
 	}
 
 	cmd.Flags().BoolVar(&follow, "follow", false, "Follow the rerun progress until completion")
 	cmd.Flags().DurationVar(&interval, "follow-interval", 500*time.Millisecond, "Polling interval when following runs")
+	cmd.Flags().BoolVar(&resultOnly, "result", false, "Output only the final build result (requires --follow)")
 	cmd.Flags().BoolVar(&waitEnabled, "wait", false, "Wait for build to complete (no log streaming)")
 	cmd.Flags().DurationVar(&waitInterval, "interval", 2*time.Second, "Polling interval when waiting")
 	cmd.Flags().DurationVar(&waitTimeout, "timeout", 0, "Maximum time to wait (0 = no timeout)")
@@ -1362,17 +1410,27 @@ func triggerBuild(client *jenkins.Client, jobPath string, params map[string]stri
 	return resp, nil
 }
 
-func followTriggeredRun(cmd *cobra.Command, client *jenkins.Client, jobPath string, resp *resty.Response, interval time.Duration) error {
+func followTriggeredRun(cmd *cobra.Command, client *jenkins.Client, jobPath string, resp *resty.Response, interval time.Duration, resultOnly bool) error {
 	queueLocation := queueLocationFromResponse(resp)
 	buildNumber, err := waitForBuildNumber(client, queueLocation, 5*time.Minute)
 	if err != nil {
 		return err
 	}
 
-	streamLogs := !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd)
+	streamLogs := !shared.WantsJSON(cmd) && !shared.WantsYAML(cmd) && !resultOnly
 	result, err := monitorRun(cmd, client, jobPath, buildNumber, interval, streamLogs)
 	if err != nil {
 		return err
+	}
+
+	// Handle --result flag: output only the result
+	if resultOnly {
+		fmt.Fprintln(cmd.OutOrStdout(), strings.ToUpper(result))
+		code := exitCodeForResult(result)
+		if code == 0 {
+			return nil
+		}
+		return shared.NewExitError(code, "")
 	}
 
 	if shared.WantsJSON(cmd) || shared.WantsYAML(cmd) {
@@ -1554,6 +1612,8 @@ func exitCodeForResult(result string) int {
 		return 12
 	case "NOT_BUILT":
 		return 13
+	case "RUNNING":
+		return 14
 	default:
 		return 0
 	}

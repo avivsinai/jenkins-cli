@@ -57,7 +57,19 @@ func WantsYAML(cmd *cobra.Command) bool {
 }
 
 func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error {
+	// Validate --jq requires --json.
+	// This validation happens at output time which is acceptable for CLI tools since
+	// the error is deterministic and occurs early in the output phase. This approach
+	// keeps flag validation consolidated with output logic rather than scattered
+	// across each command's RunE function.
+	if WantsJQ(cmd) && !WantsJSON(cmd) {
+		return fmt.Errorf("--jq requires --json flag")
+	}
+
 	if WantsJSON(cmd) {
+		if WantsJQ(cmd) {
+			return ApplyJQ(data, GetJQExpression(cmd), cmd.OutOrStdout())
+		}
 		encoded, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			return err
