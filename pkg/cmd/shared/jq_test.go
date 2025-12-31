@@ -16,6 +16,12 @@ func TestApplyJQ(t *testing.T) {
 		wantErr    bool
 	}{
 		{
+			name:       "identity expression returns entire input",
+			data:       map[string]interface{}{"result": "SUCCESS", "number": 42},
+			expression: ".",
+			want:       "{\n  \"number\": 42,\n  \"result\": \"SUCCESS\"\n}\n",
+		},
+		{
 			name:       "string field without quotes",
 			data:       map[string]interface{}{"result": "SUCCESS"},
 			expression: ".result",

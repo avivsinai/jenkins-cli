@@ -28,6 +28,10 @@ func ApplyJQ(data interface{}, expression string, w io.Writer) error {
 		return fmt.Errorf("invalid jq expression: %w", err)
 	}
 
+	// Marshal then unmarshal to normalize Go structs into JSON-compatible maps.
+	// This is intentional: gojq expects map[string]interface{} (not typed structs),
+	// and this round-trip ensures consistent behavior regardless of input type
+	// (struct, map, slice, etc.) by converting everything to the JSON data model.
 	jsonBytes, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("marshal data for jq: %w", err)

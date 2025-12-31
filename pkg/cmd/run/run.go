@@ -1463,6 +1463,8 @@ func exitCodeForResult(result string) int {
 		return 12
 	case "NOT_BUILT":
 		return 13
+	case "RUNNING":
+		return 14
 	default:
 		return 0
 	}

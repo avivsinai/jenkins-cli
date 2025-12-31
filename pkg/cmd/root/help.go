@@ -198,6 +198,7 @@ func defaultExitCodes() map[string]string {
 		"11": "Build result: FAILURE",
 		"12": "Build result: ABORTED",
 		"13": "Build result: NOT_BUILT",
+		"14": "Build result: RUNNING (in-progress)",
 	}
 }
 
