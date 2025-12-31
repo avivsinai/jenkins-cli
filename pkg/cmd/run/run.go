@@ -1568,6 +1568,11 @@ func exitCodeForResult(result string) int {
 func waitForCompletion(ctx context.Context, client *jenkins.Client,
 	jobPath string, buildNumber int64, interval, timeout time.Duration) (string, error) {
 
+	// Validate interval to prevent ticker panic (time.NewTicker panics on interval <= 0)
+	if interval <= 0 {
+		return "", fmt.Errorf("polling interval must be positive, got %v", interval)
+	}
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
