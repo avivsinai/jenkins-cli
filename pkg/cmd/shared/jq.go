@@ -54,7 +54,7 @@ func ApplyJQ(data interface{}, expression string, w io.Writer) error {
 
 		// gh-ux pattern: strings without quotes
 		if s, isString := v.(string); isString {
-			fmt.Fprintln(w, s)
+			_, _ = fmt.Fprintln(w, s)
 			continue
 		}
 
@@ -62,7 +62,7 @@ func ApplyJQ(data interface{}, expression string, w io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("format jq result: %w", err)
 		}
-		fmt.Fprintln(w, string(output))
+		_, _ = fmt.Fprintln(w, string(output))
 	}
 	return nil
 }

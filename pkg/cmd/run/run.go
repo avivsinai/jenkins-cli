@@ -1090,7 +1090,7 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 				if result == "" || detail.Building {
 					result = "RUNNING"
 				}
-				fmt.Fprintln(cmd.OutOrStdout(), result)
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), result)
 
 				// Apply exit-status if requested
 				if exitStatus {
@@ -1425,7 +1425,7 @@ func followTriggeredRun(cmd *cobra.Command, client *jenkins.Client, jobPath stri
 
 	// Handle --result flag: output only the result
 	if resultOnly {
-		fmt.Fprintln(cmd.OutOrStdout(), strings.ToUpper(result))
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), strings.ToUpper(result))
 		code := exitCodeForResult(result)
 		if code == 0 {
 			return nil
