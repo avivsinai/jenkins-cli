@@ -46,10 +46,11 @@ func ResolveContextName(cmd *cobra.Command, cfg *config.Config) (string, error) 
 	return name, nil
 }
 
-// GetOutputFormat returns the requested output format from --output flag.
+// GetOutputFormat returns the requested output format from --format flag.
 // Returns empty string for default human-readable output.
+// Note: Using --format instead of --output to avoid conflict with artifact --output/-o flag.
 func GetOutputFormat(cmd *cobra.Command) string {
-	v, _ := cmd.Root().PersistentFlags().GetString("output")
+	v, _ := cmd.Root().PersistentFlags().GetString("format")
 	return strings.ToLower(strings.TrimSpace(v))
 }
 
@@ -73,19 +74,19 @@ func WantsTable(cmd *cobra.Command) bool {
 }
 
 func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error {
-	// Check for conflicting output flags: --json/--yaml boolean flags cannot be used with --output
+	// Check for conflicting output flags: --json/--yaml boolean flags cannot be used with --format
 	jsonFlagSet, _ := cmd.Root().PersistentFlags().GetBool("json")
 	yamlFlagSet, _ := cmd.Root().PersistentFlags().GetBool("yaml")
 	if (jsonFlagSet || yamlFlagSet) && GetOutputFormat(cmd) != "" {
-		return fmt.Errorf("cannot use --json or --yaml with --output flag")
+		return fmt.Errorf("cannot use --json or --yaml with --format flag")
 	}
 
-	// Validate --template requires --json.
+	// Validate --template requires --json (either --json flag or --format=json).
 	// Note: This validation happens here (rather than at flag parsing) for consistency
 	// with how we handle other flag combinations. All format validations are centralized
 	// in PrintOutput to keep the validation logic in one place.
 	if WantsTemplate(cmd) && !WantsJSON(cmd) {
-		return fmt.Errorf("--template requires --json flag")
+		return fmt.Errorf("--template requires --json or --format=json")
 	}
 
 	if WantsJSON(cmd) {
