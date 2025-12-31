@@ -368,7 +368,11 @@ Related commands:
 						return nil
 					})
 				}
-				// In quiet mode, output just the build number
+				// In quiet mode, output just the build number.
+				// NOTE: This intentionally blocks waiting for the build number (up to 5 minutes)
+				// because the primary use case for quiet mode is scripting, where the caller
+				// needs the build number to track/poll the build status. Without blocking,
+				// we could only return the queue item URL which is less useful.
 				if shared.WantsQuiet(cmd) {
 					queueLocation := queueLocationFromResponse(resp)
 					buildNumber, err := waitForBuildNumber(client, queueLocation, 5*time.Minute)
@@ -1134,7 +1138,11 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 						return nil
 					})
 				}
-				// In quiet mode, output just the build number
+				// In quiet mode, output just the build number.
+				// NOTE: This intentionally blocks waiting for the build number (up to 5 minutes)
+				// because the primary use case for quiet mode is scripting, where the caller
+				// needs the build number to track/poll the build status. Without blocking,
+				// we could only return the queue item URL which is less useful.
 				if shared.WantsQuiet(cmd) {
 					queueLocation := queueLocationFromResponse(resp)
 					buildNumber, err := waitForBuildNumber(client, queueLocation, 5*time.Minute)

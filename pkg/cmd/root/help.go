@@ -202,6 +202,7 @@ func defaultExitCodes() map[string]string {
 func defaultEnvVars() map[string]string {
 	return map[string]string{
 		"JK_CONTEXT": "Override the active Jenkins context (same as --context/-c flag)",
+		"JK_QUIET":   "Enable quiet mode for supported commands (same as --quiet/-q flag)",
 	}
 }
 

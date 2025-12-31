@@ -56,10 +56,16 @@ func WantsYAML(cmd *cobra.Command) bool {
 	return v
 }
 
-// WantsQuiet returns true if --quiet/-q flag is set.
+// WantsQuiet returns true if --quiet/-q flag is set or JK_QUIET env var is present.
+// Currently supported by: run start, run rerun.
+// Other commands (view, cancel, ls) do not implement quiet mode as they primarily
+// output structured data where --json is more appropriate.
 func WantsQuiet(cmd *cobra.Command) bool {
-	v, _ := cmd.Root().PersistentFlags().GetBool("quiet")
-	return v
+	if v, _ := cmd.Root().PersistentFlags().GetBool("quiet"); v {
+		return true
+	}
+	_, hasEnv := os.LookupEnv("JK_QUIET")
+	return hasEnv
 }
 
 func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error {
