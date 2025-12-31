@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.13] - 2025-12-31
+
 ### Changed
 - `--format` now validates allowed values (`json`, `yaml`) and rejects unsupported formats.
 - `--json`/`--yaml` and `--format` conflicts are validated up front with gh-style errors.
