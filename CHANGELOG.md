@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.12] - 2025-12-31
+
+### Added
+- `--jq` flag for filtering JSON output using jq expressions (`jk run view --json --jq '.result'`)
+- `--result` flag to output only the build result (SUCCESS, FAILURE, etc.)
+- `--exit-status` flag to exit with code based on build result
+- `--wait` flag for blocking until build completes without log streaming
+- `--quiet`/`-q` flag to suppress non-essential output (outputs build number in scripting mode)
+- `--summary` flag for human-readable build summary with colors and status symbols
+- `--template`/`-t` flag for Go template output formatting
+- `--format` flag for output format selection (json, yaml, table)
+- `JK_QUIET` environment variable support
+- Documented `JK_CONTEXT` environment variable in help text
+
+### Fixed
+- Interval validation in `--wait` to prevent ticker panic on zero/negative values
+
 ## [0.0.11] - 2025-12-14
 - CI: upgraded golangci-lint-action to v9 and golangci-lint to v2.
 - CI: stabilized required check names for branch protection.
