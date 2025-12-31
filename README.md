@@ -16,6 +16,7 @@
 
 - **Context-aware auth** – store multiple controllers, switch with `jk context use`, or pin a context via `JK_CONTEXT`.
 - **Friendly pipelines** – trigger, rerun, follow, and summarize jobs with human or JSON/YAML output.
+- **Scriptable output** – `--format json|yaml`, `--jq`, and `--template` for machine-friendly pipelines; `--quiet` for scripting.
 - **Discovery-first runs** – filter with `--filter`, bound history with `--since`, group by parameters, and attach machine-readable metadata for agents.
 - **Artifacts & tests** – browse artifacts, download filtered sets, and surface aggregated test reports.
 - **Platform operations** – cordon nodes, manage credentials, inspect queues, and view installed plugins.
@@ -61,7 +62,15 @@ jk run view team/app/pipeline 128 --follow         # stream logs until completio
 jk artifact download team/app/pipeline 128 -p "**/*.xml" -o out/
 ```
 
-Add `--json` or `--yaml` to supported commands for machine-readable output.
+Add `--json`, `--yaml`, or `--format json|yaml` to supported commands for machine-readable output. Use `--jq` or `--template` to select or reshape JSON results.
+
+```bash
+# Extract a single field with jq
+jk run view team/app/pipeline 128 --format json --jq '.result'
+
+# Custom formatting with Go templates
+jk run view team/app/pipeline 128 --format json --template 'Result={{.result}}'
+```
 
 ## Documentation
 

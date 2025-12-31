@@ -12,6 +12,8 @@ func TestApplyJQ(t *testing.T) {
 		name       string
 		data       interface{}
 		expression string
+		pretty     bool
+		prettySet  bool
 		want       string
 		wantErr    bool
 	}{
@@ -81,12 +83,24 @@ func TestApplyJQ(t *testing.T) {
 			expression: ".items[] | select(.n > 1) | .n",
 			want:       "2\n3\n",
 		},
+		{
+			name:       "compact output when not pretty",
+			data:       map[string]interface{}{"result": "SUCCESS", "number": 42},
+			expression: ".",
+			pretty:     false,
+			prettySet:  true,
+			want:       "{\"number\":42,\"result\":\"SUCCESS\"}\n",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			err := ApplyJQ(tt.data, tt.expression, &buf)
+			pretty := true
+			if tt.prettySet {
+				pretty = tt.pretty
+			}
+			err := ApplyJQ(tt.data, tt.expression, &buf, pretty)
 
 			if tt.wantErr {
 				require.Error(t, err)

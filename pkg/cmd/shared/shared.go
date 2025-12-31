@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
@@ -68,11 +70,6 @@ func WantsYAML(cmd *cobra.Command) bool {
 	return GetOutputFormat(cmd) == "yaml"
 }
 
-// WantsTable returns true if table output is requested via --output=table
-func WantsTable(cmd *cobra.Command) bool {
-	return GetOutputFormat(cmd) == "table"
-}
-
 // WantsQuiet returns true if --quiet/-q flag is set or JK_QUIET env var is present.
 // Currently supported by: run start, run rerun.
 // Other commands (view, cancel, ls) do not implement quiet mode as they primarily
@@ -85,39 +82,51 @@ func WantsQuiet(cmd *cobra.Command) bool {
 	return hasEnv
 }
 
-func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error {
-	// Validate --jq requires --json.
-	if WantsJQ(cmd) && !WantsJSON(cmd) {
-		return fmt.Errorf("--jq requires --json flag")
+// ValidateOutputFlags enforces output flag combinations and supported formats.
+func ValidateOutputFlags(cmd *cobra.Command) error {
+	format := GetOutputFormat(cmd)
+	if format != "" {
+		switch format {
+		case "json", "yaml":
+		default:
+			return fmt.Errorf("invalid value for --format: %q (valid: json, yaml)", format)
+		}
 	}
 
-	// Check for conflicting output flags: --json/--yaml boolean flags cannot be used with --format
 	jsonFlagSet, _ := cmd.Root().PersistentFlags().GetBool("json")
 	yamlFlagSet, _ := cmd.Root().PersistentFlags().GetBool("yaml")
-	if (jsonFlagSet || yamlFlagSet) && GetOutputFormat(cmd) != "" {
-		return fmt.Errorf("cannot use --json or --yaml with --format flag")
+	if (jsonFlagSet || yamlFlagSet) && format != "" {
+		return fmt.Errorf("cannot use `--json` or `--yaml` with `--format`")
 	}
 
-	// Validate --template requires --json or --format=json
+	if WantsJQ(cmd) && !WantsJSON(cmd) {
+		return fmt.Errorf("cannot use `--jq` without specifying `--json` or `--format json`")
+	}
+
 	if WantsTemplate(cmd) && !WantsJSON(cmd) {
-		return fmt.Errorf("--template requires --json or --format=json")
+		return fmt.Errorf("cannot use `--template` without specifying `--json` or `--format json`")
+	}
+
+	return nil
+}
+
+func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error {
+	if err := ValidateOutputFlags(cmd); err != nil {
+		return err
 	}
 
 	if WantsJSON(cmd) {
+		out := cmd.OutOrStdout()
+		pretty := isTTYWriter(out)
 		// Handle --jq flag
 		if WantsJQ(cmd) {
-			return ApplyJQ(data, GetJQExpression(cmd), cmd.OutOrStdout())
+			return ApplyJQ(data, GetJQExpression(cmd), out, pretty)
 		}
 		// Handle --template flag
 		if WantsTemplate(cmd) {
-			return ApplyTemplate(data, GetTemplate(cmd), cmd.OutOrStdout())
+			return ApplyTemplate(data, GetTemplate(cmd), out)
 		}
-		encoded, err := json.MarshalIndent(data, "", "  ")
-		if err != nil {
-			return err
-		}
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(encoded))
-		return nil
+		return writeJSON(out, data, pretty)
 	}
 	if WantsYAML(cmd) {
 		encoded, err := yaml.Marshal(data)
@@ -128,6 +137,25 @@ func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error
 		return nil
 	}
 	return human()
+}
+
+func writeJSON(w io.Writer, data interface{}, pretty bool) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	if pretty {
+		encoder.SetIndent("", "  ")
+	}
+	return encoder.Encode(data)
+}
+
+func isTTYWriter(w io.Writer) bool {
+	type fdWriter interface {
+		Fd() uintptr
+	}
+	if f, ok := w.(fdWriter); ok {
+		return isatty.IsTerminal(f.Fd()) || isatty.IsCygwinTerminal(f.Fd())
+	}
+	return false
 }
 
 func JenkinsClient(cmd *cobra.Command, f *cmdutil.Factory) (*jenkins.Client, error) {

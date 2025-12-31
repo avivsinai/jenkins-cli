@@ -10,6 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/avivsinai/jenkins-cli/pkg/cmd/shared"
 )
 
 type helpDocument struct {
@@ -167,20 +169,12 @@ func collectExamples(example string) []string {
 }
 
 func wantsJSONOutput(cmd *cobra.Command) bool {
-	root := cmd.Root()
-	if root == nil {
-		return false
-	}
-	flag := root.PersistentFlags().Lookup("json")
-	if flag == nil {
-		return false
-	}
-	value := strings.ToLower(strings.TrimSpace(flag.Value.String()))
-	return value == "true"
+	return shared.WantsJSON(cmd)
 }
 
 func printHelpJSON(cmd *cobra.Command, doc helpDocument) error {
 	encoder := json.NewEncoder(cmd.OutOrStdout())
+	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(doc)
 }

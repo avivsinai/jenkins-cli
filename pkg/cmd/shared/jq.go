@@ -22,7 +22,7 @@ func WantsJQ(cmd *cobra.Command) bool {
 
 // ApplyJQ executes a jq expression on data and writes results to w.
 // Strings are output without quotes (gh-ux pattern).
-func ApplyJQ(data interface{}, expression string, w io.Writer) error {
+func ApplyJQ(data interface{}, expression string, w io.Writer, pretty bool) error {
 	query, err := gojq.Parse(expression)
 	if err != nil {
 		return fmt.Errorf("invalid jq expression: %w", err)
@@ -42,6 +42,12 @@ func ApplyJQ(data interface{}, expression string, w io.Writer) error {
 		return fmt.Errorf("unmarshal for jq: %w", err)
 	}
 
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	if pretty {
+		encoder.SetIndent("", "  ")
+	}
+
 	iter := query.Run(input)
 	for {
 		v, ok := iter.Next()
@@ -58,11 +64,9 @@ func ApplyJQ(data interface{}, expression string, w io.Writer) error {
 			continue
 		}
 
-		output, err := json.MarshalIndent(v, "", "  ")
-		if err != nil {
+		if err := encoder.Encode(v); err != nil {
 			return fmt.Errorf("format jq result: %w", err)
 		}
-		_, _ = fmt.Fprintln(w, string(output))
 	}
 	return nil
 }

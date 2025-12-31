@@ -289,7 +289,11 @@ When the run is still executing the snapshot may be truncated; the `truncated` f
       "flags": [
         {"name": "context", "shorthand": "c", "type": "string", "description": "Active Jenkins context name", "default": "", "persistent": true},
         {"name": "json", "type": "bool", "description": "Output in JSON format when supported", "default": "false", "persistent": true},
-        {"name": "yaml", "type": "bool", "description": "Output in YAML format when supported", "default": "false", "persistent": true}
+        {"name": "yaml", "type": "bool", "description": "Output in YAML format when supported", "default": "false", "persistent": true},
+        {"name": "jq", "type": "string", "description": "Filter JSON output using jq expression (requires --json or --format=json)", "default": "", "persistent": true},
+        {"name": "quiet", "shorthand": "q", "type": "bool", "description": "Suppress non-essential output", "default": "false", "persistent": true},
+        {"name": "format", "type": "string", "description": "Output format: json, yaml", "default": "", "persistent": true},
+        {"name": "template", "shorthand": "t", "type": "string", "description": "Format output using Go template (requires --json or --format=json)", "default": "", "persistent": true}
       ],
       "subcommands": [
         {
@@ -313,7 +317,12 @@ When the run is still executing the snapshot may be truncated; the `truncated` f
     "5": "Permission denied",
     "6": "Connectivity/DNS/TLS failure",
     "7": "Timeout",
-    "8": "Feature unsupported"
+    "8": "Feature unsupported",
+    "10": "Build result: UNSTABLE",
+    "11": "Build result: FAILURE",
+    "12": "Build result: ABORTED",
+    "13": "Build result: NOT_BUILT",
+    "14": "Build result: RUNNING (in-progress)"
   }
 }
 ```

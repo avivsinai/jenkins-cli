@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `--format` now validates allowed values (`json`, `yaml`) and rejects unsupported formats.
+- `--json`/`--yaml` and `--format` conflicts are validated up front with gh-style errors.
+- `--jq`/`--template` validations run before command execution and accept `--format=json`.
+- JSON and jq outputs are pretty-printed only when stdout is a TTY; piped output is compact.
+
 ## [0.0.12] - 2025-12-31
 
 ### Added

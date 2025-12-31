@@ -8,7 +8,7 @@
 ## 2. Goals
 - Time-to-first-run under 60 seconds from `jk auth login` to `jk run start`.
 - Uniform, scriptable coverage for Jenkins essentials: contexts, jobs/pipelines, runs, logs, artifacts, tests, credentials, nodes, queue, plugins, configuration-as-code, events, metrics.
-- Developer-friendly defaults: human output with optional `--json`/`--yaml`, colorized summaries, auto-completions, and extension support.
+- Developer-friendly defaults: human output with optional `--json`/`--yaml`/`--format json|yaml`, colorized summaries, auto-completions, and extension support.
 - Safe-by-default mutations with clear capability detection, dry-run flags, and respect for Jenkins RBAC and CSRF protections.
 - Modular architecture that works against stock Jenkins installs while unlocking richer UX when the companion plugin is installed.
 
@@ -80,7 +80,7 @@ Key workflows the CLI must make trivial:
 - **Extensions**
   - Install and manage exec-based extensions (`jk extension install <repo>`, `jk extension ls|rm`).
 - **General UX**
-  - Support `--json`/`--yaml` output and template-friendly fields.
+- Support `--json`/`--yaml`/`--format` output and template-friendly fields.
   - Provide shell completions (bash/zsh/fish) and context-aware prompts.
   - Return normative exit codes detailed in §9.6, including specialized mappings for `jk run --follow`.
   - Telemetry is opt-in via `jk analytics enable|disable` or `JK_ANALYTICS=0|1`; default is disabled.
@@ -156,7 +156,7 @@ Key workflows the CLI must make trivial:
 | `extension`    | `jk extension install`, `jk extension ls`, `jk extension rm`    | Exec-based, loads `jk-<name>` on PATH. |
 | `config`       | `jk config set|get|unset`                                       | Manage CLI preferences. |
 | `analytics`    | `jk analytics enable`, `jk analytics disable`, `jk analytics status` | Manage opt-in telemetry state. |
-| Global flags   | `--context`, `--url`, `--token`, `--insecure`, `--json`, `--yaml`, `--quiet`, `--color=auto|always|never`, `--trace` | CLI resolves context precedence: flag > env > active context. |
+| Global flags   | `--context`, `--url`, `--token`, `--insecure`, `--json`, `--yaml`, `--format`, `--jq`, `--template`, `--quiet`, `--color=auto|always|never`, `--trace` | CLI resolves context precedence: flag > env > active context. |
 
 ### 9.2 Configuration & State
 - Config file `config.yaml` holds contexts (name, URL, username), toggles (color, pager).
@@ -183,7 +183,9 @@ Key workflows the CLI must make trivial:
 
 ### 9.4 Output & UX
 - Human output includes concise tables or cards; use color when stdout is TTY.
-- `--json` returns stable JSON schema documented per command; CLI uses struct tags and `omitempty`.
+- `--json`/`--yaml`/`--format json|yaml` return stable schemas documented per command; CLI uses struct tags and `omitempty`.
+- `--jq` and `--template` are JSON-only formatters; they are rejected unless JSON output is selected.
+- JSON output is pretty-printed only when stdout is a TTY; piped output is compact.
 - Support pagination flags `--limit`, `--after` for list commands; CLI surfaces server pagination (if plugin adds support) via `Link` headers.
 - Provide `--open` flag for commands that can open Jenkins UI in browser (optional, off by default).
 - Autocomplete scripts generated via Cobra's built-in support.
@@ -215,8 +217,9 @@ Key workflows the CLI must make trivial:
 | FAILURE   | 11        |
 | ABORTED   | 12        |
 | NOT_BUILT | 13        |
+| RUNNING   | 14        |
 
-Other commands keep the general-purpose codes, surfaced consistently in help text and docs.
+`jk run view --result --exit-status` also uses RUNNING=14 when a build is still in progress. Other commands keep the general-purpose codes, surfaced consistently in help text and docs.
 
 ### 9.7 Discovery flags, cursors & metadata
 - `jk run ls` accepts composable discovery flags:

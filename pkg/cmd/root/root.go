@@ -17,6 +17,7 @@ import (
 	"github.com/avivsinai/jenkins-cli/pkg/cmd/queue"
 	runcmd "github.com/avivsinai/jenkins-cli/pkg/cmd/run"
 	searchcmd "github.com/avivsinai/jenkins-cli/pkg/cmd/search"
+	"github.com/avivsinai/jenkins-cli/pkg/cmd/shared"
 	testcmd "github.com/avivsinai/jenkins-cli/pkg/cmd/test"
 	"github.com/avivsinai/jenkins-cli/pkg/cmd/version"
 	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
@@ -47,11 +48,21 @@ Quick start:
 	root.PersistentFlags().StringP("context", "c", "", "Active Jenkins context name (or set JK_CONTEXT env var)")
 	root.PersistentFlags().Bool("json", false, "Output in JSON format when supported")
 	root.PersistentFlags().Bool("yaml", false, "Output in YAML format when supported")
-	root.PersistentFlags().String("jq", "", "Filter JSON output using jq expression (requires --json)")
+	root.PersistentFlags().String("jq", "", "Filter JSON output using jq expression (requires --json or --format=json)")
 	root.PersistentFlags().BoolP("quiet", "q", false, "Suppress non-essential output")
 	// Note: Using --format instead of --output to avoid conflict with artifact --output/-o flag
-	root.PersistentFlags().String("format", "", "Output format: json, yaml, table")
+	root.PersistentFlags().String("format", "", "Output format: json, yaml")
 	root.PersistentFlags().StringP("template", "t", "", "Format output using Go template (requires --json or --format=json)")
+
+	oldPersistentPreRun := root.PersistentPreRunE
+	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if oldPersistentPreRun != nil {
+			if err := oldPersistentPreRun(cmd, args); err != nil {
+				return err
+			}
+		}
+		return shared.ValidateOutputFlags(cmd)
+	}
 
 	root.AddCommand(
 		auth.NewCmdAuth(f),
