@@ -1042,6 +1042,7 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 	var waitEnabled bool
 	var waitInterval time.Duration
 	var waitTimeout time.Duration
+	var summaryOnly bool
 
 	cmd := &cobra.Command{
 		Use:   "view <jobPath> <buildNumber>",
@@ -1051,6 +1052,10 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 			// Validate mutual exclusivity
 			if resultOnly && (shared.WantsJSON(cmd) || shared.WantsYAML(cmd)) {
 				return fmt.Errorf("--result cannot be combined with --json or --yaml")
+			}
+			// Validate --summary cannot be combined with --json or --yaml
+			if summaryOnly && (shared.WantsJSON(cmd) || shared.WantsYAML(cmd)) {
+				return fmt.Errorf("--summary cannot be combined with --json or --yaml")
 			}
 
 			client, err := shared.JenkinsClient(cmd, f)
@@ -1116,6 +1121,11 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 				return nil
 			}
 
+			// Handle --summary flag
+			if summaryOnly {
+				return printRunSummary(cmd, output)
+			}
+
 			// Normal output
 			if err := shared.PrintOutput(cmd, output, func() error {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Run #%d (%s)\n", output.Number, output.Status)
@@ -1174,6 +1184,7 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().BoolVar(&waitEnabled, "wait", false, "Wait for build to complete (no log streaming)")
 	cmd.Flags().DurationVar(&waitInterval, "interval", 2*time.Second, "Polling interval when waiting")
 	cmd.Flags().DurationVar(&waitTimeout, "timeout", 0, "Maximum time to wait (0 = no timeout)")
+	cmd.Flags().BoolVar(&summaryOnly, "summary", false, "Show human-readable build summary")
 
 	return cmd
 }

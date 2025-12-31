@@ -49,6 +49,9 @@ Quick start:
 	root.PersistentFlags().Bool("yaml", false, "Output in YAML format when supported")
 	root.PersistentFlags().String("jq", "", "Filter JSON output using jq expression (requires --json)")
 	root.PersistentFlags().BoolP("quiet", "q", false, "Suppress non-essential output")
+	// Note: Using --format instead of --output to avoid conflict with artifact --output/-o flag
+	root.PersistentFlags().String("format", "", "Output format: json, yaml, table")
+	root.PersistentFlags().StringP("template", "t", "", "Format output using Go template (requires --json or --format=json)")
 
 	root.AddCommand(
 		auth.NewCmdAuth(f),

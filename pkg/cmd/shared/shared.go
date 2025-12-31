@@ -46,14 +46,31 @@ func ResolveContextName(cmd *cobra.Command, cfg *config.Config) (string, error) 
 	return name, nil
 }
 
+// GetOutputFormat returns the requested output format from --format flag.
+// Returns empty string for default human-readable output.
+// Note: Using --format instead of --output to avoid conflict with artifact --output/-o flag.
+func GetOutputFormat(cmd *cobra.Command) string {
+	v, _ := cmd.Root().PersistentFlags().GetString("format")
+	return strings.ToLower(strings.TrimSpace(v))
+}
+
 func WantsJSON(cmd *cobra.Command) bool {
-	v, _ := cmd.Root().PersistentFlags().GetBool("json")
-	return v
+	if v, _ := cmd.Root().PersistentFlags().GetBool("json"); v {
+		return true
+	}
+	return GetOutputFormat(cmd) == "json"
 }
 
 func WantsYAML(cmd *cobra.Command) bool {
-	v, _ := cmd.Root().PersistentFlags().GetBool("yaml")
-	return v
+	if v, _ := cmd.Root().PersistentFlags().GetBool("yaml"); v {
+		return true
+	}
+	return GetOutputFormat(cmd) == "yaml"
+}
+
+// WantsTable returns true if table output is requested via --output=table
+func WantsTable(cmd *cobra.Command) bool {
+	return GetOutputFormat(cmd) == "table"
 }
 
 // WantsQuiet returns true if --quiet/-q flag is set or JK_QUIET env var is present.
@@ -70,17 +87,30 @@ func WantsQuiet(cmd *cobra.Command) bool {
 
 func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error {
 	// Validate --jq requires --json.
-	// This validation happens at output time which is acceptable for CLI tools since
-	// the error is deterministic and occurs early in the output phase. This approach
-	// keeps flag validation consolidated with output logic rather than scattered
-	// across each command's RunE function.
 	if WantsJQ(cmd) && !WantsJSON(cmd) {
 		return fmt.Errorf("--jq requires --json flag")
 	}
 
+	// Check for conflicting output flags: --json/--yaml boolean flags cannot be used with --format
+	jsonFlagSet, _ := cmd.Root().PersistentFlags().GetBool("json")
+	yamlFlagSet, _ := cmd.Root().PersistentFlags().GetBool("yaml")
+	if (jsonFlagSet || yamlFlagSet) && GetOutputFormat(cmd) != "" {
+		return fmt.Errorf("cannot use --json or --yaml with --format flag")
+	}
+
+	// Validate --template requires --json or --format=json
+	if WantsTemplate(cmd) && !WantsJSON(cmd) {
+		return fmt.Errorf("--template requires --json or --format=json")
+	}
+
 	if WantsJSON(cmd) {
+		// Handle --jq flag
 		if WantsJQ(cmd) {
 			return ApplyJQ(data, GetJQExpression(cmd), cmd.OutOrStdout())
+		}
+		// Handle --template flag
+		if WantsTemplate(cmd) {
+			return ApplyTemplate(data, GetTemplate(cmd), cmd.OutOrStdout())
 		}
 		encoded, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
