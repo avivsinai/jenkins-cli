@@ -1,0 +1,187 @@
+Metadata-Version: 2.4
+Name: svcs
+Version: 25.1.0
+Summary: A Flexible Service Locator
+Project-URL: Changelog, https://github.com/hynek/svcs/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://svcs.hynek.me/
+Project-URL: GitHub, https://github.com/hynek/svcs
+Project-URL: Funding, https://github.com/sponsors/hynek
+Project-URL: Mastodon, https://mastodon.social/@hynek
+Project-URL: Twitter, https://twitter.com/hynek
+Author-email: Hynek Schlawack <hs@ox.cx>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: aiohttp,dependency injection,fastapi,flask,inversion of control,pyramid,service locator,starlette
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Requires-Dist: attrs>=21.3.0
+Provides-Extra: dev
+Requires-Dist: aiohttp; extra == 'dev'
+Requires-Dist: fastapi; extra == 'dev'
+Requires-Dist: flask; extra == 'dev'
+Requires-Dist: httpx; extra == 'dev'
+Requires-Dist: mypy>=1.4; extra == 'dev'
+Requires-Dist: pyramid; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-asyncio; extra == 'dev'
+Requires-Dist: starlette; extra == 'dev'
+Requires-Dist: sybil>=6; extra == 'dev'
+Requires-Dist: tox-uv; extra == 'dev'
+Requires-Dist: tox>4; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: aiohttp; extra == 'docs'
+Requires-Dist: fastapi; extra == 'docs'
+Requires-Dist: flask; extra == 'docs'
+Requires-Dist: furo>=2023.8.17; extra == 'docs'
+Requires-Dist: httpx; extra == 'docs'
+Requires-Dist: myst-parser; extra == 'docs'
+Requires-Dist: pyramid; extra == 'docs'
+Requires-Dist: pytest; extra == 'docs'
+Requires-Dist: pytest-asyncio; extra == 'docs'
+Requires-Dist: sphinx-copybutton; extra == 'docs'
+Requires-Dist: sphinx-design; extra == 'docs'
+Requires-Dist: sphinx-notfound-page; extra == 'docs'
+Requires-Dist: sphinx>=7.2.2; extra == 'docs'
+Requires-Dist: sphinxext-opengraph; extra == 'docs'
+Requires-Dist: sqlalchemy; extra == 'docs'
+Requires-Dist: starlette; extra == 'docs'
+Requires-Dist: sybil; extra == 'docs'
+Provides-Extra: tests
+Requires-Dist: pytest; extra == 'tests'
+Requires-Dist: pytest-asyncio; extra == 'tests'
+Requires-Dist: sybil>=6; extra == 'tests'
+Provides-Extra: typing
+Requires-Dist: aiohttp; extra == 'typing'
+Requires-Dist: fastapi; extra == 'typing'
+Requires-Dist: flask; extra == 'typing'
+Requires-Dist: mypy>=1.4; extra == 'typing'
+Requires-Dist: pyramid; extra == 'typing'
+Requires-Dist: starlette; extra == 'typing'
+Description-Content-Type: text/markdown
+
+<p align="center">
+  <a href="https://github.com/hynek/svcs/">
+    <img src="https://raw.githubusercontent.com/hynek/svcs/main/docs/_static/logo_with_name.svg" width="35%" alt="svcs logo showing a hexagon-shaped radar"" />
+  </a>
+</p>
+
+<p align="center">
+  <em>A Flexible Service Locator for Python.</em>
+</p>
+<!-- begin index -->
+
+*svcs* (pronounced *services*) is a **dependency container** for Python.
+It gives you a central place to register factories for types/interfaces and then imperatively acquire instances of those types with **automatic cleanup** and **health checks**.
+
+It's suitable for implementing [Inversion of Control](https://svcs.hynek.me/en/latest/glossary.html#term-Inversion-of-Control) using either **dependency injection** or **service location** while not requiring global state, decorators, or mangling of function signatures.
+
+<!-- begin benefits -->
+Benefits:
+
+- Eliminates tons of repetitive **boilerplate** code,
+- unifies **acquisition** and **cleanups** of services,
+- provides full *static* **type safety** for them,
+- simplifies **testing** through **loose coupling**,
+- improves *live* **introspection** and **monitoring** with **health checks**.
+
+The goal is to minimize the code for acquiring pluggable services to:
+
+<!-- end index -->
+<!-- end benefits -->
+
+<!-- skip: next -->
+
+```python
+from svcs.your_framework import svcs_from
+
+def view(request):
+    db, api, cache = svcs_from(request).get(Database, WebAPIClient, Cache)
+```
+
+... or less!
+
+<!-- begin addendum -->
+To a type checker like [Mypy](https://mypy-lang.org), `db` has the type `Database`, `api` has the type `WebAPIClient`, and `cache` has the type `Cache`.
+`db`, `api`, and `cache` will be automatically cleaned up when the request ends -- it's context managers all the way down.
+<!-- end addendum -->
+
+*svcs* comes with seamless integration for **AIOHTTP**, **FastAPI**, **Flask**, **Pyramid**, and **Starlette**.
+
+<!-- begin typing -->
+While *svcs* also has first-class support for static typing, it is **strictly optional** and will always remain so.
+*svcs* also doesn't check your types at runtime.
+It only forwards the type you have asked for to the type checker.
+If you don't use a type checker, that information is ignored without any runtime overhead.
+<!-- end typing -->
+
+Read on in [*Why?*](https://svcs.hynek.me/en/latest/why.html) or watch this short video if you're intrigued:
+
+[![Watch the video](https://img.youtube.com/vi/d1elMD9WgpA/maxresdefault.jpg)](https://youtu.be/d1elMD9WgpA)
+
+
+## Project Links
+
+- [**PyPI**](https://pypi.org/project/svcs/)
+- [**GitHub**](https://github.com/hynek/svcs)
+- [**Documentation**](https://svcs.hynek.me)
+- [**Changelog**](https://github.com/hynek/svcs/blob/main/CHANGELOG.md)
+- [**Funding**](https://hynek.me/say-thanks/)
+- [**Third-party extensions**](https://github.com/hynek/svcs/wiki/Third%E2%80%90party-Extensions)
+
+## Release Information
+
+### Added
+
+- Python 3.13 support.
+
+- `svcs.Registry` now implements a `__iter__` method that allows to iterate over its registered services.
+  [#106](https://github.com/hynek/svcs/pull/106)
+
+
+### Removed
+
+- Python 3.8 support.
+
+
+### Changed
+
+- Flask: The registry is now stored on `app.extensions`, not `app.config`.
+  This is an implementation detail.
+  If you are directly accessing the registry via `app.config`, this is a breaking change, though you should ideally move to `svcs.flask.registry` anyway.
+  [#71](https://github.com/hynek/svcs/discussions/71)
+  [#72](https://github.com/hynek/svcs/issues/72)
+  [#73](https://github.com/hynek/svcs/pull/73)
+
+- `Registry.register_factory()` is now more lenient regarding the arguments of the factory.
+  It only looks at the first argument (if present) and ignores the rest.
+  [#110](https://github.com/hynek/svcs/pull/110)
+
+
+### Fixed
+
+- `Container.aget()` now also enters and exits synchronous context managers.
+  [#93](https://github.com/hynek/svcs/pull/93)
+
+- `Container.aget()` now also enters and exits context managers that are returned by async factories.
+  [#105](https://github.com/hynek/svcs/pull/105)
+
+
+---
+
+[Full Changelog →](https://github.com/hynek/svcs/blob/main/CHANGELOG.md)
+
+
+## Credits
+
+*svcs* is written by [Hynek Schlawack](https://hynek.me/) and distributed under the terms of the [MIT](https://github.com/hynek/svcs/blob/main/LICENSE) license.
+
+The development is kindly supported by my employer [Variomedia AG](https://www.variomedia.de/) and all my fabulous [GitHub Sponsors](https://github.com/sponsors/hynek).
+
+The [Bestagon](https://www.youtube.com/watch?v=thOifuHs6eY) radar logo is made by [Lynn Root](https://www.roguelynn.com), based on an [Font Awesome](https://fontawesome.com) icon.
+*svcs* has started out as a wrapper around [*wired*](https://wired.readthedocs.io/) by [Michael Merickel](https://michael.merickel.org/) and has been heavily influenced by it.

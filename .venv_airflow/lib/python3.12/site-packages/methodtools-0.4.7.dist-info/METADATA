@@ -1,0 +1,95 @@
+Metadata-Version: 2.1
+Name: methodtools
+Version: 0.4.7
+Summary: Expand standard functools to methods
+Home-page: https://github.com/youknowone/methodtools
+Author: Jeong YunWon
+Author-email: methodtools@youknowone.org
+License: BSD 2-Clause License
+Keywords: ring,functools,lru_cache,method
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+License-File: LICENSE
+Requires-Dist: wirerope >=0.4.7
+Provides-Extra: doc
+Requires-Dist: sphinx ; extra == 'doc'
+Provides-Extra: test
+Requires-Dist: pytest >=4.6.7 ; extra == 'test'
+Requires-Dist: pytest-cov >=2.6.1 ; extra == 'test'
+Requires-Dist: functools32 >=3.2.3-2 ; (python_version < "3") and extra == 'test'
+
+methodtools
+===========
+
+.. image:: https://github.com/youknowone/methodtools/actions/workflows/python-package.yml/badge.svg
+.. image:: https://codecov.io/gh/youknowone/methodtools/graph/badge.svg
+    :target: https://codecov.io/gh/youknowone/methodtools
+
+Expand functools features to methods, classmethods, staticmethods and even for
+(unofficial) hybrid methods.
+
+For now, methodtools only provides `methodtools.lru_cache`.
+
+Use `methodtools` module instead of `functools` module. Than it will work as
+you expected.
+
+.. code:: python
+
+    from methodtools import lru_cache
+
+    class A(object):
+
+        # cached method. the storage lifetime follows `self` object
+        @lru_cache()
+        def cached_method(self, args):
+            ...
+
+        # cached classmethod. the storage lifetime follows `A` class
+        @lru_cache()  # the order is important!
+        @classmethod  # always lru_cache on top of classmethod
+        def cached_classmethod(self, args):
+            ...
+
+        # cached staticmethod. the storage lifetime follows `A` class
+        @lru_cache()  # the order is important!
+        @staticmethod  # always lru_cache on top of staticmethod
+        def cached_staticmethod(self, args):
+            ...
+
+    @lru_cache()  # just same as functools.lru_cache
+    def cached_function():
+        ...
+
+
+Installation
+------------
+
+PyPI is the recommended way.
+
+.. sourcecode:: shell
+
+    $ pip install methodtools
+
+To browse versions and tarballs, visit:
+    `<https://pypi.python.org/pypi/methodtools/>`_
+
+.. note::
+    If you are working on Python 2, install also `functools32`.
+
+
+See also
+--------
+
+- [Documentation](https://methodtools.readthedocs.io/en/latest/)
+- This project is derived from `Ring <https://github.com/youknowone/ring/>`_,
+  a rich cache interface using the same method handling technique.
+- To learn more about bound method dispatching, see also
+  [wirerope](https://github.com/youknowone/wirerope).
