@@ -73,7 +73,17 @@ func WantsTable(cmd *cobra.Command) bool {
 }
 
 func PrintOutput(cmd *cobra.Command, data interface{}, human func() error) error {
-	// Validate --template requires --json
+	// Check for conflicting output flags: --json/--yaml boolean flags cannot be used with --output
+	jsonFlagSet, _ := cmd.Root().PersistentFlags().GetBool("json")
+	yamlFlagSet, _ := cmd.Root().PersistentFlags().GetBool("yaml")
+	if (jsonFlagSet || yamlFlagSet) && GetOutputFormat(cmd) != "" {
+		return fmt.Errorf("cannot use --json or --yaml with --output flag")
+	}
+
+	// Validate --template requires --json.
+	// Note: This validation happens here (rather than at flag parsing) for consistency
+	// with how we handle other flag combinations. All format validations are centralized
+	// in PrintOutput to keep the validation logic in one place.
 	if WantsTemplate(cmd) && !WantsJSON(cmd) {
 		return fmt.Errorf("--template requires --json flag")
 	}

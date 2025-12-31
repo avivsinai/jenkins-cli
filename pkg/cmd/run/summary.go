@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
-	"github.com/avivsinai/jenkins-cli/pkg/cmd/shared"
 )
 
 // printRunSummary outputs a compact, human-readable build summary with optional colors.
@@ -113,58 +111,13 @@ func formatDuration(ms int64) string {
 
 // noColor returns true if color output should be disabled.
 // Respects NO_COLOR environment variable per https://no-color.org/
+// Also disables colors when stdout is not a terminal (piped output).
 func noColor() bool {
 	_, noColorSet := os.LookupEnv("NO_COLOR")
-	return noColorSet
-}
-
-// formatRunListSummary formats a list of runs as a compact summary.
-// This can be used by run ls --summary in the future.
-func formatRunListSummary(w interface{ Write([]byte) (int, error) }, items []runListItem) error {
-	useColors := !noColor()
-
-	var reset, green, red, yellow, gray, cyan string
-	if useColors {
-		reset = "\033[0m"
-		green = "\033[32m"
-		red = "\033[31m"
-		yellow = "\033[33m"
-		gray = "\033[90m"
-		cyan = "\033[36m"
+	if noColorSet {
+		return true
 	}
-
-	for _, item := range items {
-		var statusColor, statusSymbol string
-		switch strings.ToUpper(item.Result) {
-		case "SUCCESS":
-			statusColor = green
-			statusSymbol = "✓"
-		case "FAILURE":
-			statusColor = red
-			statusSymbol = "✗"
-		case "UNSTABLE":
-			statusColor = yellow
-			statusSymbol = "!"
-		case "ABORTED":
-			statusColor = gray
-			statusSymbol = "⊘"
-		default:
-			statusColor = cyan
-			statusSymbol = "○"
-		}
-
-		result := item.Result
-		if result == "" {
-			result = strings.ToUpper(item.Status)
-		}
-
-		duration := shared.DurationString(item.DurationMs)
-		fmt.Fprintf(w, "#%d\t%s%s %s%s\t%s\t%s\n",
-			item.Number,
-			statusColor, result, statusSymbol, reset,
-			item.StartTime,
-			duration)
-	}
-
-	return nil
+	// Also disable colors if not a terminal (piped output)
+	fileInfo, _ := os.Stdout.Stat()
+	return (fileInfo.Mode() & os.ModeCharDevice) == 0
 }
