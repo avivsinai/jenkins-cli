@@ -426,12 +426,12 @@ Related commands:
 
 	cmd.Flags().StringSliceVarP(&params, "param", "p", nil, "Build parameter key=value")
 	cmd.Flags().BoolVar(&follow, "follow", false, "Follow the run progress until completion")
-	cmd.Flags().DurationVar(&interval, "interval", 500*time.Millisecond, "Polling interval when following runs")
+	cmd.Flags().DurationVar(&interval, "follow-interval", 500*time.Millisecond, "Polling interval when following runs")
 	cmd.Flags().BoolVar(&fuzzyMatch, "fuzzy", false, "Enable fuzzy matching for job names")
 	cmd.Flags().BoolVar(&noInteractive, "non-interactive", false, "Disable interactive selection (fail on ambiguous matches)")
 	cmd.Flags().BoolVar(&waitEnabled, "wait", false, "Wait for build to complete (no log streaming)")
-	cmd.Flags().DurationVar(&waitInterval, "wait-interval", 2*time.Second, "Polling interval when waiting")
-	cmd.Flags().DurationVar(&waitTimeout, "wait-timeout", 0, "Maximum time to wait (0 = no timeout)")
+	cmd.Flags().DurationVar(&waitInterval, "interval", 2*time.Second, "Polling interval when waiting")
+	cmd.Flags().DurationVar(&waitTimeout, "timeout", 0, "Maximum time to wait (0 = no timeout)")
 	return cmd
 }
 
@@ -1044,13 +1044,15 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			// Handle --wait flag - wait for completion if build is still running
+			var waitResult string
 			if waitEnabled && detail.Building {
 				ctx := cmd.Context()
 				if ctx == nil {
 					ctx = context.Background()
 				}
 
-				result, err := waitForCompletion(ctx, client, args[0], num, waitInterval, waitTimeout)
+				var err error
+				waitResult, err = waitForCompletion(ctx, client, args[0], num, waitInterval, waitTimeout)
 				if err != nil {
 					return err
 				}
@@ -1060,9 +1062,6 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 				if err != nil {
 					return err
 				}
-
-				// Store result for exit code handling after output
-				_ = result
 			}
 
 			testReport, err := shared.FetchTestReport(client, args[0], num)
@@ -1100,8 +1099,13 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			// --wait always returns exit codes (consistent with --follow)
+			// Use waitResult from waitForCompletion when available, otherwise use output.Result
 			if waitEnabled {
-				code := exitCodeForResult(output.Result)
+				resultToCheck := waitResult
+				if resultToCheck == "" {
+					resultToCheck = output.Result
+				}
+				code := exitCodeForResult(resultToCheck)
 				if code != 0 {
 					return shared.NewExitError(code, "")
 				}
@@ -1275,10 +1279,10 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&follow, "follow", false, "Follow the rerun progress until completion")
-	cmd.Flags().DurationVar(&interval, "interval", 500*time.Millisecond, "Polling interval when following runs")
+	cmd.Flags().DurationVar(&interval, "follow-interval", 500*time.Millisecond, "Polling interval when following runs")
 	cmd.Flags().BoolVar(&waitEnabled, "wait", false, "Wait for build to complete (no log streaming)")
-	cmd.Flags().DurationVar(&waitInterval, "wait-interval", 2*time.Second, "Polling interval when waiting")
-	cmd.Flags().DurationVar(&waitTimeout, "wait-timeout", 0, "Maximum time to wait (0 = no timeout)")
+	cmd.Flags().DurationVar(&waitInterval, "interval", 2*time.Second, "Polling interval when waiting")
+	cmd.Flags().DurationVar(&waitTimeout, "timeout", 0, "Maximum time to wait (0 = no timeout)")
 	return cmd
 }
 
@@ -1433,6 +1437,11 @@ func resolveCancelAction(mode string) (string, error) {
 	}
 }
 
+// waitForBuildNumber polls the Jenkins queue until the build starts and returns
+// the build number. The timeout parameter is intentionally separate from the
+// user-specified --timeout flag - queue wait time (time to leave queue and start
+// executing) is distinct from build execution time. A build may wait in queue
+// briefly but run for hours, or vice versa.
 func waitForBuildNumber(client *jenkins.Client, queueLocation string, timeout time.Duration) (int64, error) {
 	if queueLocation == "" {
 		return 0, errors.New("follow requested but queue location unavailable")
@@ -1553,6 +1562,9 @@ func exitCodeForResult(result string) int {
 // waitForCompletion polls until the build completes or timeout is reached.
 // Unlike monitorRun, this does NOT stream logs - just polls for completion.
 // Returns the final build result string.
+//
+// TODO: Consider propagating context to Jenkins API calls (client.Do) for
+// proper cancellation. Currently, context is only used for the polling loop.
 func waitForCompletion(ctx context.Context, client *jenkins.Client,
 	jobPath string, buildNumber int64, interval, timeout time.Duration) (string, error) {
 
