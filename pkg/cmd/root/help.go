@@ -13,9 +13,10 @@ import (
 )
 
 type helpDocument struct {
-	SchemaVersion string            `json:"schemaVersion"`
-	Commands      []helpCommand     `json:"commands"`
-	ExitCodes     map[string]string `json:"exitCodes,omitempty"`
+	SchemaVersion        string            `json:"schemaVersion"`
+	Commands             []helpCommand     `json:"commands"`
+	ExitCodes            map[string]string `json:"exitCodes,omitempty"`
+	EnvironmentVariables map[string]string `json:"environmentVariables,omitempty"`
 }
 
 type helpCommand struct {
@@ -85,6 +86,7 @@ func buildHelpDocument(cmd *cobra.Command, includeExitCodes bool) helpDocument {
 	}
 	if includeExitCodes {
 		doc.ExitCodes = defaultExitCodes()
+		doc.EnvironmentVariables = defaultEnvVars()
 	}
 	return doc
 }
@@ -202,6 +204,13 @@ func defaultExitCodes() map[string]string {
 	}
 }
 
+func defaultEnvVars() map[string]string {
+	return map[string]string{
+		"JK_CONTEXT": "Override the active Jenkins context (same as --context/-c flag)",
+		"JK_QUIET":   "Enable quiet mode for supported commands (same as --quiet/-q flag)",
+	}
+}
+
 type commandSection struct {
 	Title    string
 	Commands []*cobra.Command
@@ -226,6 +235,7 @@ func printRootHelp(cmd *cobra.Command) {
 		printFlagSection(out, flags)
 	}
 
+	printEnvVarsSection(out)
 	printExamplesSection(out)
 	printLearnMoreSection(out)
 }
@@ -407,6 +417,34 @@ func printExamplesSection(out io.Writer) {
 	_, _ = fmt.Fprintln(out, "EXAMPLES")
 	for _, ex := range examples {
 		_, _ = fmt.Fprintf(out, "  $ %s\n", ex)
+	}
+	_, _ = fmt.Fprintln(out)
+}
+
+func printEnvVarsSection(out io.Writer) {
+	envVars := defaultEnvVars()
+	if len(envVars) == 0 {
+		return
+	}
+
+	_, _ = fmt.Fprintln(out, "ENVIRONMENT VARIABLES")
+	width := 0
+	for name := range envVars {
+		if w := utf8.RuneCountInString(name); w > width {
+			width = w
+		}
+	}
+	width += 2
+
+	// Sort keys for consistent output
+	keys := make([]string, 0, len(envVars))
+	for k := range envVars {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, name := range keys {
+		_, _ = fmt.Fprintf(out, "  %-*s %s\n", width, name, envVars[name])
 	}
 	_, _ = fmt.Fprintln(out)
 }
