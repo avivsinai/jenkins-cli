@@ -185,15 +185,20 @@ func printHelpJSON(cmd *cobra.Command, doc helpDocument) error {
 
 func defaultExitCodes() map[string]string {
 	return map[string]string{
-		"0": "Success",
-		"1": "General error",
-		"2": "Validation error",
-		"3": "Not found",
-		"4": "Authentication failure",
-		"5": "Permission denied",
-		"6": "Connectivity/DNS/TLS failure",
-		"7": "Timeout",
-		"8": "Feature unsupported",
+		"0":  "Success",
+		"1":  "General error",
+		"2":  "Validation error",
+		"3":  "Not found",
+		"4":  "Authentication failure",
+		"5":  "Permission denied",
+		"6":  "Connectivity/DNS/TLS failure",
+		"7":  "Timeout",
+		"8":  "Feature unsupported",
+		"10": "Build result: UNSTABLE",
+		"11": "Build result: FAILURE",
+		"12": "Build result: ABORTED",
+		"13": "Build result: NOT_BUILT",
+		"14": "Build result: RUNNING (in-progress)",
 	}
 }
 

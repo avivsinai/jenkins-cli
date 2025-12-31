@@ -14,6 +14,7 @@ require (
 	github.com/creack/pty v1.1.24
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/go-resty/resty/v2 v2.17.1
+	github.com/itchyny/gojq v0.12.16
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
 	github.com/mattn/go-colorable v0.1.14
