@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -597,6 +598,10 @@ func executeRunList(ctx context.Context, client *jenkins.Client, jobPath string,
 			jklog.L().Debug().Err(qErr).Msg("failed to fetch queued items")
 		} else if len(queuedItems) > 0 {
 			out.Items = append(queuedItems, out.Items...)
+			// Re-apply limit to combined list (queued items + builds)
+			if len(out.Items) > opts.Limit {
+				out.Items = out.Items[:opts.Limit]
+			}
 		}
 	}
 
@@ -658,11 +663,12 @@ func fetchQueuedItemsForJob(ctx context.Context, client *jenkins.Client, jobPath
 	return items, nil
 }
 
-// extractJobPathFromURL extracts the job path from a Jenkins job URL
-func extractJobPathFromURL(url string) string {
+// extractJobPathFromURL extracts the job path from a Jenkins job URL.
+// It handles URL-encoded segments (e.g., spaces as %20, slashes in branch names).
+func extractJobPathFromURL(rawURL string) string {
 	// URL format: http://jenkins/job/Folder/job/SubFolder/job/JobName/
 	// We need to extract: Folder/SubFolder/JobName
-	parts := strings.Split(url, "/job/")
+	parts := strings.Split(rawURL, "/job/")
 	if len(parts) < 2 {
 		return ""
 	}
@@ -670,6 +676,10 @@ func extractJobPathFromURL(url string) string {
 	for _, part := range parts[1:] {
 		cleaned := strings.TrimSuffix(strings.TrimSuffix(part, "/"), "/")
 		if cleaned != "" {
+			// Decode URL-encoded characters (e.g., %20 -> space, %2F -> /)
+			if decoded, err := url.PathUnescape(cleaned); err == nil {
+				cleaned = decoded
+			}
 			pathParts = append(pathParts, cleaned)
 		}
 	}
@@ -1110,11 +1120,20 @@ func renderRunListHuman(cmd *cobra.Command, output runListOutput, opts runListOp
 		}
 	} else {
 		for _, item := range output.Items {
+			// For queued items: show "queued" instead of #0, show status instead of empty result
+			displayNum := fmt.Sprintf("#%d", item.Number)
+			displayStatus := strings.ToUpper(item.Result)
+			if item.Number == 0 && item.Status == "queued" {
+				displayNum = fmt.Sprintf("q%d", item.QueueID)
+				displayStatus = "QUEUED"
+			} else if displayStatus == "" {
+				displayStatus = strings.ToUpper(item.Status)
+			}
 			_, _ = fmt.Fprintf(
 				w,
-				"#%d\t%s\t%s\t%s\n",
-				item.Number,
-				strings.ToUpper(item.Result),
+				"%s\t%s\t%s\t%s\n",
+				displayNum,
+				displayStatus,
 				item.StartTime,
 				shared.DurationString(item.DurationMs),
 			)
