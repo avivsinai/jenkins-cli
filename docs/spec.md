@@ -228,7 +228,7 @@ Key workflows the CLI must make trivial:
   - `--select field1,field2` to project additional fields into a stable `fields{}` map for agents.
   - `--group-by FIELD` with `--agg count|first|last` to surface grouped aggregates alongside recent items.
   - `--with-meta` to attach machine-readable metadata (available filters/operators, inferred parameters, selectable fields, applied selections, grouping context).
-  - `--include-queued` to prepend queued (not yet started) builds to the output. Queued items use a synthetic ID format `<jobPath>/q<queueId>` (e.g., `team/app/q12345`), have `number: 0`, `status: "queued"`, and include `queueReason` in the `fields{}` map. The `--limit` flag applies to the combined list of queued items and completed builds.
+  - `--include-queued` to prepend queued (not yet started) builds to the output. Queued items use a synthetic ID format `<jobPath>/q<queueId>` (e.g., `team/app/q12345`), have `number: 0`, `status: "queued"`, and include `queueReason` in the `fields{}` map. The `--limit` flag applies to the combined list of queued items and completed builds. Note: `--filter` expressions apply only to completed builds; queued items are always included when `--include-queued` is set, since they lack result/duration/branch metadata.
 - Responses now include a `schemaVersion` (currently `1.0`), optional `groups[]`, and a `metadata` block when requested:
   ```json
   {
