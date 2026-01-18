@@ -187,3 +187,104 @@ func TestIncludeQueuedWithLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestCursorRecomputationWithQueuedItems(t *testing.T) {
+	// Test that cursor is correctly recomputed when queued items cause truncation
+	tests := []struct {
+		name                 string
+		queuedItems          []runListItem
+		buildItems           []runListItem
+		limit                int
+		expectedCursorBuild  int64 // 0 means no cursor expected
+		description          string
+	}{
+		{
+			name: "no truncation - cursor unchanged",
+			queuedItems: []runListItem{
+				{ID: "job/q100", Number: 0, Status: "queued"},
+			},
+			buildItems: []runListItem{
+				{ID: "job/12", Number: 12, Status: "success"},
+			},
+			limit:               5,
+			expectedCursorBuild: 0, // No truncation, no cursor recomputation
+			description:         "Combined count (2) < limit (5), no cursor needed",
+		},
+		{
+			name: "truncation with builds remaining - cursor points to last build",
+			queuedItems: []runListItem{
+				{ID: "job/q100", Number: 0, Status: "queued"},
+			},
+			buildItems: []runListItem{
+				{ID: "job/12", Number: 12, Status: "success"},
+				{ID: "job/11", Number: 11, Status: "success"},
+				{ID: "job/10", Number: 10, Status: "success"},
+			},
+			limit:               3, // [q100, #12, #11] - #10 cut off
+			expectedCursorBuild: 11,
+			description:         "Cursor should point to build #11 (last build in output)",
+		},
+		{
+			name: "all builds pushed out - cursor points to first build",
+			queuedItems: []runListItem{
+				{ID: "job/q100", Number: 0, Status: "queued"},
+				{ID: "job/q101", Number: 0, Status: "queued"},
+				{ID: "job/q102", Number: 0, Status: "queued"},
+			},
+			buildItems: []runListItem{
+				{ID: "job/12", Number: 12, Status: "success"},
+				{ID: "job/11", Number: 11, Status: "success"},
+			},
+			limit:               2, // [q100, q101] - all builds cut off
+			expectedCursorBuild: 12,
+			description:         "Cursor should point to build #12 (first build that was pushed out)",
+		},
+		{
+			name: "one build remains after truncation",
+			queuedItems: []runListItem{
+				{ID: "job/q100", Number: 0, Status: "queued"},
+				{ID: "job/q101", Number: 0, Status: "queued"},
+			},
+			buildItems: []runListItem{
+				{ID: "job/12", Number: 12, Status: "success"},
+				{ID: "job/11", Number: 11, Status: "success"},
+			},
+			limit:               3, // [q100, q101, #12] - #11 cut off
+			expectedCursorBuild: 12,
+			description:         "Cursor should point to build #12 (last and only build in output)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate the cursor recomputation logic from executeRunList
+			originalBuilds := tt.buildItems
+			items := append(tt.queuedItems, tt.buildItems...)
+
+			var cursorBuild int64 = 0
+
+			if len(items) > tt.limit {
+				items = items[:tt.limit]
+
+				// Find the last build (Number > 0) in the truncated output
+				var lastBuildInOutput int64
+				for i := len(items) - 1; i >= 0; i-- {
+					if items[i].Number > 0 {
+						lastBuildInOutput = items[i].Number
+						break
+					}
+				}
+
+				if lastBuildInOutput > 0 {
+					cursorBuild = lastBuildInOutput
+				} else if len(originalBuilds) > 0 {
+					cursorBuild = originalBuilds[0].Number
+				}
+			}
+
+			if cursorBuild != tt.expectedCursorBuild {
+				t.Errorf("%s: cursor build = %d, want %d", tt.description, cursorBuild, tt.expectedCursorBuild)
+			}
+		})
+	}
+}

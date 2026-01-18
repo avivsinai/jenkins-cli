@@ -597,10 +597,31 @@ func executeRunList(ctx context.Context, client *jenkins.Client, jobPath string,
 		if qErr != nil {
 			jklog.L().Debug().Err(qErr).Msg("failed to fetch queued items")
 		} else if len(queuedItems) > 0 {
+			originalBuilds := out.Items
 			out.Items = append(queuedItems, out.Items...)
+
 			// Re-apply limit to combined list (queued items + builds)
 			if len(out.Items) > opts.Limit {
 				out.Items = out.Items[:opts.Limit]
+
+				// Recompute cursor based on what's actually returned.
+				// Find the last build (Number > 0) in the truncated output.
+				var lastBuildInOutput int64
+				for i := len(out.Items) - 1; i >= 0; i-- {
+					if out.Items[i].Number > 0 {
+						lastBuildInOutput = out.Items[i].Number
+						break
+					}
+				}
+
+				if lastBuildInOutput > 0 {
+					// Some builds are in output; cursor points to last one
+					out.NextCursor = encodeRunCursor(normalizeJobPath(jobPath), lastBuildInOutput)
+				} else if len(originalBuilds) > 0 {
+					// All builds were pushed out by queued items; cursor points to first build
+					// so next page returns builds starting from the beginning
+					out.NextCursor = encodeRunCursor(normalizeJobPath(jobPath), originalBuilds[0].Number)
+				}
 			}
 		}
 	}
