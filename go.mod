@@ -7,7 +7,7 @@ toolchain go1.25.2
 require (
 	github.com/99designs/keyring v1.2.2
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
-	github.com/bmatcuk/doublestar/v4 v4.9.2
+	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/briandowns/spinner v1.23.2
 	github.com/cli/go-gh/v2 v2.13.0
 	github.com/cli/safeexec v1.0.1
