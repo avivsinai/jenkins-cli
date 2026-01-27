@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed `-p/--param` flag incorrectly splitting comma-separated values. Parameters like `SERVICES=a,b,c` are now preserved as a single value instead of being split into multiple parameters. Changed from `StringSliceVarP` to `StringArrayVarP` in cobra flag definition.
+
 ## [0.0.13] - 2025-12-31
 
 ### Changed

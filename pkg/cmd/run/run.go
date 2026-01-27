@@ -445,7 +445,7 @@ Related commands:
 		},
 	}
 
-	cmd.Flags().StringSliceVarP(&params, "param", "p", nil, "Build parameter key=value")
+	cmd.Flags().StringArrayVarP(&params, "param", "p", nil, "Build parameter key=value (use multiple -p flags for multiple params)")
 	cmd.Flags().BoolVar(&follow, "follow", false, "Follow the run progress until completion")
 	cmd.Flags().DurationVar(&interval, "follow-interval", 500*time.Millisecond, "Polling interval when following runs")
 	cmd.Flags().BoolVar(&fuzzyMatch, "fuzzy", false, "Enable fuzzy matching for job names")
