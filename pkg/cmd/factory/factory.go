@@ -17,9 +17,7 @@ func New(appVersion string) (*cmdutil.Factory, error) {
 		IOStreams:      ios,
 	}
 
-	f.Config = func() (*config.Config, error) {
-		return config.Load()
-	}
+	f.Config = config.Load
 
 	return f, nil
 }

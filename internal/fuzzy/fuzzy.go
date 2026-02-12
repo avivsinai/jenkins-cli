@@ -99,13 +99,14 @@ func calculateScore(query, target string) int {
 	wordMatched := false
 	for _, qWord := range queryWords {
 		for _, tWord := range targetWords {
-			if qWord == tWord {
+			switch {
+			case qWord == tWord:
 				score += 80
 				wordMatched = true
-			} else if strings.HasPrefix(tWord, qWord) {
+			case strings.HasPrefix(tWord, qWord):
 				score += 40
 				wordMatched = true
-			} else if strings.Contains(tWord, qWord) {
+			case strings.Contains(tWord, qWord):
 				score += 20
 				wordMatched = true
 			}

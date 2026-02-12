@@ -71,7 +71,9 @@ func TestParamFlagWithComma(t *testing.T) {
 			cmd := newRunStartCmd(nil)
 
 			// Add a dummy job arg (required by the command)
-			fullArgs := append(tc.args, "dummy/job")
+			fullArgs := make([]string, 0, len(tc.args)+1)
+			fullArgs = append(fullArgs, tc.args...)
+			fullArgs = append(fullArgs, "dummy/job")
 			cmd.SetArgs(fullArgs)
 
 			// Parse flags only (don't execute RunE which needs a real client)

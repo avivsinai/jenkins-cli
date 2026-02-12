@@ -338,7 +338,7 @@ func (s *IOStreams) startTextualProgressIndicator(label string) {
 	// Add an ellipsis to the label if it doesn't already have one.
 	ellipsis := "..."
 	if !strings.HasSuffix(label, ellipsis) {
-		label = label + ellipsis
+		label += ellipsis
 	}
 
 	_, _ = fmt.Fprintf(s.ErrOut, "%s%s", s.ColorScheme().Cyan(label), "\n")

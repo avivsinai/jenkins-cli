@@ -170,7 +170,9 @@ func TestIncludeQueuedWithLimit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the logic from executeRunList
-			items := append(tt.queuedItems, tt.buildItems...)
+			var items []runListItem
+			items = append(items, tt.queuedItems...)
+			items = append(items, tt.buildItems...)
 
 			// Apply limit (same logic as in executeRunList)
 			if len(items) > tt.limit {
@@ -259,7 +261,9 @@ func TestCursorRecomputationWithQueuedItems(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the cursor recomputation logic from executeRunList
 			originalBuilds := tt.buildItems
-			items := append(tt.queuedItems, tt.buildItems...)
+			var items []runListItem
+			items = append(items, tt.queuedItems...)
+			items = append(items, tt.buildItems...)
 
 			var cursorBuild int64 = 0
 
