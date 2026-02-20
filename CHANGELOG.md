@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `--quiet`/`-q` now also suppresses resty HTTP client warnings (e.g. "Using Basic Auth in HTTP mode") for plain-HTTP Jenkins instances.
+
 ## [0.0.15] - 2026-01-27
 
 ### Fixed

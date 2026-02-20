@@ -174,5 +174,10 @@ func JenkinsClient(cmd *cobra.Command, f *cmdutil.Factory) (*jenkins.Client, err
 		ctx = context.Background()
 	}
 
-	return f.Client(ctx, name)
+	var opts []jenkins.ClientOption
+	if WantsQuiet(cmd) {
+		opts = append(opts, jenkins.WithDisableWarn(true))
+	}
+
+	return f.Client(ctx, name, opts...)
 }

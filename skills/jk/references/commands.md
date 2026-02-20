@@ -427,6 +427,7 @@ All commands support:
 ## Environment Variables
 
 - `JK_CONTEXT` — Override active context (empty = use config)
+- `JK_QUIET` — Equivalent to `--quiet` (any value enables)
 
 ## Exit Codes
 

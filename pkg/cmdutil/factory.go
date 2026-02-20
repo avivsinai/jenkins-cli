@@ -18,7 +18,7 @@ type Factory struct {
 	IOStreams *iostreams.IOStreams
 
 	Config        func() (*config.Config, error)
-	JenkinsClient func(context.Context, string) (*jenkins.Client, error)
+	JenkinsClient func(context.Context, string, ...jenkins.ClientOption) (*jenkins.Client, error)
 
 	once struct {
 		cfg sync.Once
@@ -54,14 +54,14 @@ func (f *Factory) Streams() (*iostreams.IOStreams, error) {
 }
 
 // Client returns a Jenkins client for the requested context.
-func (f *Factory) Client(ctx context.Context, contextName string) (*jenkins.Client, error) {
+func (f *Factory) Client(ctx context.Context, contextName string, opts ...jenkins.ClientOption) (*jenkins.Client, error) {
 	cfg, err := f.ResolveConfig()
 	if err != nil {
 		return nil, err
 	}
 
 	if f.JenkinsClient != nil {
-		return f.JenkinsClient(ctx, contextName)
+		return f.JenkinsClient(ctx, contextName, opts...)
 	}
-	return jenkins.NewClient(ctx, cfg, contextName)
+	return jenkins.NewClient(ctx, cfg, contextName, opts...)
 }

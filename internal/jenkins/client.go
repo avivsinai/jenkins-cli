@@ -72,8 +72,24 @@ type statusResponse struct {
 	RecommendedClient string   `json:"recommendedClient"`
 }
 
+// ClientOption configures a Client during construction.
+type ClientOption func(*Client)
+
+// WithDisableWarn returns an option that suppresses HTTP client warnings
+// (e.g. resty's "Using Basic Auth in HTTP mode is not secure").
+func WithDisableWarn(disable bool) ClientOption {
+	return func(c *Client) {
+		if disable {
+			c.resty.SetDisableWarn(true)
+			if c.restyStream != nil {
+				c.restyStream.SetDisableWarn(true)
+			}
+		}
+	}
+}
+
 // NewClient constructs a Jenkins client for the supplied context.
-func NewClient(ctx context.Context, cfg *config.Config, contextName string) (*Client, error) {
+func NewClient(ctx context.Context, cfg *config.Config, contextName string, opts ...ClientOption) (*Client, error) {
 	if cfg == nil {
 		return nil, errors.New("configuration is required")
 	}
@@ -167,6 +183,11 @@ func NewClient(ctx context.Context, cfg *config.Config, contextName string) (*Cl
 		ctxConfig:   ctxDef,
 	}
 
+	// Apply options before any network calls.
+	for _, opt := range opts {
+		opt(client)
+	}
+
 	if err := client.refreshCapabilities(ctx); err != nil {
 		log.L().Warn().Err(err).Msg("capability detection failed")
 	}
@@ -215,6 +236,15 @@ func (c *Client) Context() *config.Context {
 // ContextName exposes the context identifier backing the client.
 func (c *Client) ContextName() string {
 	return c.contextName
+}
+
+// SetDisableWarn suppresses HTTP client warnings on both the standard
+// and streaming resty clients (e.g. "Using Basic Auth in HTTP mode").
+func (c *Client) SetDisableWarn(disable bool) {
+	c.resty.SetDisableWarn(disable)
+	if c.restyStream != nil {
+		c.restyStream.SetDisableWarn(disable)
+	}
 }
 
 // Do executes the request with crumb handling.

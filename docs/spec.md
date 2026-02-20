@@ -293,6 +293,7 @@ Key workflows the CLI must make trivial:
 - On context activation, probe `/jk/api/status`, `/sse-gateway/`, and `/prometheus` once; cache capability flags for 60 seconds or until an operation fails with 404/403/5xx.
 - Capability flags include `hasRunsFacade`, `hasCredentialFacade`, `hasEventRouter`, `hasPrometheus`, and `hasSSE`.
 - Commands fall back to core APIs when a capability is absent and emit a single informational warning (suppressed with `--quiet`).
+- `--quiet` (or `JK_QUIET`) also suppresses HTTP client library warnings such as the resty "Using Basic Auth in HTTP mode" message emitted for plain-HTTP Jenkins instances.
 
 ### 9.11 Artifact download semantics
 - `jk artifact download` accepts `--pattern` globs (default `**/*`) using case-sensitive matching consistent with Go filepath globbing.

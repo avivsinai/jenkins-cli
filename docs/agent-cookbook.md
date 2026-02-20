@@ -2,6 +2,14 @@
 
 This guide captures common automation recipes for agents that integrate with the `jk` CLI. Each pattern includes the CLI call and a lightweight code example (Python unless noted) to embed in bots or orchestrators.
 
+> **Tip:** If your Jenkins instance uses HTTP (not HTTPS), suppress resty
+> client warnings with the existing `--quiet`/`-q` flag or `JK_QUIET=1`:
+>
+> ```bash
+> jk -q run ls team/app/pipeline          # per-invocation
+> export JK_QUIET=1                        # permanent (add to shell profile)
+> ```
+
 ## 1. Latest deployment for a specific chart
 
 **Problem:** Fetch the most recent run that deployed a given Helm chart.
