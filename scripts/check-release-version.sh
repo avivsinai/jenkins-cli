@@ -19,10 +19,12 @@ for path in sorted(pathlib.Path("skills").glob("*/SKILL.md")):
     text = path.read_text()
     match = re.match(r"(?s)^---\n(.*?)\n---\n", text)
     if not match:
+        mismatches.append((str(path), "<missing frontmatter>"))
         continue
     frontmatter = match.group(1)
     version_match = re.search(r"(?m)^version:\s*([0-9A-Za-z.+-]+)\s*$", frontmatter)
     if not version_match:
+        mismatches.append((str(path), "<missing version>"))
         continue
     actual = version_match.group(1)
     if actual != version:

@@ -13,8 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bumped `github.com/rs/zerolog` from `1.34.0` to `1.35.0`.
 
 ### Fixed
-- `jk search` and `jk run search` now accept `--with-meta` as a compatibility alias, while the docs now explain that structured search output already includes lightweight metadata by default.
 - Release and skill publishing now fail fast when the tag version does not match the skill and plugin manifests, preventing another partially aligned tag.
+
+## [0.0.19] - 2026-03-31
+
+### Fixed
+- `jk search` and `jk run search` now accept `--with-meta` as a compatibility alias, while the docs now explain that structured search output already includes lightweight metadata by default.
 
 ## [0.0.16] - 2026-02-25
 
