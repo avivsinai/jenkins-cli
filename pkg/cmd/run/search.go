@@ -54,6 +54,7 @@ func NewCmdRunSearch(f *cmdutil.Factory) *cobra.Command {
 		limit       int
 		maxScan     int
 		selectArg   string
+		withMeta    bool
 		enableRegex bool
 	)
 
@@ -154,6 +155,7 @@ func NewCmdRunSearch(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", defaultSearchLimit, "Max results to return")
 	cmd.Flags().IntVar(&maxScan, "max-scan", defaultSearchMaxScan, "Max builds to scan per job")
 	cmd.Flags().StringVar(&selectArg, "select", "", "Select additional fields (comma-separated)")
+	cmd.Flags().BoolVar(&withMeta, "with-meta", false, "Compatibility alias; structured search output already includes metadata")
 	cmd.Flags().BoolVar(&enableRegex, "regex", false, "Enable regular expression matching for filters")
 
 	return cmd

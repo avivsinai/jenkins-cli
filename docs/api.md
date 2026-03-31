@@ -160,6 +160,8 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 }
 ```
 
+Unlike `jk run ls`, structured search output always includes this lightweight `metadata` block. `--with-meta` is accepted for CLI compatibility, but it is not required.
+
 ### 2.4 Progressive log pointer (`/jk/api/runs/<jobPath>/<build>/logs`)
 ```json
 {

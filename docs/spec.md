@@ -269,6 +269,7 @@ Key workflows the CLI must make trivial:
   - `--folder` to anchor discovery.
   - `--job-glob` (doublestar) to limit jobs by name/path.
   - `--max-scan` to cap runs inspected per job (default 500).
+- `--with-meta` is accepted for CLI parity with `jk run ls`, but structured search output already includes its lightweight metadata block without requiring the flag.
 - Results are sorted by start time descending and returned as `schemaVersion: 1.0` documents with `items[]` and lightweight metadata (`folder`, `jobGlob`, `filters`, `jobsScanned`, `selection`). Each item includes `jobPath`, `number`, `status/result`, duration, timestamps, optional SCM, and any selected `fields{}`.
 - Human output prints `jobPath	#<run>	RESULT	start	elapsed` per match; structured output enables agents to fan out without scraping.
 

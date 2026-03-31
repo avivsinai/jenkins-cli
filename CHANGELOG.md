@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `jk search` and `jk run search` now accept `--with-meta` as a compatibility alias, while the docs now explain that structured search output already includes lightweight metadata by default.
+
 ## [0.0.16] - 2026-02-25
 
 ### Changed

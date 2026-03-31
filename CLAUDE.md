@@ -79,7 +79,7 @@ main.go → jkcmd.Main() → root.NewCmdRoot(factory) → Cobra Execute()
 ## Agent Discovery Patterns
 
 When automating with `jk`:
-- `jk search --job-glob '*pattern*' --json --with-meta` for cross-folder job discovery
+- `jk search --job-glob '*pattern*' --json` for cross-folder job discovery
 - `jk run ls <job> --filter result=SUCCESS --since 7d --json` for filtered run queries
 - `jk run params <job>` to inspect parameter metadata before triggering builds
 - `jk help --json` for programmatic command enumeration

@@ -3,6 +3,10 @@ package run
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
 )
 
 func TestMatchJobGlob(t *testing.T) {
@@ -148,4 +152,15 @@ func TestPerformFuzzySearchEmptyQuery(t *testing.T) {
 	if got := performFuzzySearch("", allJobs, 5); got != nil {
 		t.Fatalf("expected nil results for empty query, got %v", got)
 	}
+}
+
+func TestNewCmdRunSearchAcceptsWithMetaFlag(t *testing.T) {
+	cmd := NewCmdRunSearch(&cmdutil.Factory{})
+
+	flag := cmd.Flags().Lookup("with-meta")
+	require.NotNil(t, flag, "with-meta compatibility flag should exist")
+	require.Equal(t, "bool", flag.Value.Type())
+
+	require.NoError(t, cmd.Flags().Parse([]string{"--with-meta"}))
+	require.Equal(t, "true", flag.Value.String())
 }
