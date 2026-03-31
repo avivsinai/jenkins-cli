@@ -1,6 +1,6 @@
 ---
 name: jk
-version: 0.0.18
+version: 0.0.19
 description: Jenkins CLI for controllers. Use when users need to manage jobs, pipelines, runs, logs, artifacts, credentials, nodes, or queues in Jenkins. Triggers include "jenkins", "jk", "pipeline", "build", "run logs", "job list", "jenkins credentials", "jenkins node".
 metadata:
   short-description: Jenkins CLI for jobs, pipelines, runs
