@@ -50,6 +50,9 @@ jobs:
       - name: Verify Docker
         run: docker version
 
+      - name: Verify release metadata
+        run: ./scripts/check-release-version.sh "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}"
+
       - name: Run unit tests
         run: JK_E2E_DISABLE=1 make test
 

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g. 0.0.18)'
+        description: 'Version to publish (e.g. X.Y.Z)'
         required: true
         type: string
 
@@ -29,6 +29,15 @@ jobs:
           mkdir -p ~/.skild
           echo '${{ secrets.SKILD_AUTH_JSON }}' > ~/.skild/registry-auth.json
 
+      - name: Verify release metadata
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION_INPUT="${{ inputs.version }}"
+          else
+            VERSION_INPUT="${GITHUB_REF_NAME}"
+          fi
+          ./scripts/check-release-version.sh "$VERSION_INPUT"
+
       - name: Publish skills
         run: |
           if [ -n "${{ inputs.version }}" ]; then
@@ -48,14 +57,6 @@ jobs:
             [ -f "$dir/SKILL.md" ] || continue
             SKILL=$(basename "$dir")
             VERSION="${TAG_VERSION}"
-
-            SKILL_VERSION=$(grep -oP 'version:\s*\K[0-9A-Za-z.+-]+' "$dir/SKILL.md" || true)
-            if [ -n "$SKILL_VERSION" ] && [ "$SKILL_VERSION" != "$VERSION" ]; then
-              echo "ERROR: $SKILL SKILL.md version ($SKILL_VERSION) != tag version ($VERSION)"
-              echo "  Run scripts/release-skills.sh $VERSION first"
-              FAILED=1
-              continue
-            fi
 
             echo "Publishing $SKILL version $VERSION"
 
