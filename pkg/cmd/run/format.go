@@ -390,6 +390,9 @@ func collectRerunParameters(detail runDetail) map[string]string {
 
 	out := make(map[string]string, len(params))
 	for _, param := range params {
+		if param.Value == nil {
+			continue
+		}
 		out[param.Name] = fmt.Sprint(param.Value)
 	}
 	return out
