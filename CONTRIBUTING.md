@@ -97,22 +97,12 @@ This creates binaries in `dist/` with versions like `0.1.1-next+abc1234`.
 
 ## Release process
 
-Releases are automated using [GoReleaser](https://goreleaser.com/) and triggered by pushing a version tag:
+Releases are automated with the PR-based `./scripts/release.sh X.Y.Z` flow:
 
-1. **Create a release tag** following [semantic versioning](https://semver.org/):
-   ```bash
-   git tag -a v1.0.0 -m "Release v1.0.0"
-   git push origin v1.0.0
-   ```
-
-2. **Automated steps** (via `.github/workflows/release.yml`):
-   - Runs tests
-   - Builds binaries for Linux, macOS, and Windows (amd64 + arm64)
-   - Generates changelog from [conventional commits](https://www.conventionalcommits.org/)
-   - Creates GitHub release with artifacts and checksums
-   - Uploads archives and checksums as a GitHub Actions artifact for auditing
-
-3. **Conventional commits**: Use prefixes like `feat:`, `fix:`, `deps:` for automatic changelog categorization.
+1. Update `CHANGELOG.md` under `Unreleased`, then run `./scripts/release.sh X.Y.Z` from `main`.
+2. The script opens a release PR with `chore(release): vX.Y.Z` and aligned skill/plugin metadata.
+3. After the release PR merges, `.github/workflows/release.yml` validates the merged release commit, creates the matching tag, builds binaries for Linux, macOS, and Windows (amd64 + arm64), and publishes the GitHub release with artifacts and checksums.
+4. Conventional commits (`feat:`, `fix:`, `deps:`) still help keep changelog entries and release summaries consistent.
 
 ## Questions?
 
