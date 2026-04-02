@@ -84,9 +84,9 @@ main.go → jkcmd.Main() → root.NewCmdRoot(factory) → Cobra Execute()
 
 ## Release Contract
 
-- Release from `main` only; do not create manual GitHub releases.
+- Release from `main` only through `./scripts/release.sh X.Y.Z` and the resulting release PR; do not create manual tags or GitHub releases.
 - A push to `main` updates the AvivSinai marketplace immediately for the `jk` skill.
-- For a versioned release, keep `CHANGELOG.md` and skill/plugin metadata on one version, then push the tag and let CI publish GitHub and Homebrew artifacts.
+- Keep `CHANGELOG.md` and skill/plugin metadata on one version in the release commit; after the release PR merges, CI validates the merged commit, creates the tag, publishes GitHub/Homebrew artifacts, and uses the committed changelog entry as the GitHub release notes.
 
 ## Documentation Expectations
 
