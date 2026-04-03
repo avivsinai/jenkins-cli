@@ -70,11 +70,11 @@ jobs:
                 echo "::error::Tag ${tag} does not exist. workflow_dispatch is only for rerunning an existing release."
                 exit 1
               fi
+              git checkout --detach "$tag"
               version="${tag#v}"
               ./scripts/check-release-version.sh "$version"
               release_ref="$tag"
               release_sha="$(tag_commit_sha "$tag")"
-              git checkout --detach "$tag"
               ;;
             push)
               commit_subject="${COMMIT_MESSAGE%%$'\n'*}"
