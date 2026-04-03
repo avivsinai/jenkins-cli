@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Consolidated skill publishing into the release workflow so it no longer depends on tag-push events that `GITHUB_TOKEN` cannot trigger.
+- Pinned all GitHub Actions to commit SHAs across every workflow for supply-chain safety.
+- Added missing `timeout-minutes` and `concurrency` blocks to all workflows.
+- Standalone publish-skill workflow now accepts `workflow_dispatch` with an explicit `tag` input.
+
 ## [0.0.28] - 2026-04-02
 ### Fixed
 - Passed the temp release-notes path directly to GoReleaser so GitHub Actions preserves the `--release-notes` argument during publishing.

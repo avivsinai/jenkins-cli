@@ -1,23 +1,30 @@
 name: Publish Skills
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to publish (e.g. X.Y.Z)'
+      tag:
+        description: 'Tag to publish (e.g. v1.0.0)'
         required: true
         type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skill-publish-${{ github.event.inputs.tag }}
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
 
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
@@ -31,20 +38,14 @@ jobs:
 
       - name: Verify release metadata
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION_INPUT="${{ inputs.version }}"
-          else
-            VERSION_INPUT="${GITHUB_REF_NAME}"
-          fi
-          ./scripts/check-release-version.sh "$VERSION_INPUT"
+          VERSION="${{ inputs.tag }}"
+          VERSION="${VERSION#v}"
+          ./scripts/check-release-version.sh "$VERSION"
 
       - name: Publish skills
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            TAG_VERSION="${{ inputs.version }}"
-          else
-            TAG_VERSION="${GITHUB_REF_NAME#v}"
-          fi
+          TAG_VERSION="${{ inputs.tag }}"
+          TAG_VERSION="${TAG_VERSION#v}"
 
           echo "$TAG_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$' || {
             echo "ERROR: version '$TAG_VERSION' is not semver"
