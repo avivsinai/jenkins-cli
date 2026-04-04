@@ -29,6 +29,9 @@ updates:
           - "*"
     # Vendor dependencies (uncomment if using vendor/)
     # vendor: true
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -47,3 +50,6 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
