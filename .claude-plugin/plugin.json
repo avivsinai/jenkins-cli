@@ -1,6 +1,6 @@
 {
   "name": "jk",
-  "version": "0.0.28",
+  "version": "0.0.29",
   "description": "GitHub CLI-style interface for Jenkins controllers - manage jobs, pipelines, runs, logs, artifacts, credentials, and nodes",
   "author": {
     "name": "Aviv Sinai",
