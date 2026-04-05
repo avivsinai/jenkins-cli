@@ -119,7 +119,7 @@ Key workflows the CLI must make trivial:
 ## 8. External Interfaces & API Usage
 | Feature             | Primary API(s)                                                   | Notes |
 |---------------------|------------------------------------------------------------------|-------|
-| Job metadata        | `GET /job/<path>/api/json?tree=...`, `POST /createItem`, `PUT /job/<path>/config.xml` | Use CloudBees Folders conventions for nested paths. |
+| Job metadata        | `GET /job/<path>/api/json?tree=...`, `POST /createItem`, `POST /job/<path>/config.xml` | Use CloudBees Folders conventions for nested paths. |
 | Runs                | `POST /job/<path>/build[WithParameters]`, `GET .../api/json`, `POST .../stop` | Pipeline REST (`/wfapi/**`) for stage graph. |
 | Logs                | `GET .../logText/progressiveText?start=N`, `GET .../consoleText` | Resume on 416 errors by resetting start offset. |
 | Artifacts           | `GET .../artifact/*`, `GET .../api/json?tree=artifacts[fileName,relativePath]` | Supports glob filtering client-side. |
@@ -141,7 +141,7 @@ Key workflows the CLI must make trivial:
 | `auth`         | `jk auth login`, `jk auth status`, `jk auth logout`             | Stores contexts securely. |
 | `context`      | `jk context ls`, `jk context use`, `jk context rename`          | Config stored under `$XDG_CONFIG_HOME/jk/config.yaml`. |
 | `search`       | `jk search --job-glob '*ada*'`, `jk search --folder tools`      | Top-level alias for cross-job discovery (`run search`). |
-| `job`          | `jk job ls`, `jk job view`, `jk job create`, `jk job import-config`, `jk job delete` | `jk job create` consumes high-level YAML when plugin present. |
+| `job`          | `jk job ls`, `jk job view`, `jk job create`, `jk job config`, `jk job configure`, `jk job scan`, `jk job import-config`, `jk job delete` | `jk job create` consumes high-level YAML when plugin present. |
 | `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run cancel`, `jk run rerun`, `jk run restart-from` | Capability flags printed in `jk run view`. |
 | `log`          | `jk log`, `jk log --follow`                                     | Snapshot default; `--follow` streams like `gh run view --log`. |
 | `artifact`     | `jk artifact ls`, `jk artifact download`                        | Glob filtering via `--pattern`. |
@@ -381,8 +381,9 @@ Key workflows the CLI must make trivial:
 | Command group                                       | Required Jenkins permissions                                           |
 |-----------------------------------------------------|------------------------------------------------------------------------|
 | `auth`, `context`, `config`                         | Client-side only                                                       |
-| `job ls`, `job view`                                | `Overall/Read` + `Job/Read` (folder scoped)                            |
-| `job create`, `job import-config`, `job delete`     | `Job/Create`, `Job/Configure`, `Job/Delete` (folder scoped)           |
+| `job ls`, `job view`, `job config`                  | `Overall/Read` + `Job/Read` (folder scoped)                            |
+| `job create`, `job configure`, `job import-config`, `job delete` | `Job/Create`, `Job/Configure`, `Job/Delete` (folder scoped) |
+| `job scan`                                          | `Overall/Read` + `Job/Read` + `Job/Build` (folder scoped)             |
 | `run start`                                         | `Job/Build`                                                            |
 | `run cancel`                                        | `Job/Cancel` (or equivalent policy)                                   |
 | `run rerun`, `run restart-from`                     | Plugin-specific (`Rebuild/Build`, `Replay`, `Restart from Stage`)     |
@@ -482,7 +483,7 @@ Key workflows the CLI must make trivial:
 
 ### Phase 1 – CLI MVP (Week 2-6)
 - Implement contexts/auth storage, crumb handling, HTTP client abstraction.
-- Deliver commands: `auth`, `context`, `job ls/view`, `run start/ls/view`, `log follow`, `artifact ls/download`, `queue ls/cancel`, `test report`.
+- Deliver commands: `auth`, `context`, `job ls/view/create`, `run start/ls/view`, `log follow`, `artifact ls/download`, `queue ls/cancel`, `test report`.
 - Add `--json` output and table renderer.
 - Build integration test harness against Jenkins LTS without companion plugin.
 - Ship `examples/parity-smoke.sh` demonstrating `jk` parity with `gh` workflows (login, job ls, run follow exit codes, artifact download, credential create).

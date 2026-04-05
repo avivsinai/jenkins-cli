@@ -211,6 +211,9 @@ func applyCustomCA(client *resty.Client, path string) error {
 	}
 
 	tlsConfig := &tls.Config{RootCAs: pool}
+	if transport, err := client.Transport(); err == nil && transport.TLSClientConfig != nil {
+		tlsConfig.InsecureSkipVerify = transport.TLSClientConfig.InsecureSkipVerify //nolint:gosec // intentional per user configuration
+	}
 	client.SetTLSClientConfig(tlsConfig)
 	return nil
 }

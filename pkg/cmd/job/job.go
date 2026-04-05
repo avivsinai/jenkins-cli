@@ -30,6 +30,10 @@ func NewCmdJob(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(
 		newJobListCmd(f),
 		newJobViewCmd(f),
+		newJobCreateCmd(f),
+		newJobConfigCmd(f),
+		newJobConfigureCmd(f),
+		newJobScanCmd(f),
 	)
 
 	return cmd

@@ -404,6 +404,10 @@ func (h *harness) waitForJob(ctx context.Context, jobPath string, timeout time.D
 }
 
 func (h *harness) runCLI(ctx context.Context, args ...string) (string, string, error) {
+	return h.runCLIWithInput(ctx, "", args...)
+}
+
+func (h *harness) runCLIWithInput(ctx context.Context, input string, args ...string) (string, string, error) {
 	cmd := exec.CommandContext(ctx, h.cliPath, args...)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("XDG_CONFIG_HOME=%s", h.configDir),
@@ -421,6 +425,9 @@ func (h *harness) runCLI(ctx context.Context, args ...string) (string, string, e
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	if input != "" {
+		cmd.Stdin = strings.NewReader(input)
+	}
 
 	err := cmd.Run()
 	return stdout.String(), stderr.String(), err

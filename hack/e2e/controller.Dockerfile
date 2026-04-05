@@ -22,7 +22,7 @@ RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" -o /t
   && ln -s /usr/local/go/bin/go /usr/local/bin/go \
   && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
 
-RUN jenkins-plugin-cli --plugins "workflow-aggregator git configuration-as-code junit job-dsl"
+RUN jenkins-plugin-cli --plugins "workflow-aggregator git configuration-as-code junit job-dsl cloudbees-bitbucket-branch-source"
 
 ENV PATH="/usr/local/go/bin:${PATH}"
 
