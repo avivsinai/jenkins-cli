@@ -66,3 +66,23 @@ func TestCollectRerunParametersUsesActionParametersWhenNeeded(t *testing.T) {
 	}, got)
 	require.NotContains(t, got, "EMPTY_RUN_PARAM")
 }
+
+func TestCollectRerunParametersPreservesZeroValues(t *testing.T) {
+	detail := runDetail{
+		Parameters: []map[string]any{
+			{"name": "EMPTY_STR", "value": ""},
+			{"name": "ZERO_INT", "value": 0},
+			{"name": "FALSE_BOOL", "value": false},
+			{"name": "NIL_VAL", "value": nil},
+		},
+	}
+
+	got := collectRerunParameters(detail)
+
+	require.Equal(t, map[string]string{
+		"EMPTY_STR":  "",
+		"ZERO_INT":   "0",
+		"FALSE_BOOL": "false",
+	}, got)
+	require.NotContains(t, got, "NIL_VAL")
+}
