@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.30] - 2026-04-07
 ### Fixed
 - Skipped nil parameter values in rerun payloads so optional Jenkins parameters are no longer serialized as the literal string `<nil>` (#46).
 - Rendered nil parameter values as empty string instead of `<nil>` in human-readable `jk run view` output (#59).
@@ -18,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Bumped `github.com/itchyny/gojq` from 0.12.18 to 0.12.19 (bugfixes + regexp caching performance) (#58).
 - Bumped `actions/setup-node` from 4.4.0 to 6.3.0 in CI workflows (#57).
+
 
 ## [0.0.29] - 2026-04-05
 
