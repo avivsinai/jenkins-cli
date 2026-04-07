@@ -24,6 +24,29 @@ func TestCollectRerunParametersSkipsNilValues(t *testing.T) {
 	require.NotContains(t, got, "NIL_VALUE")
 }
 
+func TestDisplayParameterValue(t *testing.T) {
+	tests := []struct {
+		name  string
+		value any
+		want  string
+	}{
+		{name: "nil renders as empty string", value: nil, want: ""},
+		{name: "string value unchanged", value: "hello", want: "hello"},
+		{name: "empty string stays empty", value: "", want: ""},
+		{name: "bool true", value: true, want: "true"},
+		{name: "bool false", value: false, want: "false"},
+		{name: "int64 zero", value: int64(0), want: "0"},
+		{name: "int64 nonzero", value: int64(42), want: "42"},
+		{name: "float64", value: 3.14, want: "3.14"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := displayParameterValue(tt.value)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestCollectRerunParametersUsesActionParametersWhenNeeded(t *testing.T) {
 	detail := runDetail{
 		Actions: []map[string]any{

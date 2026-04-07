@@ -469,6 +469,15 @@ func normalizeParameterValue(value any) any {
 	}
 }
 
+// displayParameterValue formats a parameter value for human-readable output.
+// nil values are rendered as an empty string instead of "<nil>".
+func displayParameterValue(value any) string {
+	if value == nil {
+		return ""
+	}
+	return fmt.Sprint(value)
+}
+
 func extractSCMInfo(actions []map[string]any, change changeSet) *runSCMInfo {
 	info := &runSCMInfo{}
 

@@ -1274,7 +1274,7 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 				if len(output.Parameters) > 0 {
 					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Parameters:")
 					for _, p := range output.Parameters {
-						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s=%v\n", p.Name, p.Value)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s=%s\n", p.Name, displayParameterValue(p.Value))
 					}
 				}
 				if output.Tests != nil {
