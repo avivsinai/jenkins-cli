@@ -16,6 +16,9 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: read
+
 # Keep workflow_dispatch reruns serialized per tag while letting distinct release commits run independently.
 concurrency:
   group: release-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.sha }}
@@ -160,6 +163,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      attestations: write
       id-token: write
     steps:
       - name: Checkout
@@ -229,6 +233,27 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      - name: Collect attestation subjects
+        id: attestation_subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t subjects < <(find dist -maxdepth 1 -type f | sort)
+          if ((${#subjects[@]} == 0)); then
+            echo "::error::No release artifacts found to attest."
+            exit 1
+          fi
+          {
+            echo "subjects<<EOF"
+            printf '%s\n' "${subjects[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate artifact attestation
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4
+        with:
+          subject-path: ${{ steps.attestation_subjects.outputs.subjects }}
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
