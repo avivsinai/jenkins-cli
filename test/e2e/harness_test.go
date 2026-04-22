@@ -16,8 +16,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types/build"
-	containertypes "github.com/docker/docker/api/types/container"
+	"github.com/containerd/platforms"
+	mobycontainertypes "github.com/moby/moby/api/types/container"
+	mobyclient "github.com/moby/moby/client"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	tc "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -319,14 +321,18 @@ func launchJenkins(ctx context.Context, repoRoot, bareRepoPath string) (tc.Conta
 	}
 
 	targetArch, targetPlatform := detectTargetPlatform()
+	buildPlatform, err := platforms.Parse(targetPlatform)
+	if err != nil {
+		return nil, "", fmt.Errorf("parse target platform %q: %w", targetPlatform, err)
+	}
 
 	req := tc.ContainerRequest{
 		FromDockerfile: tc.FromDockerfile{
 			Context:    filepath.Join(repoRoot, "hack", "e2e"),
 			Dockerfile: "controller.Dockerfile",
-			BuildOptionsModifier: func(opts *build.ImageBuildOptions) {
+			BuildOptionsModifier: func(opts *mobyclient.ImageBuildOptions) {
 				opts.NoCache = true
-				opts.Platform = targetPlatform
+				opts.Platforms = []ocispec.Platform{buildPlatform}
 			},
 			BuildArgs: map[string]*string{
 				"TARGETARCH":     ptr(targetArch),
@@ -338,7 +344,7 @@ func launchJenkins(ctx context.Context, repoRoot, bareRepoPath string) (tc.Conta
 		Env:           env,
 		ExposedPorts:  []string{"8080/tcp"},
 		WaitingFor:    wait.ForLog("Jenkins is fully up and running").WithStartupTimeout(5 * time.Minute),
-		HostConfigModifier: func(hc *containertypes.HostConfig) {
+		HostConfigModifier: func(hc *mobycontainertypes.HostConfig) {
 			hc.Binds = append(hc.Binds,
 				fmt.Sprintf("%s:/var/jenkins_home/casc:ro", cascDir),
 				fmt.Sprintf("%s:/fixtures/repos/jenkins-cli.git:ro", bareRepoPath),
