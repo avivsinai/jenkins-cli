@@ -112,7 +112,7 @@ func buildConfig(opts ...Option) (keyring.Config, error) {
 		//
 		// The trust flag alone does not stop re-prompts after `brew upgrade
 		// jk` — that requires a stable Designated Requirement on the signed
-		// binary (see scripts/sign-darwin-binary.sh). It just ensures a clean
+		// binary (see scripts/codesign-macos.sh). It just ensures a clean
 		// first-run experience for new items. Existing items keep whatever ACL
 		// they had until the item is deleted and recreated (see auth login).
 		cfg.KeychainTrustApplication = true

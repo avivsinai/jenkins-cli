@@ -511,7 +511,11 @@ func copyWorkingTree(src, dest string) error {
 		if !d.Type().IsRegular() {
 			return nil
 		}
-		return copyFile(path, target, d.Type())
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		return copyFile(path, target, info.Mode())
 	})
 }
 
