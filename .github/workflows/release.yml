@@ -118,7 +118,6 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   verify:
-    name: Verify Release Commit
     needs: prepare
     if: needs.prepare.result == 'success'
     runs-on: ubuntu-latest
@@ -142,6 +141,21 @@ jobs:
 
       - name: Verify release metadata
         run: ./scripts/check-release-version.sh "${{ needs.prepare.outputs.version }}"
+      - name: Check skill sync
+        run: make check-skills
+      - name: Check generated skill rules
+        run: make check-generated-skill
+      - name: Verify gofmt
+        shell: bash
+        run: |
+          files="$(gofmt -l .)"
+          if [[ -n "$files" ]]; then
+            echo "The following files need gofmt:" >&2
+            echo "$files" >&2
+            exit 1
+          fi
+      - name: Go vet
+        run: go vet ./...
 
       - name: Run unit tests
         run: JK_E2E_DISABLE=1 make test
@@ -155,8 +169,7 @@ jobs:
       - name: Check embedded version
         run: ./bin/jk version | head -n1 | grep -Fx "jk version ${{ needs.prepare.outputs.tag }}"
 
-  publish:
-    name: Publish Release
+  release:
     runs-on: macos-latest
     needs: [prepare, verify]
     if: needs.prepare.result == 'success' && needs.verify.result == 'success'
@@ -176,6 +189,9 @@ jobs:
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version: "1.25.x"
+
+      - name: Install Syft
+        run: brew install syft
 
       - name: Create release tag after verification
         shell: bash
@@ -239,14 +255,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t subjects < <(find dist -maxdepth 1 -type f | sort)
-          if ((${#subjects[@]} == 0)); then
+          subjects="$(find dist -maxdepth 1 -type f | sort)"
+          if [[ -z "$subjects" ]]; then
             echo "::error::No release artifacts found to attest."
             exit 1
           fi
           {
             echo "subjects<<EOF"
-            printf '%s\n' "${subjects[@]}"
+            printf '%s\n' "$subjects"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -255,18 +271,12 @@ jobs:
         with:
           subject-path: ${{ steps.attestation_subjects.outputs.subjects }}
 
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
-        if: always()
-        with:
-          name: release-artifacts
-          path: dist/
-          retention-days: 5
-
   skill-publish:
     name: Publish Skills
-    needs: [prepare, publish]
-    if: needs.publish.result == 'success' && (github.event_name == 'push' || inputs.skip-skill-publish != true)
+    needs: [prepare, release]
+    if: >-
+      needs.release.result == 'success' &&
+      (github.event_name == 'push' || inputs.skip-skill-publish != 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

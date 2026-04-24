@@ -2,11 +2,7 @@
 # https://goreleaser.com
 
 version: 2
-
-before:
-  hooks:
-    # Ensure dependencies are up to date
-    - go mod tidy
+project_name: jk
 
 builds:
   - id: jk
@@ -34,11 +30,13 @@ builds:
       - -trimpath
     hooks:
       post:
-        - bash ./scripts/sign-darwin-binary.sh "{{ .Path }}" "{{ .Os }}"
+        - cmd: ./scripts/codesign-macos.sh "{{ .Path }}" "io.github.avivsinai.jk" "{{ .Os }}"
+    mod_timestamp: '{{ .CommitTimestamp }}'
 
 archives:
   - id: jk-archive
-    format: tar.gz
+    formats:
+      - tar.gz
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
@@ -49,22 +47,24 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     files:
       - LICENSE
       - README.md
       - CHANGELOG.md
+      - skills/**/*
 
 checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next+{{ .ShortCommit }}"
+  version_template: "{{ incpatch .Version }}-next+{{ .ShortCommit }}"
 
 changelog:
   sort: asc
-  use: github
+  use: git
   filters:
     exclude:
       - '^docs:'
@@ -123,6 +123,25 @@ release:
 
     ### Binary Downloads
     Download the appropriate binary for your platform from the assets below.
+
+sboms:
+  - id: syft-json
+    artifacts: archive
+    cmd: syft
+    args:
+      - "$artifact"
+      - "-o"
+      - "cyclonedx-json=$document"
+
+nfpms:
+  - id: deb
+    package_name: jk
+    file_name_template: 'jk_{{ .Version }}_{{ .Arch }}'
+    formats: [deb]
+    maintainer: Aviv Sinai <avivsinai@gmail.com>
+    description: Jenkins CLI
+    homepage: https://github.com/avivsinai/jenkins-cli
+    license: MIT
 
 brews:
   - name: jk

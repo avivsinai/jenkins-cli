@@ -193,12 +193,12 @@ func TestIncludeQueuedWithLimit(t *testing.T) {
 func TestCursorRecomputationWithQueuedItems(t *testing.T) {
 	// Test that cursor is correctly recomputed when queued items cause truncation
 	tests := []struct {
-		name                 string
-		queuedItems          []runListItem
-		buildItems           []runListItem
-		limit                int
-		expectedCursorBuild  int64 // 0 means no cursor expected
-		description          string
+		name                string
+		queuedItems         []runListItem
+		buildItems          []runListItem
+		limit               int
+		expectedCursorBuild int64 // 0 means no cursor expected
+		description         string
 	}{
 		{
 			name: "no truncation - cursor unchanged",
