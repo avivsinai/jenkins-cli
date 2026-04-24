@@ -6,11 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.0.31] - 2026-04-24
 ### Fixed
 - macOS Keychain "Always Allow" now survives `brew upgrade jk`. The release codesign script pins the Designated Requirement to the bundle identifier (`-r='designated => identifier "..."'`) instead of letting it default to the cdhash, which changes on every build. This mirrors the fix shipped in `bitbucket-cli` for the same underlying issue.
 - Token saves on macOS now delete any stale Keychain item before writing, so the new entry is created with the current binary's DR instead of inheriting an ACL from a previous jk build. Re-run `jk auth login` once after upgrading to benefit.
 - macOS Keychain items created by jk now set `KeychainTrustApplication` on darwin, so fresh items trust the calling binary at create time instead of prompting on every access. `KeychainAccessibleWhenUnlocked` is set alongside for forward compatibility (currently a no-op on the file-based Keychain path 99designs/keyring uses).
 - Widened `secret.Store.Delete` to treat `os.ErrNotExist` as success so the encrypted file backend matches Keychain semantics.
+
 
 ## [0.0.30] - 2026-04-07
 ### Fixed
