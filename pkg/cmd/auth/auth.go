@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -123,7 +124,21 @@ func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions
 		return fmt.Errorf("save config: %w", err)
 	}
 
-	if err := store.Set(secret.TokenKey(contextName), token); err != nil {
+	key := secret.TokenKey(contextName)
+
+	// On darwin, an existing Keychain item's ACL is preserved by the update
+	// path in 99designs/keyring (kcItem.SetAccess(nil) in updateItem). That
+	// means a stale ACL entry from a previous jk binary with a different
+	// Designated Requirement — typically after a Homebrew upgrade — keeps
+	// prompting forever. Delete first so Set() takes the create path with the
+	// current binary's DR as the trusted app.
+	if runtime.GOOS == "darwin" {
+		if err := store.Delete(key); err != nil {
+			return fmt.Errorf("refresh token entry: %w", err)
+		}
+	}
+
+	if err := store.Set(key, token); err != nil {
 		return fmt.Errorf("store token: %w", err)
 	}
 

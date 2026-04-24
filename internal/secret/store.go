@@ -73,8 +73,50 @@ func WithFileDir(dir string) Option {
 // It can optionally fall back to the encrypted file backend when explicitly
 // permitted via options or environment variables.
 func Open(opts ...Option) (*Store, error) {
+	cfg, err := buildConfig(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	kr, err := keyring.Open(cfg)
+	if err != nil {
+		if errors.Is(err, keyring.ErrNoAvailImpl) && !usesFileBackend(cfg.AllowedBackends) {
+			return nil, fmt.Errorf("open keyring: %w (set %s=1 or rerun with --allow-insecure-store to permit encrypted file fallback)", err, envAllowInsecure)
+		}
+		return nil, fmt.Errorf("open keyring: %w", err)
+	}
+
+	return &Store{kr: kr}, nil
+}
+
+// buildConfig assembles the keyring.Config the same way Open does, without
+// actually opening the backend. Exposed for tests that need to assert
+// platform-specific defaults such as the darwin Keychain trust flags.
+func buildConfig(opts ...Option) (keyring.Config, error) {
 	cfg := keyring.Config{
 		ServiceName: serviceName,
+	}
+
+	if runtime.GOOS == "darwin" {
+		// KeychainTrustApplication makes 99designs/keyring call SecAccessCreate
+		// with a nil TrustedApplications list when creating new items, which
+		// tells Keychain Services to trust the calling binary. Without this we
+		// pass an empty slice, which forces a prompt on every access.
+		//
+		// KeychainAccessibleWhenUnlocked is set alongside for forward
+		// compatibility. It maps to kSecAttrAccessible, which Apple documents
+		// as applying only to data-protection keychain items or synchronizable
+		// items — so in the file-based Keychain path 99designs/keyring uses
+		// today it is a no-op. Harmless to set; keeps us ready if the backend
+		// migrates to the data-protection keychain.
+		//
+		// The trust flag alone does not stop re-prompts after `brew upgrade
+		// jk` — that requires a stable Designated Requirement on the signed
+		// binary (see scripts/sign-darwin-binary.sh). It just ensures a clean
+		// first-run experience for new items. Existing items keep whatever ACL
+		// they had until the item is deleted and recreated (see auth login).
+		cfg.KeychainTrustApplication = true
+		cfg.KeychainAccessibleWhenUnlocked = true
 	}
 
 	settings := openOptions{}
@@ -97,19 +139,11 @@ func Open(opts ...Option) (*Store, error) {
 
 	if usesFileBackend(cfg.AllowedBackends) {
 		if err := configureFileBackend(&cfg, settings); err != nil {
-			return nil, err
+			return keyring.Config{}, err
 		}
 	}
 
-	kr, err := keyring.Open(cfg)
-	if err != nil {
-		if errors.Is(err, keyring.ErrNoAvailImpl) && !usesFileBackend(cfg.AllowedBackends) {
-			return nil, fmt.Errorf("open keyring: %w (set %s=1 or rerun with --allow-insecure-store to permit encrypted file fallback)", err, envAllowInsecure)
-		}
-		return nil, fmt.Errorf("open keyring: %w", err)
-	}
-
-	return &Store{kr: kr}, nil
+	return cfg, nil
 }
 
 // Set writes a secret value.
@@ -149,7 +183,7 @@ func (s *Store) Get(key string) (string, error) {
 	return string(item.Data), nil
 }
 
-// Delete removes a secret.
+// Delete removes a secret. Missing items are treated as success.
 func (s *Store) Delete(key string) error {
 	if s == nil || s.kr == nil {
 		return errors.New("secret store not initialized")
@@ -158,7 +192,7 @@ func (s *Store) Delete(key string) error {
 	err := s.withKeychainLock(func() error {
 		return s.kr.Remove(key)
 	})
-	if errors.Is(err, keyring.ErrKeyNotFound) {
+	if err == nil || errors.Is(err, keyring.ErrKeyNotFound) || errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	return err
