@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-func withKeychainLock(fn func() error) error {
+func withKeychainLock(fn func() error) (err error) {
 	lockPath, err := keychainLockPath()
 	if err != nil {
 		return fmt.Errorf("resolve keychain lock path: %w", err)
@@ -23,7 +23,11 @@ func withKeychainLock(fn func() error) error {
 	if err != nil {
 		return fmt.Errorf("open keychain lock: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close keychain lock: %w", closeErr)
+		}
+	}()
 
 	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
 		return fmt.Errorf("acquire keychain lock: %w", err)
