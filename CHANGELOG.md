@@ -6,9 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.0.33] - 2026-05-11
 ### Fixed
 - Removed the accidentally committed root-level `jk` binary and added a repository hygiene CI check to prevent it from returning (#79).
 - Checked the Darwin keychain lock file close error so local macOS lint is clean (#79).
+
 
 ## [0.0.32] - 2026-04-24
 ### Added
