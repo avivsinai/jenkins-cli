@@ -3,6 +3,7 @@
 /dist/
 /build/
 /tmp_release/
+/jk
 *.exe
 *.exe~
 *.dll
