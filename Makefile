@@ -23,7 +23,7 @@ LDFLAGS := -s -w \
 	-X github.com/avivsinai/jenkins-cli/internal/build.commitFromLdflags=$(COMMIT) \
 	-X github.com/avivsinai/jenkins-cli/internal/build.dateFromLdflags=$(BUILD_DATE)
 
-.PHONY: build fmt lint test tidy e2e e2e-up e2e-down snapshot clean check-skills check-generated-skill generate-skill release security gitleaks-detect gitleaks-protect pre-commit-install pre-commit-check pre-commit-update
+.PHONY: build fmt lint test tidy e2e e2e-up e2e-down snapshot clean check-skills check-generated-skill check-repo-hygiene generate-skill release security gitleaks-detect gitleaks-protect pre-commit-install pre-commit-check pre-commit-update
 build: $(BIN_DIR)/jk
 
 # Skill integrity: skills/ is canonical, .claude/skills/ and .agents/skills/ are symlinks
@@ -70,6 +70,9 @@ generate-skill:
 
 check-generated-skill:
 	@GO="$(GO)" ./scripts/check-generated-skill.sh
+
+check-repo-hygiene:
+	@./scripts/check-repo-hygiene.sh
 
 snapshot:
 	@command -v goreleaser >/dev/null 2>&1 || { echo "goreleaser not installed. Run: brew install goreleaser"; exit 1; }

@@ -32,6 +32,9 @@ jobs:
       - name: Check generated skill rules are up-to-date
         run: make check-generated-skill
 
+      - name: Check repository hygiene
+        run: make check-repo-hygiene
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
