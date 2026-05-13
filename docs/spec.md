@@ -14,7 +14,7 @@
 
 ### Confirmed baselines & policies
 - **Supported Jenkins versions:** full support for three maintained LTS lines at any time — baseline `2.361.4`, baseline + ~12 months, and current LTS — validated continuously in CI. Older LTS versions receive best-effort support only.
-- **Authentication:** v1.0 ships with API token + Basic auth. OIDC/SSO integrations are tracked for a post-v1.0 iteration.
+- **Authentication:** v1.0 ships with Jenkins API token + Basic auth, which is also the supported scripted-client path for Google/OIDC/SSO security realms. Browser/device OAuth login flows remain tracked for a post-v1.0 iteration.
 - **Air-gapped & FIPS:** provide offline bundles (binaries, checksums, trust store guidance) in v1.0. FIPS-compatible builds are planned for the 1.x roadmap once Go/toolchain support is validated.
 - **Proxy & CA handling:** support `--proxy`, `HTTPS_PROXY`/`NO_PROXY`, and `--ca-file`/`JK_CA_FILE`, with precedence `flag > env > context config`.
 - **Telemetry:** opt-in only (`jk analytics enable|disable` or `JK_ANALYTICS=1`). Payload is limited to command name, duration, exit code, and capability hash; never transmit URLs, tokens, or identifiers.
@@ -44,6 +44,7 @@ Key workflows the CLI must make trivial:
 ## 5. Functional Requirements
 - **Authentication & contexts**
   - `jk auth login <url>` stores API tokens and TLS settings.
+  - Google/OIDC/SSO users authenticate through Jenkins API tokens: sign in through the browser realm, create a token under `/me/configure`, and pass the Jenkins user ID (often email) with `--username`.
   - `jk context ls|use|rm`, `jk whoami`.
   - Optional `jk auth status` to show crumb/token health.
 - **Jobs & pipeline management**
@@ -162,7 +163,7 @@ Key workflows the CLI must make trivial:
 | Global flags   | `--context`, `--url`, `--token`, `--insecure`, `--json`, `--yaml`, `--format`, `--jq`, `--template`, `--quiet`, `--color=auto|always|never`, `--trace` | CLI resolves context precedence: flag > env > active context. |
 
 ### 9.2 Configuration & State
-- Config file `config.yaml` holds contexts (name, URL, username), toggles (color, pager).
+- Config file `config.yaml` holds contexts (name, URL, Jenkins user ID), toggles (color, pager).
 - Secrets (API tokens) stored in OS keychain via `go-keyring`; fallback encrypted file only when the user passes `--allow-insecure-store` and confirms interactively.
 - Proxy configuration precedence is `flag (--proxy) > environment (HTTPS_PROXY/HTTP_PROXY/NO_PROXY) > context config`. CLI also honors custom CA bundles via `--ca-file` and `JK_CA_FILE`.
 - Per-context cache directory stores crumb and small metadata (capabilities, plugin detection caches) with short TTL.
@@ -187,6 +188,7 @@ Key workflows the CLI must make trivial:
 2. Issue `GET /crumbIssuer/api/json` when performing first mutating request or crumb missing/expired.
 3. Attach version handshake headers to every request: `X-JK-Client: <semver>` and `X-JK-Features: <capabilities>` (comma-separated).
 4. All requests include `Authorization: Basic <user:token>` and `Content-Type` appropriate to method.
+   For Google/OIDC/SSO controllers, `<user>` is the Jenkins user ID (commonly the email address) and `<token>` is a Jenkins API token, not an upstream OAuth access token.
 5. Respect Jenkins CSRF configuration; if crumb endpoint 404, assume crumbs disabled.
 6. Retry on 401/403 once after refreshing crumb; propagate descriptive error if still failing.
 
