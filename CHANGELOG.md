@@ -6,9 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.0.34] - 2026-05-13
 ### Changed
 - Clarified `jk auth login` username/token wording and added README/docs/spec/skill sections walking Google/OIDC/SSO users through the Jenkins API token workflow (#82).
 - Bumped runtime dependencies: `github.com/mattn/go-isatty` 0.0.21 → 0.0.22 (Windows 7 pipe-name fix) and `github.com/rs/zerolog` 1.35.0 → 1.35.1 (restore `Err()` logging when `ErrorStackMarshaler` returns nil) (#75).
+
 
 ## [0.0.33] - 2026-05-11
 ### Fixed
