@@ -41,6 +41,12 @@ type authLoginOptions struct {
 	allowInsecureStore bool
 }
 
+const (
+	usernameFlagHelp = "Jenkins user ID (Google/SSO users: usually your email)"
+	usernamePrompt   = "Username (Jenkins user ID, often your email)"
+	tokenPrompt      = "Jenkins API token"
+)
+
 func newAuthLoginCmd(f *cmdutil.Factory) *cobra.Command {
 	opts := &authLoginOptions{setActive: true}
 
@@ -58,7 +64,7 @@ func newAuthLoginCmd(f *cmdutil.Factory) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&opts.name, "name", "", "Context name (defaults to Jenkins hostname)")
-	cmd.Flags().StringVar(&opts.username, "username", "", "Jenkins username")
+	cmd.Flags().StringVar(&opts.username, "username", "", usernameFlagHelp)
 	cmd.Flags().StringVar(&opts.token, "token", "", "Jenkins API token")
 	cmd.Flags().BoolVar(&opts.insecure, "insecure", false, "Skip TLS certificate verification")
 	cmd.Flags().StringVar(&opts.proxy, "proxy", "", "Proxy URL for this context")
@@ -83,14 +89,14 @@ func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions
 
 	username := opts.username
 	if username == "" {
-		if username, err = terminal.Prompt("Username", ""); err != nil {
+		if username, err = terminal.Prompt(usernamePrompt, ""); err != nil {
 			return fmt.Errorf("read username: %w", err)
 		}
 	}
 
 	token := opts.token
 	if token == "" {
-		if token, err = terminal.PromptSecret("API token"); err != nil {
+		if token, err = terminal.PromptSecret(tokenPrompt); err != nil {
 			return fmt.Errorf("read token: %w", err)
 		}
 	}
