@@ -165,6 +165,37 @@ func TestConfigureFileBackendFallsBackToEnv(t *testing.T) {
 	}
 }
 
+func TestBuildConfigUsesJkPassphraseEnv(t *testing.T) {
+	t.Helper()
+
+	tmpDir := t.TempDir()
+	const envPass = "jk-env-pass"
+
+	t.Setenv(envBackend, "")
+	t.Setenv(envAllowInsecure, "1")
+	t.Setenv(envPassphrase, envPass)
+	t.Setenv("KEYRING_FILE_PASSWORD", "")
+	t.Setenv("KEYRING_PASSWORD", "")
+	t.Setenv(envFileDir, filepath.Join(tmpDir, "secrets"))
+
+	cfg, err := buildConfig()
+	if err != nil {
+		t.Fatalf("buildConfig: %v", err)
+	}
+
+	if cfg.FilePasswordFunc == nil {
+		t.Fatalf("FilePasswordFunc should not be nil")
+	}
+
+	value, err := cfg.FilePasswordFunc("prompt")
+	if err != nil {
+		t.Fatalf("FilePasswordFunc returned error: %v", err)
+	}
+	if value != envPass {
+		t.Fatalf("FilePasswordFunc returned %q, expected %q", value, envPass)
+	}
+}
+
 func TestResolveAllowedBackendsEnvOverride(t *testing.T) {
 	t.Helper()
 
@@ -173,6 +204,52 @@ func TestResolveAllowedBackendsEnvOverride(t *testing.T) {
 
 	got := resolveAllowedBackends(opts)
 	expected := []keyring.BackendType{keyring.FileBackend}
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatalf("resolveAllowedBackends = %#v, expected %#v", got, expected)
+	}
+}
+
+func TestResolveAllowedBackendsAllowFileUsesFileExclusively(t *testing.T) {
+	t.Helper()
+
+	t.Setenv(envBackend, "")
+	opts := openOptions{allowFile: true}
+
+	got := resolveAllowedBackends(opts)
+	expected := []keyring.BackendType{keyring.FileBackend}
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatalf("resolveAllowedBackends = %#v, expected %#v", got, expected)
+	}
+}
+
+func TestBuildConfigAllowInsecureEnvUsesFileExclusively(t *testing.T) {
+	t.Helper()
+
+	t.Setenv(envBackend, "")
+	t.Setenv(envAllowInsecure, "1")
+
+	cfg, err := buildConfig()
+	if err != nil {
+		t.Fatalf("buildConfig: %v", err)
+	}
+
+	expected := []keyring.BackendType{keyring.FileBackend}
+	if !reflect.DeepEqual(cfg.AllowedBackends, expected) {
+		t.Fatalf("AllowedBackends = %#v, expected %#v", cfg.AllowedBackends, expected)
+	}
+}
+
+func TestResolveAllowedBackendsExplicitBackendWinsOverAllowFile(t *testing.T) {
+	t.Helper()
+
+	t.Setenv(envBackend, "secret-service,pass")
+	opts := openOptions{allowFile: true}
+
+	got := resolveAllowedBackends(opts)
+	expected := []keyring.BackendType{
+		keyring.SecretServiceBackend,
+		keyring.PassBackend,
+	}
 	if !reflect.DeepEqual(got, expected) {
 		t.Fatalf("resolveAllowedBackends = %#v, expected %#v", got, expected)
 	}

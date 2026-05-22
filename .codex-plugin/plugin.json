@@ -23,6 +23,7 @@
   "interface": {
     "displayName": "Jenkins CLI",
     "shortDescription": "Create multibranch jobs, inspect config.xml, and manage Jenkins runs and operations",
-    "category": "Developer Tools"
+    "category": "Developer Tools",
+    "composerIcon": "./assets/jk-icon.svg"
   }
 }

@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Added a Codex plugin composer icon for marketplace display (#85).
+
+### Fixed
+- Made `--allow-insecure-store` and `JK_ALLOW_INSECURE_STORE=1` select encrypted file storage directly instead of trying native Linux keyrings first, so SecretService/KWallet failures no longer block the requested file backend (#88, #89).
+
+### Changed
+- Documented noninteractive encrypted file-store unlocks via `JK_KEYRING_PASSPHRASE`, `KEYRING_FILE_PASSWORD`, or `KEYRING_PASSWORD`, and clarified that `KEYRING_BACKEND` remains the explicit backend override.
 
 ## [0.0.34] - 2026-05-13
 ### Changed
