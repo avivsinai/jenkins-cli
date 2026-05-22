@@ -138,6 +138,12 @@ jk auth login https://jenkins.company.example --username you@example.com --token
 
 Use your Jenkins user ID for `--username`; for Google/OIDC setups this is usually your email address. Do not paste a Google OAuth access token into `--token` — Jenkins REST calls expect a Jenkins API token.
 
+### Secret Storage
+
+By default, `jk` stores API tokens in the OS keychain. `--allow-insecure-store` or `JK_ALLOW_INSECURE_STORE=1` selects the encrypted file backend instead of trying native keyring backends. `KEYRING_BACKEND` remains an explicit backend override for advanced use.
+
+For noninteractive file-backend use, set `JK_KEYRING_PASSPHRASE` before running `jk`; compatible fallback variables are `KEYRING_FILE_PASSWORD` and `KEYRING_PASSWORD`.
+
 Structured `jk search` output already includes lightweight search metadata; `--with-meta` is only needed for `jk run ls`.
 
 Add `--json`, `--yaml`, or `--format json|yaml` to supported commands for machine-readable output. Use `--jq` or `--template` to select or reshape JSON results.

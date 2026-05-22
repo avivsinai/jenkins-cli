@@ -164,7 +164,7 @@ Key workflows the CLI must make trivial:
 
 ### 9.2 Configuration & State
 - Config file `config.yaml` holds contexts (name, URL, Jenkins user ID), toggles (color, pager).
-- Secrets (API tokens) stored in OS keychain via `go-keyring`; fallback encrypted file only when the user passes `--allow-insecure-store` and confirms interactively.
+- Secrets (API tokens) stored in OS keychain via `go-keyring`; `--allow-insecure-store` or `JK_ALLOW_INSECURE_STORE=1` selects the encrypted file backend instead of native keyrings. `KEYRING_BACKEND` remains an explicit backend override.
 - Proxy configuration precedence is `flag (--proxy) > environment (HTTPS_PROXY/HTTP_PROXY/NO_PROXY) > context config`. CLI also honors custom CA bundles via `--ca-file` and `JK_CA_FILE`.
 - Per-context cache directory stores crumb and small metadata (capabilities, plugin detection caches) with short TTL.
 - Context resolution precedence is `--context` > `JK_CONTEXT` > active config (`SetActive`). An empty `JK_CONTEXT` must be treated as unset so automation can clear it without mutating local config.
@@ -383,7 +383,7 @@ Key workflows the CLI must make trivial:
 
 ## 11. Security Considerations
 - CLI encourages dedicated service accounts with least privileges; documentation includes recommended Jenkins matrix permissions per command.
-- Tokens stored in OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service). CLI warns when falling back to plaintext (requires `--allow-insecure-store`).
+- Tokens stored in OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service). When `--allow-insecure-store` or `JK_ALLOW_INSECURE_STORE=1` is set, the CLI uses encrypted file storage; noninteractive unlocks can use `JK_KEYRING_PASSPHRASE`, `KEYRING_FILE_PASSWORD`, or `KEYRING_PASSWORD`.
 - Companion plugin uses Jenkins standard stapler routing with CSRF crumb requirements and Strict-Transport-Security headers (inherits from controller).
 - Provide `jk auth logout --purge` to remove cached tokens and crumbs.
 - Support mutual TLS by allowing custom CA bundles via `--ca-file` and `JK_CA_FILE`.
@@ -546,7 +546,7 @@ Each phase is gated by acceptance criteria (functional coverage, test suite pass
 - **CSRF or crumb failures:** fallback detection, clear remediation guidance, ability to disable crumb usage if server configured accordingly.
 - **Plugin optional dependency drift:** maintain compatibility matrix, adopt Jenkins plugin BOM, run nightly compatibility tests.
 - **Performance impact on controller:** ensure CLI uses `tree` filters and rate limits; plugin caches heavy data and enforces paging.
-- **Security of stored tokens:** default to OS keyring, warn and require explicit confirmation before plaintext storage.
+- **Security of stored tokens:** default to OS keyring; require explicit opt-in before encrypted file storage.
 - **User expectation mismatch:** invest in documentation, `jk help` examples, `jk doctor` command to validate environment.
 
 ## 18. API Contracts Reference

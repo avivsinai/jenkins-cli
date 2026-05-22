@@ -35,8 +35,8 @@ type openOptions struct {
 // Option adjusts how the secret store is opened.
 type Option func(*openOptions)
 
-// WithAllowFileFallback permits the encrypted file backend when no native
-// keyring is available. This is considered insecure compared to OS keychains.
+// WithAllowFileFallback selects the encrypted file backend instead of a native
+// keyring. This is considered insecure compared to OS keychains.
 func WithAllowFileFallback(enable bool) Option {
 	return func(o *openOptions) {
 		o.allowFile = enable
@@ -69,9 +69,9 @@ func WithFileDir(dir string) Option {
 	}
 }
 
-// Open initializes and returns a secret store backed by the preferred OS keyring.
-// It can optionally fall back to the encrypted file backend when explicitly
-// permitted via options or environment variables.
+// Open initializes and returns a secret store backed by the preferred OS
+// keyring, or by the encrypted file backend when explicitly selected via
+// options or environment variables.
 func Open(opts ...Option) (*Store, error) {
 	cfg, err := buildConfig(opts...)
 	if err != nil {
@@ -219,10 +219,11 @@ func resolveAllowedBackends(opts openOptions) []keyring.BackendType {
 		return parseBackendList(backendEnv, opts.allowFile)
 	}
 
-	backends := defaultBackends()
 	if opts.allowFile {
-		backends = append(backends, keyring.FileBackend)
+		return []keyring.BackendType{keyring.FileBackend}
 	}
+
+	backends := defaultBackends()
 	return backends
 }
 
