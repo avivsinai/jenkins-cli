@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Added a Codex plugin composer icon for marketplace display (#85).
+- `jk auth login` now verifies credentials against the controller (`/whoAmI/api/json`): definite rejections fail the login with SSO-aware guidance and restore the previous context, token, and active selection; unreachable controllers save unverified with a warning; `--no-verify` skips the check (#77).
+- Requests that get redirected to a sign-in page (Jenkins form login, `securityRealm/commenceLogin`, or identity-provider authorize endpoints) now fail with a clear "use a Jenkins API token" error instead of an HTML parse failure; other redirects, such as artifact downloads to object storage, are unaffected (#77).
+- End-to-end coverage proving Jenkins API tokens keep working when the controller uses the `google-login` SSO realm, and that password Basic auth fails with actionable guidance there (#77).
 
 ### Fixed
 - Made `--allow-insecure-store` and `JK_ALLOW_INSECURE_STORE=1` select encrypted file storage directly instead of trying native Linux keyrings first, so SecretService/KWallet failures no longer block the requested file backend (#88, #89).

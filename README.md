@@ -138,6 +138,17 @@ jk auth login https://jenkins.company.example --username you@example.com --token
 
 Use your Jenkins user ID for `--username`; for Google/OIDC setups this is usually your email address. Do not paste a Google OAuth access token into `--token` — Jenkins REST calls expect a Jenkins API token.
 
+This works because Jenkins validates API tokens before consulting the security realm, so SSO realms such as the `google-login` plugin do not block token-based CLI access (covered by an end-to-end test against a google-login controller).
+
+`jk auth login` verifies the credentials against the controller before finishing:
+
+- On success it reports the authenticated user (`Logged in to <url> as <user>`).
+- If Jenkins rejects the credentials (or treats them as anonymous), the login fails and the previous context, token, and active-context selection are restored — a typo can't clobber a working login. The error explains the API-token workflow above.
+- If the request is redirected to a sign-in page (Jenkins form login, `securityRealm/commenceLogin`, or an external identity provider), `jk` reports that the request never authenticated instead of failing on an HTML response. The same detection applies to every `jk` command, so an expired token against an SSO-fronted controller produces an actionable error.
+- If the controller cannot be reached, the credentials are saved unverified with a warning. Use `--no-verify` to skip the check entirely (for example when bootstrapping configuration before the controller is up).
+
+Service accounts cannot authenticate through a browser-based SSO realm like `google-login` — they never become Jenkins users, so they cannot hold API tokens. That setup requires a bearer-validating front door (Google IAP, a JWT filter, or similar) in front of Jenkins; support for bearer/front-door authentication is tracked in [issue #77](https://github.com/avivsinai/jenkins-cli/issues/77).
+
 ### Secret Storage
 
 By default, `jk` stores API tokens in the OS keychain. `--allow-insecure-store` or `JK_ALLOW_INSECURE_STORE=1` selects the encrypted file backend instead of trying native keyring backends. `KEYRING_BACKEND` remains an explicit backend override for advanced use.

@@ -34,6 +34,7 @@ jk auth login <url> [flags]
 | `--ca-file` |  | Custom CA bundle for TLS verification |
 | `--insecure` |  | Skip TLS certificate verification |
 | `--name` |  | Context name (defaults to Jenkins hostname) |
+| `--no-verify` |  | Skip credential verification against the controller |
 | `--proxy` |  | Proxy URL for this context |
 | `--set-active` |  | Set the context as active after login |
 | `--token` |  | Jenkins API token |

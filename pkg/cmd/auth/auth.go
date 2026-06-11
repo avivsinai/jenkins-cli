@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"runtime"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/avivsinai/jenkins-cli/internal/config"
+	"github.com/avivsinai/jenkins-cli/internal/jenkins"
 	"github.com/avivsinai/jenkins-cli/internal/secret"
 	"github.com/avivsinai/jenkins-cli/internal/terminal"
 	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
@@ -39,6 +41,7 @@ type authLoginOptions struct {
 	caFile             string
 	setActive          bool
 	allowInsecureStore bool
+	noVerify           bool
 }
 
 const (
@@ -71,6 +74,7 @@ func newAuthLoginCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&opts.caFile, "ca-file", "", "Custom CA bundle for TLS verification")
 	cmd.Flags().BoolVar(&opts.setActive, "set-active", true, "Set the context as active after login")
 	cmd.Flags().BoolVar(&opts.allowInsecureStore, "allow-insecure-store", false, "Allow encrypted file-based secret storage")
+	cmd.Flags().BoolVar(&opts.noVerify, "no-verify", false, "Skip credential verification against the controller")
 
 	return cmd
 }
@@ -111,6 +115,20 @@ func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions
 		return fmt.Errorf("open secret store: %w", err)
 	}
 
+	key := secret.TokenKey(contextName)
+
+	// Snapshot the pre-login state so a failed verification can restore it:
+	// a login with bad credentials must not replace a working context, token,
+	// or active-context selection.
+	var prevCtx *config.Context
+	if existing, ctxErr := cfg.Context(contextName); ctxErr == nil && existing != nil {
+		snapshot := *existing
+		prevCtx = &snapshot
+	}
+	prevActive := cfg.Active
+	prevToken, prevTokenErr := store.Get(key)
+	hadToken := prevTokenErr == nil
+
 	cfg.SetContext(contextName, &config.Context{
 		URL:                parsed.String(),
 		Username:           username,
@@ -130,8 +148,6 @@ func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions
 		return fmt.Errorf("save config: %w", err)
 	}
 
-	key := secret.TokenKey(contextName)
-
 	// On darwin, an existing Keychain item's ACL is preserved by the update
 	// path in 99designs/keyring (kcItem.SetAccess(nil) in updateItem). That
 	// means a stale ACL entry from a previous jk binary with a different
@@ -148,8 +164,97 @@ func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions
 		return fmt.Errorf("store token: %w", err)
 	}
 
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Logged in to %s (%s)\n", parsed.String(), contextName)
-	return nil
+	if opts.noVerify {
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Logged in to %s (%s)\n", parsed.String(), contextName)
+		return nil
+	}
+
+	who, verifyErr := verifyLogin(cmd, cfg, contextName)
+	switch {
+	case verifyErr == nil:
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Logged in to %s as %s (%s)\n", parsed.String(), who.Name, contextName)
+		return nil
+	case errors.Is(verifyErr, errVerifyInconclusive):
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: %v; credentials saved unverified\n", verifyErr)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Logged in to %s (%s)\n", parsed.String(), contextName)
+		return nil
+	default:
+		rollbackLogin(cfg, store, contextName, key, prevCtx, prevActive, prevToken, hadToken)
+		return loginVerificationError(verifyErr, parsed, contextName, prevCtx != nil)
+	}
+}
+
+// errVerifyInconclusive marks verification outcomes where Jenkins could not
+// be reached or answered unexpectedly — distinct from a definite credential
+// rejection, which rolls the login back.
+var errVerifyInconclusive = errors.New("could not verify credentials")
+
+// verifyLogin asks Jenkins how the just-stored credentials authenticate.
+// A nil error means the credentials are valid. Errors wrapping
+// errVerifyInconclusive mean Jenkins could not be consulted; any other error
+// is a definite rejection.
+func verifyLogin(cmd *cobra.Command, cfg *config.Config, contextName string) (*jenkins.WhoAmI, error) {
+	ctx := cmd.Context()
+
+	client, err := jenkins.NewClient(ctx, cfg, contextName,
+		jenkins.WithSkipCapabilityProbe(), jenkins.WithDisableWarn(true))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", errVerifyInconclusive, err)
+	}
+
+	who, resp, err := client.WhoAmI(ctx)
+	switch {
+	case err != nil && errors.Is(err, jenkins.ErrSSORedirect):
+		return nil, err
+	case err != nil:
+		return nil, fmt.Errorf("%w: %v", errVerifyInconclusive, err)
+	case resp.StatusCode() == http.StatusUnauthorized || resp.StatusCode() == http.StatusForbidden:
+		return nil, fmt.Errorf("jenkins rejected the credentials (%s)", resp.Status())
+	case resp.IsSuccess() && who.Authenticated:
+		return who, nil
+	case resp.IsSuccess():
+		return nil, errors.New("jenkins treated the request as anonymous")
+	default:
+		return nil, fmt.Errorf("%w: unexpected response %s", errVerifyInconclusive, resp.Status())
+	}
+}
+
+// rollbackLogin restores the pre-login context, token, and active-context
+// selection after a definite verification failure. Best effort: rollback
+// errors are not surfaced over the primary verification error.
+func rollbackLogin(cfg *config.Config, store *secret.Store, contextName, key string, prevCtx *config.Context, prevActive string, prevToken string, hadToken bool) {
+	if prevCtx != nil {
+		cfg.SetContext(contextName, prevCtx)
+	} else {
+		cfg.RemoveContext(contextName)
+	}
+	_ = cfg.SetActive(prevActive)
+	_ = cfg.Save()
+
+	if hadToken {
+		_ = store.Set(key, prevToken)
+	} else {
+		_ = store.Delete(key)
+	}
+}
+
+func loginVerificationError(verifyErr error, parsed *url.URL, contextName string, restored bool) error {
+	outcome := fmt.Sprintf("context %q was not saved", contextName)
+	if restored {
+		outcome = fmt.Sprintf("the previous configuration for context %q was restored", contextName)
+	}
+
+	// The SSO redirect error already carries full token guidance.
+	if errors.Is(verifyErr, jenkins.ErrSSORedirect) {
+		return fmt.Errorf("login verification failed: %w; %s", verifyErr, outcome)
+	}
+
+	base := strings.TrimSuffix(parsed.String(), "/")
+	return fmt.Errorf("login verification failed: %v; %s. "+
+		"Use a Jenkins API token (create one at %s/me/configure), not a password or SSO token; "+
+		"for Google/SSO realms the Jenkins user ID is usually the full email address. "+
+		"Use --no-verify to store credentials without checking them",
+		verifyErr, outcome, base)
 }
 
 func deriveContextName(u *url.URL) string {
