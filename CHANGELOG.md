@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.0.35] - 2026-06-19
 ### Added
 - Added a Codex plugin composer icon for marketplace display (#85).
 - `jk auth login` now verifies credentials against the controller (`/whoAmI/api/json`): definite rejections fail the login with SSO-aware guidance and restore the previous context, token, and active selection; unreachable controllers save unverified with a warning; `--no-verify` skips the check (#77).
@@ -19,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Documented noninteractive encrypted file-store unlocks via `JK_KEYRING_PASSPHRASE`, `KEYRING_FILE_PASSWORD`, or `KEYRING_PASSWORD`, and clarified that `KEYRING_BACKEND` remains the explicit backend override.
+
 
 ## [0.0.34] - 2026-05-13
 ### Changed
