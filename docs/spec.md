@@ -44,7 +44,7 @@ Key workflows the CLI must make trivial:
 ## 5. Functional Requirements
 - **Authentication & contexts**
   - `jk auth login <url>` stores API tokens and TLS settings, then verifies the credentials via `GET /whoAmI/api/json`: definite rejections (401/403, anonymous, or a redirect to a sign-in page) fail the login and restore the previous context/token/active selection; unreachable controllers save unverified with a warning; `--no-verify` skips the check.
-  - Google/OIDC/SSO users authenticate through Jenkins API tokens: sign in through the browser realm, create a token under `/me/configure`, and pass the Jenkins user ID (often email) with `--username`. Jenkins core validates API tokens before the security realm, so SSO realms (e.g. `google-login`) keep token-based CLI access working — verified by an e2e test that switches the harness controller to the google-login realm.
+  - Google/OIDC/SSO users authenticate through Jenkins API tokens: sign in through the browser realm, create a token under `/me/configure`, and pass the Jenkins user ID with `--username`. If the user ID is not known, open `/whoAmI/api/json` while signed in through the browser and use the returned `name` value; some SSO realms use an opaque provider ID rather than an email address. Jenkins core validates API tokens before the security realm, so SSO realms (e.g. `google-login`) keep token-based CLI access working — verified by an e2e test that switches the harness controller to the google-login realm.
   - `jk context ls|use|rm`, `jk whoami`.
   - Optional `jk auth status` to show crumb/token health.
 - **Jobs & pipeline management**
@@ -188,7 +188,7 @@ Key workflows the CLI must make trivial:
 2. Issue `GET /crumbIssuer/api/json` when performing first mutating request or crumb missing/expired.
 3. Attach version handshake headers to every request: `X-JK-Client: <semver>` and `X-JK-Features: <capabilities>` (comma-separated).
 4. All requests include `Authorization: Basic <user:token>` and `Content-Type` appropriate to method.
-   For Google/OIDC/SSO controllers, `<user>` is the Jenkins user ID (commonly the email address) and `<token>` is a Jenkins API token, not an upstream OAuth access token.
+   For Google/OIDC/SSO controllers, `<user>` is the Jenkins user ID from `/whoAmI/api/json` in a signed-in browser session and `<token>` is a Jenkins API token, not an upstream OAuth access token.
 5. Respect Jenkins CSRF configuration; if crumb endpoint 404, assume crumbs disabled.
 6. Retry on 401/403 once after refreshing crumb; propagate descriptive error if still failing.
 7. Abort redirect chains that lead to an interactive sign-in page (Jenkins `/login`/`/loginError`, `securityRealm/commenceLogin` on any host, or identity-provider authorize endpoints such as `accounts.google.com`) with a typed error and API-token guidance; the reported redirect target is sanitized to scheme+host+path. All other redirects (e.g. artifact downloads to object storage) follow normally, capped at 10 hops.

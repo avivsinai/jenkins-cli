@@ -85,7 +85,7 @@ func newQueueCancelCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			req := client.NewRequest().SetQueryParam("id", args[0])
-			resp, err := client.Do(req, http.MethodPost, "/queue/cancelItem", nil)
+			resp, err := client.DoRaw(req, http.MethodPost, "/queue/cancelItem", nil)
 			if err != nil {
 				return err
 			}

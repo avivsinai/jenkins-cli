@@ -25,12 +25,12 @@ func TestAuthLoginUsernameHelpMentionsSSOUserID(t *testing.T) {
 	flag := cmd.Flags().Lookup("username")
 	require.NotNil(t, flag)
 	require.Contains(t, flag.Usage, "Jenkins user ID")
-	require.Contains(t, flag.Usage, "Google/SSO users")
+	require.Contains(t, flag.Usage, "/whoAmI/api/json")
 }
 
 func TestAuthLoginInteractivePromptsDisambiguateJenkinsCredentials(t *testing.T) {
 	require.Contains(t, usernamePrompt, "Jenkins user ID")
-	require.Contains(t, usernamePrompt, "email")
+	require.Contains(t, usernamePrompt, "/whoAmI")
 	require.Equal(t, "Jenkins API token", tokenPrompt)
 }
 
@@ -105,6 +105,7 @@ func TestAuthLoginVerificationRejectedRollsBackNewContext(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "rejected")
 	require.Contains(t, err.Error(), "/me/configure")
+	require.Contains(t, err.Error(), "/whoAmI/api/json")
 
 	_, ctxErr := cfg.Context("t1")
 	require.ErrorIs(t, ctxErr, config.ErrContextNotFound)
@@ -242,6 +243,7 @@ func TestLoginVerificationErrorWithoutPriorContext(t *testing.T) {
 	err := loginVerificationError(errors.New("boom"), parsed, "ctx1", false)
 	require.Contains(t, err.Error(), `context "ctx1" was not saved`)
 	require.Contains(t, err.Error(), "http://jenkins.example.com/me/configure")
+	require.Contains(t, err.Error(), "http://jenkins.example.com/whoAmI/api/json")
 }
 
 func mustURL(t *testing.T, raw string) *url.URL {

@@ -38,8 +38,8 @@ func (p ssoRedirectPolicy) Apply(req *http.Request, _ []*http.Request) error {
 		"Controllers behind SSO (Google, OIDC, ...) still require a Jenkins API token for CLI access: "+
 		"sign in with your browser, create a token at %s/me/configure, then run "+
 		"'jk auth login %s --username <jenkins-user-id> --token <api-token>' "+
-		"(SSO user IDs are usually the full email address)",
-		ErrSSORedirect, sanitized.String(), baseDisplay, baseDisplay)
+		"(if you do not know the Jenkins user ID, open %s/whoAmI/api/json in the signed-in browser and use its name value)",
+		ErrSSORedirect, sanitized.String(), baseDisplay, baseDisplay, baseDisplay)
 }
 
 // sanitizeRedirectError unwraps the url.Error that net/http wraps around a

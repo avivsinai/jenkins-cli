@@ -1199,9 +1199,7 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 				return fmt.Errorf("invalid build number: %w", err)
 			}
 
-			path := fmt.Sprintf("/%s/%d/api/json", jenkins.EncodeJobPath(args[0]), num)
-			var detail runDetail
-			_, err = client.Do(client.NewRequest(), http.MethodGet, path, &detail)
+			detail, err := fetchRunDetail(client, args[0], num)
 			if err != nil {
 				return err
 			}
@@ -1221,7 +1219,7 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 				}
 
 				// Refresh detail after wait completes
-				_, err = client.Do(client.NewRequest(), http.MethodGet, path, &detail)
+				detail, err = fetchRunDetail(client, args[0], num)
 				if err != nil {
 					return err
 				}
@@ -1232,7 +1230,7 @@ func newRunViewCmd(f *cmdutil.Factory) *cobra.Command {
 				jklog.L().Debug().Err(err).Msg("fetch test report failed")
 			}
 
-			output := buildRunDetailOutput(args[0], detail, testReport)
+			output := buildRunDetailOutput(args[0], *detail, testReport)
 
 			// Handle --result flag
 			if resultOnly {
@@ -1344,7 +1342,7 @@ func newRunCancelCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			path := fmt.Sprintf("/%s/%d/%s", jenkins.EncodeJobPath(args[0]), num, action)
-			resp, err := client.Do(client.NewRequest(), http.MethodPost, path, nil)
+			resp, err := client.DoRaw(client.NewRequest(), http.MethodPost, path, nil)
 			if err != nil {
 				return err
 			}
@@ -1516,7 +1514,7 @@ func validateJobIsBuildable(client *jenkins.Client, jobPath string) error {
 	// Fetch job metadata to check its type
 	path := fmt.Sprintf("/%s/api/json", jenkins.EncodeJobPath(jobPath))
 	var metadata jobMetadata
-	resp, err := client.Do(
+	resp, err := client.DoRaw(
 		client.NewRequest().SetQueryParam("tree", "jobs[name,_class],_class"),
 		http.MethodGet,
 		path,
@@ -1529,6 +1527,9 @@ func validateJobIsBuildable(client *jenkins.Client, jobPath string) error {
 	// If 404, the job doesn't exist - let triggerBuild handle it
 	if resp.StatusCode() == http.StatusNotFound {
 		return nil
+	}
+	if resp.StatusCode() >= 400 {
+		return fmt.Errorf("check whether %s is buildable: %s", jobPath, resp.Status())
 	}
 
 	// Check if it's a multibranch pipeline
@@ -1570,7 +1571,7 @@ func triggerBuild(client *jenkins.Client, jobPath string, params map[string]stri
 		methodPath = fmt.Sprintf("/%s/buildWithParameters", encoded)
 	}
 
-	resp, err := client.Do(req, http.MethodPost, methodPath, nil)
+	resp, err := client.DoRaw(req, http.MethodPost, methodPath, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1644,7 +1645,7 @@ func fetchRunDetail(client *jenkins.Client, jobPath string, buildNumber int64) (
 	path := fmt.Sprintf("/%s/%d/api/json", jenkins.EncodeJobPath(jobPath), buildNumber)
 	_, err := client.Do(client.NewRequest(), http.MethodGet, path, &detail)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("view run %s #%d: %w", jobPath, buildNumber, err)
 	}
 	return &detail, nil
 }
@@ -1893,7 +1894,7 @@ func resolveJobPath(cmd *cobra.Command, client *jenkins.Client, jobPath string, 
 // jobExists checks if a job exists (returns false on 404, error on other failures)
 func jobExists(client *jenkins.Client, jobPath string) (bool, error) {
 	path := fmt.Sprintf("/%s/api/json", jenkins.EncodeJobPath(jobPath))
-	resp, err := client.Do(
+	resp, err := client.DoRaw(
 		client.NewRequest().SetQueryParam("tree", "_class"),
 		http.MethodGet,
 		path,

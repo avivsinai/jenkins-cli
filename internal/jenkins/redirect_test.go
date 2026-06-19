@@ -89,6 +89,7 @@ func TestSSORedirectPolicyBlocksLoginRedirect(t *testing.T) {
 	sanitized := sanitizeRedirectError(err)
 	require.ErrorIs(t, sanitized, ErrSSORedirect)
 	require.Contains(t, sanitized.Error(), "/me/configure")
+	require.Contains(t, sanitized.Error(), "/whoAmI/api/json")
 	require.NotContains(t, sanitized.Error(), "from=", "query parameters must not be echoed")
 }
 

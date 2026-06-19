@@ -187,7 +187,7 @@ func newArtifactDownloadCmd(f *cmdutil.Factory) *cobra.Command {
 					segs[i] = url.PathEscape(s)
 				}
 				artifactPath := base + "/" + strings.Join(segs, "/")
-				resp, err := client.Do(req, http.MethodGet, artifactPath, nil)
+				resp, err := client.DoRaw(req, http.MethodGet, artifactPath, nil)
 				if err != nil {
 					return err
 				}

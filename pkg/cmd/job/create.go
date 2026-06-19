@@ -163,7 +163,7 @@ func createMultibranchBitbucketJob(ctx context.Context, client *jenkins.Client, 
 		SetQueryParam("name", spec.Name).
 		SetQueryParam("mode", workflowMultiBranchMode)
 
-	resp, err := client.Do(createReq, http.MethodPost, createPath, nil)
+	resp, err := client.DoRaw(createReq, http.MethodPost, createPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create multibranch project: %w", err)
 	}
@@ -174,7 +174,7 @@ func createMultibranchBitbucketJob(ctx context.Context, client *jenkins.Client, 
 	jobPath := fullJobPath(spec.Folder, spec.Name)
 	configPath := fmt.Sprintf("/%s/config.xml", jenkins.EncodeJobPath(jobPath))
 
-	configResp, err := client.Do(
+	configResp, err := client.DoRaw(
 		client.NewRequest().
 			SetContext(ctx).
 			SetHeader("Accept", "application/xml"),
@@ -194,7 +194,7 @@ func createMultibranchBitbucketJob(ctx context.Context, client *jenkins.Client, 
 		return nil, fmt.Errorf("prepare config.xml for %s: %w", jobPath, err)
 	}
 
-	updateResp, err := client.Do(
+	updateResp, err := client.DoRaw(
 		client.NewRequest().
 			SetContext(ctx).
 			SetHeader("Accept", "application/xml").

@@ -45,8 +45,8 @@ type authLoginOptions struct {
 }
 
 const (
-	usernameFlagHelp = "Jenkins user ID (Google/SSO users: usually your email)"
-	usernamePrompt   = "Username (Jenkins user ID, often your email)"
+	usernameFlagHelp = "Jenkins user ID (SSO users: use browser /whoAmI/api/json if unsure)"
+	usernamePrompt   = "Username (Jenkins user ID; use browser /whoAmI name if unsure)"
 	tokenPrompt      = "Jenkins API token"
 )
 
@@ -252,9 +252,10 @@ func loginVerificationError(verifyErr error, parsed *url.URL, contextName string
 	base := strings.TrimSuffix(parsed.String(), "/")
 	return fmt.Errorf("login verification failed: %v; %s. "+
 		"Use a Jenkins API token (create one at %s/me/configure), not a password or SSO token; "+
-		"for Google/SSO realms the Jenkins user ID is usually the full email address. "+
+		"for SSO realms, sign in with your browser and open %s/whoAmI/api/json; use the returned name value as --username "+
+		"(if it says anonymous, sign in first). "+
 		"Use --no-verify to store credentials without checking them",
-		verifyErr, outcome, base)
+		verifyErr, outcome, base, base)
 }
 
 func deriveContextName(u *url.URL) string {

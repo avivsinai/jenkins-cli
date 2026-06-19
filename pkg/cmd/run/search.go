@@ -224,7 +224,7 @@ func discoverJobs(ctx context.Context, client *jenkins.Client, folderPath, jobGl
 		}
 
 		var payload jobListPayload
-		resp, err := client.Do(client.NewRequest().SetContext(ctx).SetQueryParam("tree", "jobs[name,_class]"), http.MethodGet, encoded, &payload)
+		resp, err := client.DoRaw(client.NewRequest().SetContext(ctx).SetQueryParam("tree", "jobs[name,_class]"), http.MethodGet, encoded, &payload)
 		if err != nil {
 			return err
 		}
@@ -306,7 +306,7 @@ func walkAndAddAllBranches(ctx context.Context, client *jenkins.Client, multibra
 	tree := "jobs[name,_class]"
 
 	var payload jobListPayload
-	resp, err := client.Do(
+	resp, err := client.DoRaw(
 		client.NewRequest().
 			SetContext(ctx).
 			SetQueryParam("tree", tree),

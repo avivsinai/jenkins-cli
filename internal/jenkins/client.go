@@ -269,8 +269,54 @@ func (c *Client) SetDisableWarn(disable bool) {
 	}
 }
 
-// Do executes the request with crumb handling.
+// HTTPStatusError reports a Jenkins HTTP response outside the successful 2xx
+// range.
+type HTTPStatusError struct {
+	Method      string
+	Path        string
+	StatusCode  int
+	Status      string
+	BodySnippet string
+}
+
+func (e *HTTPStatusError) Error() string {
+	status := e.Status
+	if status == "" && e.StatusCode != 0 {
+		status = http.StatusText(e.StatusCode)
+	}
+	if status == "" {
+		status = "unexpected HTTP status"
+	}
+
+	var msg string
+	if e.Method != "" && e.Path != "" {
+		msg = fmt.Sprintf("%s %s: %s", strings.ToUpper(e.Method), e.Path, status)
+	} else {
+		msg = status
+	}
+	if e.BodySnippet != "" {
+		msg += ": " + e.BodySnippet
+	}
+	return msg
+}
+
+// Do executes the request with crumb handling and returns an error for HTTP
+// responses outside the successful 2xx range.
 func (c *Client) Do(req *resty.Request, method, path string, result interface{}) (*resty.Response, error) {
+	resp, err := c.DoRaw(req, method, path, result)
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil || resp.IsSuccess() {
+		return resp, nil
+	}
+	return resp, newHTTPStatusError(method, path, resp)
+}
+
+// DoRaw executes the request with crumb handling and returns the response
+// regardless of HTTP status. Use this only when the caller intentionally
+// branches on Jenkins status codes or response bodies.
+func (c *Client) DoRaw(req *resty.Request, method, path string, result interface{}) (*resty.Response, error) {
 	if result != nil {
 		req.SetResult(result)
 	}
@@ -280,6 +326,32 @@ func (c *Client) Do(req *resty.Request, method, path string, result interface{})
 		return nil, err
 	}
 	return resp, nil
+}
+
+func newHTTPStatusError(method, path string, resp *resty.Response) error {
+	return &HTTPStatusError{
+		Method:      method,
+		Path:        path,
+		StatusCode:  resp.StatusCode(),
+		Status:      resp.Status(),
+		BodySnippet: responseBodySnippet(resp),
+	}
+}
+
+func responseBodySnippet(resp *resty.Response) string {
+	if resp == nil {
+		return ""
+	}
+	body := strings.TrimSpace(resp.String())
+	if body == "" {
+		return ""
+	}
+	body = strings.Join(strings.Fields(body), " ")
+	const maxSnippet = 240
+	if len(body) > maxSnippet {
+		return body[:maxSnippet] + "..."
+	}
+	return body
 }
 
 func (c *Client) execute(req *resty.Request, method, path string, allowRetry bool) (*resty.Response, error) {

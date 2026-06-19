@@ -126,7 +126,7 @@ func fetchParamsFromConfig(ctx context.Context, client *jenkins.Client, jobPath 
 	req := client.NewRequest().SetHeader("Accept", "application/xml")
 	req.SetContext(ctx)
 
-	resp, err := client.Do(req, http.MethodGet, path, nil)
+	resp, err := client.DoRaw(req, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
 	}

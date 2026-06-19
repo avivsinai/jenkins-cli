@@ -40,7 +40,7 @@ func StreamProgressiveLog(ctx context.Context, client *jenkins.Client, jobPath s
 			req.SetContext(ctx)
 		}
 
-		resp, err := client.Do(req, http.MethodGet, path, nil)
+		resp, err := client.DoRaw(req, http.MethodGet, path, nil)
 		if err != nil {
 			if ctx != nil && ctx.Err() != nil {
 				return nil
@@ -52,6 +52,9 @@ func StreamProgressiveLog(ctx context.Context, client *jenkins.Client, jobPath s
 			offset = 0
 			time.Sleep(interval)
 			continue
+		}
+		if resp.StatusCode() >= 400 {
+			return fmt.Errorf("stream log for %s #%d: %s", jobPath, buildNumber, resp.Status())
 		}
 
 		body := resp.RawBody()
@@ -121,7 +124,7 @@ func CollectLogSnapshot(ctx context.Context, client *jenkins.Client, jobPath str
 			req.SetContext(ctx)
 		}
 
-		resp, err := client.Do(req, http.MethodGet, path, nil)
+		resp, err := client.DoRaw(req, http.MethodGet, path, nil)
 		if err != nil {
 			if ctx != nil && ctx.Err() != nil {
 				return truncated, ctx.Err()
@@ -133,6 +136,9 @@ func CollectLogSnapshot(ctx context.Context, client *jenkins.Client, jobPath str
 			offset = 0
 			time.Sleep(150 * time.Millisecond)
 			continue
+		}
+		if resp.StatusCode() >= 400 {
+			return truncated, fmt.Errorf("collect log for %s #%d: %s", jobPath, buildNumber, resp.Status())
 		}
 
 		body := resp.RawBody()
