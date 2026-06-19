@@ -133,7 +133,7 @@ func newPluginInstallCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			req := client.NewRequest().SetBody(payload).SetHeader("Content-Type", "text/xml")
-			resp, err := client.Do(req, http.MethodPost, "/pluginManager/installNecessaryPlugins", nil)
+			resp, err := client.DoRaw(req, http.MethodPost, "/pluginManager/installNecessaryPlugins", nil)
 			if err != nil {
 				return err
 			}
@@ -209,7 +209,7 @@ func newPluginToggleCmd(f *cmdutil.Factory, enable bool) *cobra.Command {
 			}
 
 			path := fmt.Sprintf("/pluginManager/plugin/%s/%s", url.PathEscape(name), verb)
-			resp, err := client.Do(client.NewRequest(), http.MethodPost, path, nil)
+			resp, err := client.DoRaw(client.NewRequest(), http.MethodPost, path, nil)
 			if err != nil {
 				return err
 			}

@@ -91,12 +91,15 @@ func runLog(cmd *cobra.Command, f *cmdutil.Factory, opts *logOptions) error {
 
 	path := fmt.Sprintf("/%s/%d/api/json", encoded, num)
 	detail := &runDetail{}
-	resp, err := client.Do(client.NewRequest(), http.MethodGet, path, detail)
+	resp, err := client.DoRaw(client.NewRequest(), http.MethodGet, path, detail)
 	if err != nil {
 		return err
 	}
 	if resp.StatusCode() == http.StatusNotFound {
 		return shared.NewExitError(3, fmt.Sprintf("run %s #%d not found", opts.jobPath, num))
+	}
+	if resp.StatusCode() >= 400 {
+		return fmt.Errorf("view run %s #%d: %s", opts.jobPath, num, resp.Status())
 	}
 
 	status := statusFromFlags(detail.Building)

@@ -42,13 +42,16 @@ func FetchTestReport(client *jenkins.Client, jobPath string, buildNumber int64) 
 	req := client.NewRequest()
 
 	var report TestReport
-	resp, err := client.Do(req, http.MethodGet, path, &report)
+	resp, err := client.DoRaw(req, http.MethodGet, path, &report)
 	if err != nil {
 		return nil, err
 	}
 
 	if resp.StatusCode() == http.StatusNotFound {
 		return nil, nil
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, fmt.Errorf("fetch test report failed: %s", resp.Status())
 	}
 
 	return &report, nil

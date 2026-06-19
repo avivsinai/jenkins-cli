@@ -231,7 +231,7 @@ func fetchJobConfigXML(ctx context.Context, client *jenkins.Client, jobPath stri
 		return "", err
 	}
 
-	resp, err := client.Do(
+	resp, err := client.DoRaw(
 		client.NewRequest().
 			SetContext(ctx).
 			SetHeader("Accept", "application/xml"),
@@ -257,7 +257,7 @@ func updateJobConfigXML(ctx context.Context, client *jenkins.Client, jobPath, co
 		return errors.New("config.xml payload cannot be empty")
 	}
 
-	resp, err := client.Do(
+	resp, err := client.DoRaw(
 		client.NewRequest().
 			SetContext(ctx).
 			SetHeader("Accept", "application/xml").
@@ -334,7 +334,7 @@ func triggerJobScan(ctx context.Context, client *jenkins.Client, jobPath string)
 		return nil, errors.New("job path is required")
 	}
 
-	resp, err := client.Do(
+	resp, err := client.DoRaw(
 		client.NewRequest().
 			SetContext(ctx).
 			SetHeader("Content-Type", "application/x-www-form-urlencoded").

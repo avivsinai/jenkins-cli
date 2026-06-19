@@ -44,6 +44,7 @@ type Client struct {
 	crumb            *crumbValue
 	crumbMu          sync.Mutex
 	crumbUnsupported bool
+	skipCapProbe     bool
 }
 
 // Capabilities captures Jenkins feature detection results.
@@ -85,6 +86,15 @@ func WithDisableWarn(disable bool) ClientOption {
 				c.restyStream.SetDisableWarn(true)
 			}
 		}
+	}
+}
+
+// WithSkipCapabilityProbe skips capability detection during construction.
+// Useful when the client is only needed for a single check (such as login
+// verification), where probe failures would add noise before the real result.
+func WithSkipCapabilityProbe() ClientOption {
+	return func(c *Client) {
+		c.skipCapProbe = true
 	}
 }
 
@@ -176,6 +186,13 @@ func NewClient(ctx context.Context, cfg *config.Config, contextName string, opts
 	restyStream := restyClient.Clone()
 	restyStream.SetTimeout(0)
 
+	// SetRedirectPolicy replaces http.Client.CheckRedirect, dropping Go's
+	// default 10-hop cap — FlexibleRedirectPolicy restores it. Applied to both
+	// clients explicitly rather than relying on Clone copying CheckRedirect.
+	ssoPolicy := ssoRedirectPolicy{base: parsedURL}
+	restyClient.SetRedirectPolicy(ssoPolicy, resty.FlexibleRedirectPolicy(maxRedirects))
+	restyStream.SetRedirectPolicy(ssoPolicy, resty.FlexibleRedirectPolicy(maxRedirects))
+
 	client := &Client{
 		resty:       restyClient,
 		restyStream: restyStream,
@@ -188,8 +205,10 @@ func NewClient(ctx context.Context, cfg *config.Config, contextName string, opts
 		opt(client)
 	}
 
-	if err := client.refreshCapabilities(ctx); err != nil {
-		log.L().Warn().Err(err).Msg("capability detection failed")
+	if !client.skipCapProbe {
+		if err := client.refreshCapabilities(ctx); err != nil {
+			log.L().Warn().Err(err).Msg("capability detection failed")
+		}
 	}
 
 	return client, nil
@@ -250,8 +269,54 @@ func (c *Client) SetDisableWarn(disable bool) {
 	}
 }
 
-// Do executes the request with crumb handling.
+// HTTPStatusError reports a Jenkins HTTP response outside the successful 2xx
+// range.
+type HTTPStatusError struct {
+	Method      string
+	Path        string
+	StatusCode  int
+	Status      string
+	BodySnippet string
+}
+
+func (e *HTTPStatusError) Error() string {
+	status := e.Status
+	if status == "" && e.StatusCode != 0 {
+		status = http.StatusText(e.StatusCode)
+	}
+	if status == "" {
+		status = "unexpected HTTP status"
+	}
+
+	var msg string
+	if e.Method != "" && e.Path != "" {
+		msg = fmt.Sprintf("%s %s: %s", strings.ToUpper(e.Method), e.Path, status)
+	} else {
+		msg = status
+	}
+	if e.BodySnippet != "" {
+		msg += ": " + e.BodySnippet
+	}
+	return msg
+}
+
+// Do executes the request with crumb handling and returns an error for HTTP
+// responses outside the successful 2xx range.
 func (c *Client) Do(req *resty.Request, method, path string, result interface{}) (*resty.Response, error) {
+	resp, err := c.DoRaw(req, method, path, result)
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil || resp.IsSuccess() {
+		return resp, nil
+	}
+	return resp, newHTTPStatusError(method, path, resp)
+}
+
+// DoRaw executes the request with crumb handling and returns the response
+// regardless of HTTP status. Use this only when the caller intentionally
+// branches on Jenkins status codes or response bodies.
+func (c *Client) DoRaw(req *resty.Request, method, path string, result interface{}) (*resty.Response, error) {
 	if result != nil {
 		req.SetResult(result)
 	}
@@ -261,6 +326,32 @@ func (c *Client) Do(req *resty.Request, method, path string, result interface{})
 		return nil, err
 	}
 	return resp, nil
+}
+
+func newHTTPStatusError(method, path string, resp *resty.Response) error {
+	return &HTTPStatusError{
+		Method:      method,
+		Path:        path,
+		StatusCode:  resp.StatusCode(),
+		Status:      resp.Status(),
+		BodySnippet: responseBodySnippet(resp),
+	}
+}
+
+func responseBodySnippet(resp *resty.Response) string {
+	if resp == nil {
+		return ""
+	}
+	body := strings.TrimSpace(resp.String())
+	if body == "" {
+		return ""
+	}
+	body = strings.Join(strings.Fields(body), " ")
+	const maxSnippet = 240
+	if len(body) > maxSnippet {
+		return body[:maxSnippet] + "..."
+	}
+	return body
 }
 
 func (c *Client) execute(req *resty.Request, method, path string, allowRetry bool) (*resty.Response, error) {
@@ -276,7 +367,7 @@ func (c *Client) execute(req *resty.Request, method, path string, allowRetry boo
 
 	resp, err := req.Execute(method, path)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeRedirectError(err)
 	}
 
 	if allowRetry && needsCrumb(method) &&
@@ -315,7 +406,7 @@ func (c *Client) ensureCrumb(ctx context.Context) (*crumbValue, error) {
 	var result crumbResponse
 	resp, err := c.resty.R().SetContext(ctx).SetResult(&result).Get(crumbEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("fetch crumb: %w", err)
+		return nil, fmt.Errorf("fetch crumb: %w", sanitizeRedirectError(err))
 	}
 
 	switch resp.StatusCode() {
@@ -337,6 +428,29 @@ func (c *Client) clearCrumb() {
 	c.crumbMu.Lock()
 	defer c.crumbMu.Unlock()
 	c.crumb = nil
+}
+
+// WhoAmI describes how Jenkins authenticated the client's credentials.
+type WhoAmI struct {
+	Name          string   `json:"name"`
+	Authenticated bool     `json:"authenticated"`
+	Authorities   []string `json:"authorities"`
+}
+
+// WhoAmI asks Jenkins how the current credentials authenticate. The response
+// is returned alongside the parsed result so callers can classify non-2xx
+// statuses (401/403 versus transient server errors).
+func (c *Client) WhoAmI(ctx context.Context) (*WhoAmI, *resty.Response, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	var out WhoAmI
+	resp, err := c.NewRequest().SetContext(ctx).SetResult(&out).Get("/whoAmI/api/json")
+	if err != nil {
+		return nil, nil, sanitizeRedirectError(err)
+	}
+	return &out, resp, nil
 }
 
 // Capabilities returns the cached capabilities, refreshing if stale.
@@ -370,7 +484,7 @@ func (c *Client) refreshCapabilities(ctx context.Context) error {
 	var status statusResponse
 	resp, err := c.resty.R().SetContext(ctx).SetResult(&status).Get("/jk/api/status")
 	if err != nil {
-		return fmt.Errorf("probe jk/api/status: %w", err)
+		return fmt.Errorf("probe jk/api/status: %w", sanitizeRedirectError(err))
 	}
 
 	caps := Capabilities{}

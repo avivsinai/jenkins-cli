@@ -145,7 +145,7 @@ func newNodeDeleteCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			path := fmt.Sprintf("/computer/%s/doDelete", encodeNodeName(name))
-			resp, err := client.Do(client.NewRequest(), http.MethodPost, path, nil)
+			resp, err := client.DoRaw(client.NewRequest(), http.MethodPost, path, nil)
 			if err != nil {
 				return err
 			}
@@ -182,7 +182,7 @@ func toggleNode(cmd *cobra.Command, f *cmdutil.Factory, name string, offline boo
 	params.Set("offline", desired)
 
 	endpoint := fmt.Sprintf("/computer/%s/toggleOffline?%s", encodedName, params.Encode())
-	resp, err := client.Do(client.NewRequest(), http.MethodPost, endpoint, nil)
+	resp, err := client.DoRaw(client.NewRequest(), http.MethodPost, endpoint, nil)
 	if err != nil {
 		return err
 	}

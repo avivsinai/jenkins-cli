@@ -1,7 +1,10 @@
 package jenkins
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/go-resty/resty/v2"
@@ -107,5 +110,56 @@ func TestSetDisableWarnNilStream(t *testing.T) {
 
 	if !restyDisableWarn(t, rc) {
 		t.Error("SetDisableWarn(true): expected resty DisableWarn=true, got false")
+	}
+}
+
+func TestDoRejectsNonSuccessWhenDecodingResult(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"number":123}`))
+	}))
+	defer server.Close()
+
+	c := &Client{resty: resty.New().SetBaseURL(server.URL)}
+
+	var out struct {
+		Number int `json:"number"`
+	}
+	resp, err := c.Do(c.NewRequest(), http.MethodGet, "/run/api/json", &out)
+
+	if err == nil {
+		t.Fatal("expected non-success response to return an error")
+	}
+	if resp == nil || resp.StatusCode() != http.StatusUnauthorized {
+		t.Fatalf("expected 401 response to be returned with the error, got %#v", resp)
+	}
+	if out.Number != 0 {
+		t.Fatalf("expected failed response not to populate result, got %d", out.Number)
+	}
+	if !strings.Contains(err.Error(), "401 Unauthorized") {
+		t.Fatalf("expected status in error, got %q", err.Error())
+	}
+}
+
+func TestDoRawPreservesNonSuccessResponseForStatusCallers(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("missing"))
+	}))
+	defer server.Close()
+
+	c := &Client{resty: resty.New().SetBaseURL(server.URL)}
+
+	resp, err := c.DoRaw(c.NewRequest(), http.MethodGet, "/optional/api/json", nil)
+
+	if err != nil {
+		t.Fatalf("expected raw request to preserve 404 response without error, got %v", err)
+	}
+	if resp.StatusCode() != http.StatusNotFound {
+		t.Fatalf("expected 404 response, got %s", resp.Status())
+	}
+	if resp.String() != "missing" {
+		t.Fatalf("expected response body to remain available, got %q", resp.String())
 	}
 }

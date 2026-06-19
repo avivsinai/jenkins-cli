@@ -132,7 +132,7 @@ func fetchFromJKAPI(client *jenkins.Client, scope, folder string) (*credentialsL
 	}
 
 	var resp jkCredentialList
-	httpResp, err := client.Do(req, http.MethodGet, "/jk/api/credentials", &resp)
+	httpResp, err := client.DoRaw(req, http.MethodGet, "/jk/api/credentials", &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func fetchFromCoreAPI(client *jenkins.Client, scope, folder string) (*credential
 	}
 
 	var core coreCredentialsResponse
-	resp, err := client.Do(client.NewRequest().SetQueryParam("tree", "credentials[id,typeName,displayName,description]"), http.MethodGet, targetPath, &core)
+	resp, err := client.DoRaw(client.NewRequest().SetQueryParam("tree", "credentials[id,typeName,displayName,description]"), http.MethodGet, targetPath, &core)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func newCredCreateSecretCmd(f *cmdutil.Factory) *cobra.Command {
 				},
 			}
 
-			resp, err := client.Do(client.NewRequest().SetBody(body), http.MethodPost, path, nil)
+			resp, err := client.DoRaw(client.NewRequest().SetBody(body), http.MethodPost, path, nil)
 			if err != nil {
 				return err
 			}
@@ -310,7 +310,7 @@ func newCredDeleteCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			path := fmt.Sprintf("%s/%s/doDelete", base, url.PathEscape(credentialID))
-			resp, err := client.Do(client.NewRequest(), http.MethodPost, path, nil)
+			resp, err := client.DoRaw(client.NewRequest(), http.MethodPost, path, nil)
 			if err != nil {
 				return err
 			}
