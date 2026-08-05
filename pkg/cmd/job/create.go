@@ -69,7 +69,7 @@ func newJobCreateCmd(f *cmdutil.Factory) *cobra.Command {
 		Example: `  jk job create auth-relay \
     --folder platform/services \
     --repo-owner playg \
-    --repository taboola-sales-skills \
+    --repository my-service-repo \
     --script-path services/auth-relay/Jenkinsfile \
     --credentials bitbucket-readonly`,
 		Args: cobra.ExactArgs(1),

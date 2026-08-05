@@ -13,7 +13,7 @@ func TestNormalizeMultibranchBitbucketSpec(t *testing.T) {
 		Name:           " auth-relay ",
 		Folder:         "/platform/services/",
 		RepoOwner:      " playg ",
-		Repository:     " taboola-sales-skills ",
+		Repository:     " my-service-repo ",
 		ScriptPath:     " services/auth-relay/Jenkinsfile ",
 		BitbucketURL:   "https://bitbucket.org/",
 		BranchStrategy: "ALL",
@@ -22,7 +22,7 @@ func TestNormalizeMultibranchBitbucketSpec(t *testing.T) {
 	require.Equal(t, "auth-relay", spec.Name)
 	require.Equal(t, "platform/services", spec.Folder)
 	require.Equal(t, "playg", spec.RepoOwner)
-	require.Equal(t, "taboola-sales-skills", spec.Repository)
+	require.Equal(t, "my-service-repo", spec.Repository)
 	require.Equal(t, "services/auth-relay/Jenkinsfile", spec.ScriptPath)
 	require.Equal(t, "https://bitbucket.org", spec.BitbucketURL)
 	require.Equal(t, "all", spec.BranchStrategy)
@@ -32,7 +32,7 @@ func TestNormalizeMultibranchBitbucketSpecRejectsInvalidBranchStrategy(t *testin
 	_, err := normalizeMultibranchBitbucketSpec(multibranchBitbucketSpec{
 		Name:           "auth-relay",
 		RepoOwner:      "playg",
-		Repository:     "taboola-sales-skills",
+		Repository:     "my-service-repo",
 		ScriptPath:     "Jenkinsfile",
 		BranchStrategy: "weird",
 	})
@@ -48,7 +48,7 @@ func TestCreateItemPath(t *testing.T) {
 func TestBuildSourcesXML(t *testing.T) {
 	xml, err := buildSourcesXML(multibranchBitbucketSpec{
 		RepoOwner:         "playg",
-		Repository:        "taboola-sales-skills",
+		Repository:        "my-service-repo",
 		ScriptPath:        "services/auth-relay/Jenkinsfile",
 		CredentialsID:     "bitbucket-ro",
 		BitbucketURL:      "https://bitbucket.org",
@@ -60,7 +60,7 @@ func TestBuildSourcesXML(t *testing.T) {
 	require.Contains(t, xml, `<source class="com.cloudbees.jenkins.plugins.bitbucket.BitbucketSCMSource">`)
 	require.Contains(t, xml, `<credentialsId>bitbucket-ro</credentialsId>`)
 	require.Contains(t, xml, `<repoOwner>playg</repoOwner>`)
-	require.Contains(t, xml, `<repository>taboola-sales-skills</repository>`)
+	require.Contains(t, xml, `<repository>my-service-repo</repository>`)
 	require.Contains(t, xml, `<com.cloudbees.jenkins.plugins.bitbucket.BranchDiscoveryTrait><strategyId>3</strategyId></com.cloudbees.jenkins.plugins.bitbucket.BranchDiscoveryTrait>`)
 	require.Contains(t, xml, `<com.cloudbees.jenkins.plugins.bitbucket.OriginPullRequestDiscoveryTrait><strategyId>1</strategyId></com.cloudbees.jenkins.plugins.bitbucket.OriginPullRequestDiscoveryTrait>`)
 	require.Contains(t, xml, `TrustTeamForks`)
@@ -69,14 +69,14 @@ func TestBuildSourcesXML(t *testing.T) {
 func TestBuildSourcesXMLEscapesValues(t *testing.T) {
 	xml, err := buildSourcesXML(multibranchBitbucketSpec{
 		RepoOwner:      `playg & co`,
-		Repository:     `taboola<sales>`,
+		Repository:     `svc<team>`,
 		CredentialsID:  `bb"ro"&1`,
 		BitbucketURL:   `https://bitbucket.example.com/root?a=1&b=2`,
 		BranchStrategy: "all",
 	})
 	require.NoError(t, err)
 	require.Contains(t, xml, `<repoOwner>playg &amp; co</repoOwner>`)
-	require.Contains(t, xml, `<repository>taboola&lt;sales&gt;</repository>`)
+	require.Contains(t, xml, `<repository>svc&lt;team&gt;</repository>`)
 	require.Contains(t, xml, `<credentialsId>bb&#34;ro&#34;&amp;1</credentialsId>`)
 	require.Contains(t, xml, `<serverUrl>https://bitbucket.example.com/root?a=1&amp;b=2</serverUrl>`)
 }
@@ -109,7 +109,7 @@ func TestPatchMultibranchConfig(t *testing.T) {
 	output, err := patchMultibranchConfig(input, multibranchBitbucketSpec{
 		Description:       "Auth relay pipeline",
 		RepoOwner:         "playg",
-		Repository:        "taboola-sales-skills",
+		Repository:        "my-service-repo",
 		ScriptPath:        "services/auth-relay/Jenkinsfile",
 		CredentialsID:     "bitbucket-ro",
 		BitbucketURL:      "https://bitbucket.org",
@@ -119,7 +119,7 @@ func TestPatchMultibranchConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, output, `<description>Auth relay pipeline</description>`)
 	require.Contains(t, output, `<repoOwner>playg</repoOwner>`)
-	require.Contains(t, output, `<repository>taboola-sales-skills</repository>`)
+	require.Contains(t, output, `<repository>my-service-repo</repository>`)
 	require.Contains(t, output, `<scriptPath>services/auth-relay/Jenkinsfile</scriptPath>`)
 	require.Contains(t, output, `<folderViews class="jenkins.branch.MultiBranchProjectViewHolder"/>`)
 }
@@ -142,7 +142,7 @@ func TestPatchMultibranchConfigWithExistingDescription(t *testing.T) {
 func TestPatchMultibranchConfigErrorsWhenRequiredSectionsMissing(t *testing.T) {
 	_, err := patchMultibranchConfig(`<root><description/></root>`, multibranchBitbucketSpec{
 		RepoOwner:      "playg",
-		Repository:     "taboola-sales-skills",
+		Repository:     "my-service-repo",
 		ScriptPath:     "Jenkinsfile",
 		BitbucketURL:   "https://bitbucket.org",
 		BranchStrategy: "all",

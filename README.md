@@ -116,7 +116,7 @@ Find jobs fast with `jk search` (alias for `jk run search`) before drilling into
 jk auth login https://jenkins.company.example      # authenticate and create a context
 jk context ls                                      # list available contexts
 jk search --job-glob '*deploy-*' --limit 5 --json               # discover job paths across folders
-jk job create auth-relay --folder platform/services --repo-owner playg --repository taboola-sales-skills --script-path services/auth-relay/Jenkinsfile --credentials bitbucket-ro
+jk job create auth-relay --folder platform/services --repo-owner playg --repository my-service-repo --script-path services/auth-relay/Jenkinsfile --credentials bitbucket-ro
 jk job config platform/services/auth-relay | rg scriptPath
 jk job configure platform/services/auth-relay --script-path services/auth-relay/Jenkinsfile
 jk job config platform/services/auth-relay | jk job configure platform/services/auth-relay --stdin
@@ -176,7 +176,7 @@ Current job provisioning and config management is focused on Multibranch Pipelin
 jk job create auth-relay \
   --folder platform/services \
   --repo-owner playg \
-  --repository taboola-sales-skills \
+  --repository my-service-repo \
   --script-path services/auth-relay/Jenkinsfile \
   --credentials bitbucket-ro \
   --branch-strategy all

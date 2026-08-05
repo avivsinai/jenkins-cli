@@ -141,7 +141,7 @@ jk job view team/app/pipeline
 jk job create auth-relay \
   --folder platform/services \
   --repo-owner playg \
-  --repository taboola-sales-skills \
+  --repository my-service-repo \
   --script-path services/auth-relay/Jenkinsfile \
   --credentials bitbucket-ro \
   --branch-strategy all
