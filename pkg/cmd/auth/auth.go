@@ -14,6 +14,7 @@ import (
 	"github.com/avivsinai/jenkins-cli/internal/jenkins"
 	"github.com/avivsinai/jenkins-cli/internal/secret"
 	"github.com/avivsinai/jenkins-cli/internal/terminal"
+	"github.com/avivsinai/jenkins-cli/pkg/cmd/shared"
 	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
 )
 
@@ -268,8 +269,6 @@ func deriveContextName(u *url.URL) string {
 }
 
 func newAuthLogoutCmd(f *cmdutil.Factory) *cobra.Command {
-	var contextName string
-
 	cmd := &cobra.Command{
 		Use:   "logout [context]",
 		Short: "Remove credentials for a context",
@@ -280,16 +279,12 @@ func newAuthLogoutCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			if len(args) == 1 {
-				contextName = args[0]
+			contextName, err := resolveAuthContextName(cmd, cfg, args)
+			if err != nil {
+				return err
 			}
-
 			if contextName == "" {
-				name := cfg.Active
-				if name == "" {
-					return errors.New("no context specified and no active context")
-				}
-				contextName = name
+				return errors.New("no context specified and no active context")
 			}
 
 			ctxDef, err := cfg.Context(contextName)
@@ -324,34 +319,52 @@ func newAuthLogoutCmd(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&contextName, "context", "", "Context name to remove (defaults to active)")
 	return cmd
 }
 
 func newAuthStatusCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "status",
+		Use:   "status [context]",
 		Short: "Display authentication status",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := f.ResolveConfig()
 			if err != nil {
 				return err
 			}
 
-			ctx, name, err := cfg.ActiveContext()
-			if err != nil && !errors.Is(err, config.ErrContextNotFound) {
+			name, err := resolveAuthContextName(cmd, cfg, args)
+			if err != nil {
 				return err
 			}
-
-			if ctx == nil {
+			if name == "" {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No active context")
 				return nil
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Active context: %s\n", name)
+			ctx, err := cfg.Context(name)
+			if err != nil {
+				if errors.Is(err, config.ErrContextNotFound) {
+					return fmt.Errorf("context %q not found", name)
+				}
+				return err
+			}
+
+			label := "Context"
+			if name == cfg.Active {
+				label = "Active context"
+			}
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", label, name)
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "URL: %s\n", ctx.URL)
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Username: %s\n", ctx.Username)
 			return nil
 		},
 	}
+}
+
+func resolveAuthContextName(cmd *cobra.Command, cfg *config.Config, args []string) (string, error) {
+	if len(args) == 1 {
+		return args[0], nil
+	}
+	return shared.ResolveContextName(cmd, cfg)
 }
