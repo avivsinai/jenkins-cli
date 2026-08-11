@@ -65,6 +65,176 @@ func openTestStore(t *testing.T) *secret.Store {
 	return store
 }
 
+func executeAuthCommand(t *testing.T, cfg *config.Config, args ...string) (string, error) {
+	t.Helper()
+
+	f := &cmdutil.Factory{
+		Config: func() (*config.Config, error) {
+			return cfg, nil
+		},
+	}
+	root := &cobra.Command{Use: "jk", SilenceUsage: true}
+	root.PersistentFlags().StringP("context", "c", "", "Active Jenkins context")
+	root.AddCommand(NewCmdAuth(f))
+
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs(args)
+	err := root.Execute()
+	return out.String(), err
+}
+
+func authContextConfig(t *testing.T) *config.Config {
+	t.Helper()
+
+	cfg := &config.Config{}
+	cfg.SetContext("ctx-a", &config.Context{
+		URL:                "https://a.example.com",
+		Username:           "alice",
+		AllowInsecureStore: true,
+	})
+	cfg.SetContext("ctx-b", &config.Context{
+		URL:                "https://b.example.com",
+		Username:           "bob",
+		AllowInsecureStore: true,
+	})
+	require.NoError(t, cfg.SetActive("ctx-a"))
+	return cfg
+}
+
+func TestAuthStatusResolvesContext(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		envContext string
+		wantLabel  string
+		wantURL    string
+	}{
+		{
+			name:      "active context by default",
+			args:      []string{"auth", "status"},
+			wantLabel: "Active context: ctx-a",
+			wantURL:   "URL: https://a.example.com",
+		},
+		{
+			name:      "context flag",
+			args:      []string{"auth", "status", "--context", "ctx-b"},
+			wantLabel: "Context: ctx-b",
+			wantURL:   "URL: https://b.example.com",
+		},
+		{
+			name:       "environment context",
+			args:       []string{"auth", "status"},
+			envContext: "ctx-b",
+			wantLabel:  "Context: ctx-b",
+			wantURL:    "URL: https://b.example.com",
+		},
+		{
+			name:      "positional context",
+			args:      []string{"auth", "status", "ctx-b"},
+			wantLabel: "Context: ctx-b",
+			wantURL:   "URL: https://b.example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			loginTestEnv(t)
+			t.Setenv("JK_CONTEXT", tt.envContext)
+
+			out, err := executeAuthCommand(t, authContextConfig(t), tt.args...)
+			require.NoError(t, err)
+			require.Contains(t, out, tt.wantLabel)
+			require.Contains(t, out, tt.wantURL)
+			if tt.wantLabel == "Context: ctx-b" {
+				require.NotContains(t, out, "Active context:")
+			}
+		})
+	}
+}
+
+func TestAuthStatusRejectsUnknownContext(t *testing.T) {
+	loginTestEnv(t)
+	t.Setenv("JK_CONTEXT", "")
+
+	_, err := executeAuthCommand(t, authContextConfig(t), "auth", "status", "--context", "bogus")
+	require.EqualError(t, err, `context "bogus" not found`)
+}
+
+func TestAuthLogoutResolvesContext(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		envContext  string
+		wantRemoved string
+	}{
+		{
+			name:        "active context by default",
+			args:        []string{"auth", "logout"},
+			wantRemoved: "ctx-a",
+		},
+		{
+			name:        "context flag",
+			args:        []string{"auth", "logout", "--context", "ctx-b"},
+			envContext:  "ctx-a",
+			wantRemoved: "ctx-b",
+		},
+		{
+			name:        "global shorthand before subcommand",
+			args:        []string{"-c", "ctx-b", "auth", "logout"},
+			envContext:  "ctx-a",
+			wantRemoved: "ctx-b",
+		},
+		{
+			name:        "environment context",
+			args:        []string{"auth", "logout"},
+			envContext:  "ctx-b",
+			wantRemoved: "ctx-b",
+		},
+		{
+			name:        "positional context",
+			args:        []string{"-c", "ctx-a", "auth", "logout", "ctx-b"},
+			envContext:  "ctx-a",
+			wantRemoved: "ctx-b",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			loginTestEnv(t)
+			t.Setenv("JK_CONTEXT", tt.envContext)
+			cfg := authContextConfig(t)
+			store := openTestStore(t)
+			require.NoError(t, store.Set(secret.TokenKey("ctx-a"), "token-a"))
+			require.NoError(t, store.Set(secret.TokenKey("ctx-b"), "token-b"))
+
+			out, err := executeAuthCommand(t, cfg, tt.args...)
+			require.NoError(t, err)
+			require.Contains(t, out, "Logged out of context "+tt.wantRemoved)
+
+			_, err = cfg.Context(tt.wantRemoved)
+			require.ErrorIs(t, err, config.ErrContextNotFound)
+			_, err = store.Get(secret.TokenKey(tt.wantRemoved))
+			require.ErrorIs(t, err, os.ErrNotExist)
+
+			wantKept := "ctx-a"
+			if tt.wantRemoved == "ctx-a" {
+				wantKept = "ctx-b"
+			}
+			_, err = cfg.Context(wantKept)
+			require.NoError(t, err)
+			_, err = store.Get(secret.TokenKey(wantKept))
+			require.NoError(t, err)
+			if tt.wantRemoved == "ctx-a" {
+				require.Empty(t, cfg.Active)
+			} else {
+				require.Equal(t, "ctx-a", cfg.Active)
+			}
+		})
+	}
+}
+
 func TestAuthLoginVerificationSuccess(t *testing.T) {
 	loginTestEnv(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
