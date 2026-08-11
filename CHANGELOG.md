@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.36] - 2026-08-11
 ### Fixed
 - `jk auth status` and `jk auth logout` now honor context selection in positional argument, `--context`/`-c`, `JK_CONTEXT`, then active-context order. This prevents `jk -c ctx-b auth logout` from deleting the active context's configuration and credentials, and status labels a selected non-active context accurately (#127).
+
 
 ## [0.0.35] - 2026-06-19
 ### Added
