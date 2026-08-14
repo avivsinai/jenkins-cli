@@ -288,12 +288,6 @@ func configureFileBackend(cfg *keyring.Config, opts openOptions) error {
 		}
 	}
 
-	if passphrase != "" {
-		cfg.FilePasswordFunc = keyring.FixedStringPrompt(passphrase)
-	} else {
-		cfg.FilePasswordFunc = keyring.TerminalPrompt
-	}
-
 	dir := opts.fileDir
 	if dir == "" {
 		if userDir, err := os.UserConfigDir(); err == nil {
@@ -304,7 +298,47 @@ func configureFileBackend(cfg *keyring.Config, opts openOptions) error {
 	if dir != "" {
 		cfg.FileDir = dir
 	}
+
+	switch {
+	case passphrase != "":
+		cfg.FilePasswordFunc = keyring.FixedStringPrompt(passphrase)
+	case fileSecretsUnlockWithEmptyPassphrase(cfg):
+		// go-keyring always prompts before decrypting. Skip the prompt when the
+		// store is empty or existing items were written with an empty passphrase
+		// (common for --allow-insecure-store), matching ssh-agent behavior for
+		// unencrypted keys.
+		cfg.FilePasswordFunc = keyring.FixedStringPrompt("")
+	default:
+		cfg.FilePasswordFunc = keyring.TerminalPrompt
+	}
+
 	return nil
+}
+
+// fileSecretsUnlockWithEmptyPassphrase reports whether the file keyring in cfg
+// can be used without an interactive passphrase. An empty or missing directory
+// counts as unlockable so first-time writes do not prompt either.
+func fileSecretsUnlockWithEmptyPassphrase(cfg *keyring.Config) bool {
+	probe := *cfg
+	probe.FilePasswordFunc = keyring.FixedStringPrompt("")
+
+	kr, err := keyring.Open(probe)
+	if err != nil {
+		return false
+	}
+
+	keys, err := kr.Keys()
+	if err != nil {
+		return false
+	}
+
+	if len(keys) > 0 {
+		// try to get a single key to see if the passphrase is correct
+		_, err = kr.Get(keys[0])
+		return err == nil
+	}
+
+	return true
 }
 
 func usesFileBackend(backends []keyring.BackendType) bool {
