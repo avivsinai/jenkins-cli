@@ -101,7 +101,7 @@ Releases are automated with the PR-based `./scripts/release.sh X.Y.Z` flow:
 
 1. Update `CHANGELOG.md` under `Unreleased`, then run `./scripts/release.sh X.Y.Z` from `main`.
 2. The script opens a release PR with `chore(release): vX.Y.Z` and aligned skill/plugin metadata.
-3. After the release PR merges, `.github/workflows/release.yml` validates the merged release commit, creates the matching tag, builds binaries for Linux, macOS, and Windows (amd64 + arm64), and publishes the GitHub release with artifacts and checksums.
+3. After the release PR merges, `.github/workflows/release.yml` validates the merged release commit, creates the matching tag, builds binaries for Linux and macOS (amd64 + arm64) and Windows (amd64), and publishes the GitHub release with artifacts and checksums.
 4. Conventional commits (`feat:`, `fix:`, `deps:`) still help keep changelog entries and release summaries consistent.
 
 ## Questions?

@@ -2,6 +2,8 @@
 
 This document is normative for the Jenkins CLI (`jk`) JSON output modes and the companion plugin REST surfaces. Breaking changes to these contracts require a semver-major release of the CLI and/or plugin.
 
+> **Status:** the companion plugin is not shipped yet (`plugin/` is a stub). Every `jk ... --json` shape below is produced today from baseline Jenkins endpoints (`/api/json`, `/logText/progressiveText`, `/credentials/store/...`). The `/jk/api/*` and `/jk/events/*` endpoints are the design contract the plugin will implement; the CLI currently consumes only `/jk/api/status` (capability probe) and `/jk/api/credentials` (`cred ls`, with fallback to core).
+
 ## 1. JSON output conventions
 - All timestamps use RFC3339 (`2006-01-02T15:04:05Z07:00`) in UTC unless otherwise noted.
 - Optional fields are omitted when empty (`omitempty`); arrays default to `[]`.
@@ -10,7 +12,7 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 
 ## 2. Runs
 
-### 2.1 Run detail (`jk run view --json` and `/jk/api/runs/<jobPath>/<build>`)
+### 2.1 Run detail (`jk run view --json`; planned plugin endpoint `/jk/api/runs/<jobPath>/<build>`)
 ```json
 {
   "id": "team/app/main/128",
@@ -60,11 +62,15 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
   ],
   "tests": {"total": 420, "failed": 3, "skipped": 5},
   "queue": {"id": 1357, "queuedAt": "2025-08-12T18:23:55Z"},
-  "node": {"displayName": "linux-agent-1", "executor": 0}
+  "node": {"displayName": "linux-agent-1", "executor": 0},
+  "description": "Deploy 1.2.3 to staging",
+  "displayName": "#128"
 }
 ```
 
-### 2.2 Run list (`jk run ls --json` and `/jk/api/runs`)
+`description` and `displayName` are omitted when Jenkins does not set them.
+
+### 2.2 Run list (`jk run ls --json`; planned plugin endpoint `/jk/api/runs`)
 ```json
 {
   "schemaVersion": "1.0",
@@ -103,8 +109,8 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
   "nextCursor": "g2wAAAABbQAAAGp...",
   "metadata": {
     "filters": {
-      "available": ["result", "status", "branch", "param.*", "artifact.*"],
-      "operators": ["=", "!=", "~", ">=", "<="]
+      "available": ["result", "status", "branch", "commit", "cause.type", "cause.user", "queue.id", "started", "duration", "param.*", "artifact.*", "cause.*"],
+      "operators": [">=", "<=", "!=", "~=", "~", "=", "^", "$", ">", "<"]
     },
     "parameters": [
       {
@@ -114,7 +120,7 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
         "frequency": 1
       }
     ],
-    "fields": ["number", "result", "parameters"],
+    "fields": ["artifacts", "branch", "causes", "commit", "durationms", "estimateddurationms", "number", "parameters", "queueid", "result", "starttime", "status", "url"],
     "selection": ["parameters"],
     "groupBy": "param.CHART_NAME",
     "aggregation": "last"
@@ -162,7 +168,7 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 
 Unlike `jk run ls`, structured search output always includes this lightweight `metadata` block. `--with-meta` is accepted for CLI compatibility, but it is not required.
 
-### 2.4 Progressive log pointer (`/jk/api/runs/<jobPath>/<build>/logs`)
+### 2.4 Progressive log pointer (planned plugin endpoint `/jk/api/runs/<jobPath>/<build>/logs`; the CLI streams via `/logText/progressiveText` today)
 ```json
 {
   "text": "Running on linux-agent-1...\n",
@@ -180,19 +186,19 @@ Unlike `jk run ls`, structured search output always includes this lightweight `m
 }
 ```
 
-When `--follow` is supplied with `--json`/`--yaml`, the CLI suppresses live log output and, after the run finishes, emits the run detail payload described in §2.1 instead of the acknowledgement.
+`jk run rerun` uses `"message": "rerun requested"`. When `--follow` is supplied with `--json`/`--yaml`, the CLI suppresses live log output and, after the run finishes, emits the run detail payload described in §2.1 instead of the acknowledgement.
 
 ### 2.6 Cancel acknowledgement (`jk run cancel --json`)
 ```json
 {
   "jobPath": "team/app/main",
   "build": 128,
-  "action": "term",
+  "action": "stop",
   "status": "requested"
 }
 ```
 
-The CLI exits successfully once the cancellation request is accepted by Jenkins; it does not wait for the build to terminate.
+`action` mirrors `--mode` (`stop` by default, `term`, or `kill`). The CLI exits successfully once the cancellation request is accepted by Jenkins; it does not wait for the build to terminate.
 
 ### 2.7 Run parameter discovery (`jk run params --json`)
 ```json
@@ -217,7 +223,7 @@ The CLI exits successfully once the cancellation request is accepted by Jenkins;
 }
 ```
 
-`source` reflects the discovery path (`config`, `runs`, or `auto`), and `sampleValues`/`frequency` are derived from recent runs. Secret parameters omit defaults and sample values.
+`source` reflects the discovery path actually used (`config` or `runs`; `--source auto`, the default, tries config first and falls back to runs), and `sampleValues`/`frequency` are derived from recent runs. Secret parameters omit defaults and sample values.
 
 ## 3. Logs
 
@@ -263,7 +269,10 @@ When the run is still executing the snapshot may be truncated; the `truncated` f
 }
 ```
 
-### 4.2 Create/update request payload
+### 4.2 Create/update request payload (planned plugin contract)
+
+The sample below is the planned plugin payload. Today `jk cred create-secret` posts a JSON body `{"": "0", "credentials": {"scope": "GLOBAL", "id": ..., "description": ..., "secret": ..., "$class": "org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl"}}` to the Jenkins core endpoint `/credentials/store/system/domain/_/createCredentials` (or `/<folder>/credentials/store/folder/domain/_/createCredentials`).
+
 ```json
 {
   "scope": "folder",
@@ -325,11 +334,17 @@ When the run is still executing the snapshot may be truncated; the `truncated` f
     "12": "Build result: ABORTED",
     "13": "Build result: NOT_BUILT",
     "14": "Build result: RUNNING (in-progress)"
+  },
+  "environmentVariables": {
+    "JK_CONTEXT": "Override the active Jenkins context (same as --context/-c flag)",
+    "JK_QUIET": "Enable quiet mode for supported commands (same as --quiet/-q flag)"
   }
 }
 ```
 
-## 6. Events (SSE)
+## 6. Events (SSE) — planned plugin contract
+
+No `jk` command consumes this stream yet; the CLI only probes `/sse-gateway/stats` to advertise the capability.
 
 - Endpoint: `/jk/events/stream?topics=run,queue,node`
 - Frames are JSON objects encoded as UTF-8 text events.
@@ -357,13 +372,13 @@ When the run is still executing the snapshot may be truncated; the `truncated` f
   "recommendedClient": "1.0.0"
 }
 ```
-- Clients send `X-JK-Client: <semver>` and `X-JK-Features: <csv>` headers. If the CLI version is below `minClient`, it must fall back to baseline Jenkins APIs and surface a warning to the user.
+- Clients send `X-JK-Client: <semver>` and `X-JK-Features: <csv>` headers. The CLI parses `minClient`/`recommendedClient` but does not act on them yet; the planned behaviour is to fall back to baseline Jenkins APIs and warn when the CLI is below `minClient`.
 
 ## 8. Pagination cursors
 
 - Cursors are opaque URL-safe base64 strings produced by the server; clients cannot introspect them.
 - Requests accept `cursor=<value>` and `limit=<n>`. Servers may ignore `limit` in favor of their own defaults but must not return more than requested.
-- When `nextCursor` is omitted or `null`, the collection is exhausted. Clients may pass `--cursor @prev` to reuse the last seen cursor.
+- When `nextCursor` is omitted or `null`, the collection is exhausted. Pass the value back verbatim with `--cursor <value>`.
 
 ## 9. Enumerations
 

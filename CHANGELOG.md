@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Documentation audit against the shipped CLI: README quickstart now streams logs with `jk log --follow` (`jk run view` has no `--follow`), manual skill install points at `skills/jk`, stale version and platform lists updated; `docs/api.md` filter/operator/field catalogs, `run params` `source` values, cancel/rerun acknowledgements and the `help --json` shape corrected, with companion-plugin endpoints marked as planned; the two agent-cookbook recipes that could not work (`--limit 0`, queued-run detection) rewritten; unimplemented command groups in `docs/spec.md` marked *(planned)*; the `jk` skill documents `--no-verify` and the keyring environment variables; stale `docs/CHANGELOG.md` removed.
 
 ## [0.0.36] - 2026-08-11
 ### Fixed

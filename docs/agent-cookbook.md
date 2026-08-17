@@ -144,8 +144,10 @@ slow = json.loads(subprocess.run([
 
 **CLI:**
 ```bash
-jk run ls team/api/deploy --with-meta --json --limit 0
+jk run ls team/api/deploy --with-meta --json --limit 1
 ```
+
+`--limit 0` is not "no items": values ≤ 0 fall back to the default of 20, so keep the limit small when only `metadata` is needed.
 
 **Python:**
 ```python
@@ -154,7 +156,7 @@ import subprocess
 
 meta = json.loads(subprocess.run([
     "jk", "run", "ls", "team/api/deploy",
-    "--with-meta", "--json", "--limit", "0"
+    "--with-meta", "--json", "--limit", "1"
 ], check=True, capture_output=True, text=True).stdout)["metadata"]
 ```
 
@@ -164,21 +166,28 @@ meta = json.loads(subprocess.run([
 
 **CLI:**
 ```bash
-jk run search --folder platform --filter queue.id>0 --select queueId --json
+jk run ls platform/deploy --include-queued --json
 ```
+
+Queued items come first with `status: "queued"`, `number: 0`, `id: "<jobPath>/q<queueId>"`, `startTime` set to the time the item entered the queue, and `fields.queueReason`. `jk run search` does not include queued items, and `--filter queue.id>0` also matches started builds whose `queueId` is positive, so it cannot detect stuck queue entries.
 
 **Python:**
 ```python
 import json
 import subprocess
+from datetime import datetime, timedelta, timezone
 
-runs = json.loads(subprocess.run([
-    "jk", "run", "search",
-    "--folder", "platform",
-    "--filter", "queue.id>0",
-    "--select", "queueId",
-    "--json",
+items = json.loads(subprocess.run([
+    "jk", "run", "ls", "platform/deploy",
+    "--include-queued", "--json",
 ], check=True, capture_output=True, text=True).stdout)["items"]
+
+cutoff = datetime.now(timezone.utc) - timedelta(minutes=15)
+stuck = [
+    it for it in items
+    if it["status"] == "queued"
+    and datetime.fromisoformat(it["startTime"].replace("Z", "+00:00")) < cutoff
+]
 ```
 
 ## 8. Export change authors for auditing

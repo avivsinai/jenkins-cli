@@ -40,7 +40,7 @@ cmd/jk/              → Entry point only; calls internal/jkcmd.Main()
 internal/
   jkcmd/             → CLI initialization and factory wiring
   jenkins/           → HTTP client (go-resty), CSRF crumb handling, capability detection
-  config/            → YAML configuration (~/.config/jk/config.yaml)
+  config/            → YAML configuration (<UserConfigDir>/jk/config.yaml)
   secret/            → OS keyring token storage (fallback: encrypted file)
   build/             → Version info (injected via ldflags)
   log/               → Structured logging (zerolog)
@@ -71,7 +71,7 @@ main.go → jkcmd.Main() → root.NewCmdRoot(factory) → Cobra Execute()
 
 ### Multi-Context Support
 
-- Contexts stored in `~/.config/jk/config.yaml`
+- Contexts stored in `<UserConfigDir>/jk/config.yaml` (`~/.config/jk` on Linux, `~/Library/Application Support/jk` on macOS, `%AppData%\jk` on Windows)
 - Tokens in OS keyring (macOS Keychain, Linux secretservice, Windows credential manager)
 - Resolution: `--context` flag → `JK_CONTEXT` env → active context in config
 
