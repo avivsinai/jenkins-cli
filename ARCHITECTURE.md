@@ -11,9 +11,10 @@ cmd/jk/                  Entry point — calls internal/jkcmd.Main()
 internal/
   jkcmd/                 CLI bootstrap, factory wiring
   jenkins/               HTTP client, CSRF crumb handling, path helpers
-  config/                YAML configuration (~/.config/jk/config.yaml)
+  config/                YAML configuration (<UserConfigDir>/jk/config.yaml)
   secret/                OS keyring token storage (fallback: encrypted file)
   build/                 Version info injected via ldflags
+  docgen/                Generator for skills/jk/rules (make generate-skill)
   log/                   Structured logging (zerolog)
   filter/                JQ-style JSON filtering
   fuzzy/                 Fuzzy-match helpers for interactive selection
@@ -54,21 +55,26 @@ main.go
 IOStreams, Config loader, and a lazy JenkinsClient builder.
 
 **Jenkins client** (`internal/jenkins/Client`) — created per-context; handles
-CSRF crumbs, TLS/proxy settings, and capability detection via `/api/json`.
+CSRF crumbs, TLS/proxy settings, and capability detection via `/jk/api/status`
+(in-memory, 60s TTL).
 
-**Multi-context** — contexts stored in `~/.config/jk/config.yaml`; tokens in
-the OS keyring.  Resolution order: `--context` flag → `JK_CONTEXT` env →
-active context in config.
+**Multi-context** — contexts stored in `<UserConfigDir>/jk/config.yaml`
+(`~/.config/jk` on Linux, `~/Library/Application Support/jk` on macOS,
+`%AppData%\jk` on Windows — Go's `os.UserConfigDir()`); tokens in the OS
+keyring.  Resolution order: `--context` flag → `JK_CONTEXT` env → active
+context in config.
 
 **IOStreams** (`pkg/iostreams`) — wraps stdin/stdout/stderr with TTY detection,
 colour support, pager piping, and progress indicators.
 
 ## Testing strategy
 
-| Layer | Count | Runner |
-|-------|-------|--------|
-| Unit tests | ~230 (23 test files) | `go test ./...` with `JK_E2E_DISABLE=1` |
-| End-to-end | ~60 (test/e2e/) | testcontainers-go — spins up a real Jenkins in Docker |
+| Layer | Location | Runner |
+|-------|----------|--------|
+| Unit tests | `*_test.go` next to the code | `JK_E2E_DISABLE=1 make test` |
+| End-to-end | `test/e2e/` | `make e2e` — testcontainers-go starts a real Jenkins (`jenkins/jenkins:lts-jdk17`) in Docker |
 
-CI runs lint → unit → e2e in sequence.  The e2e suite uses git worktrees
-(`.tmp-jk-e2e/`) to isolate each test's Jenkins home directory.
+CI runs lint → unit → e2e in sequence, plus an independent `check-skills` job.
+`TestMain` starts one Jenkins container shared by the whole e2e suite; a
+scratch git repository under `.tmp-jk-e2e/` serves as the fake SCM remote for
+job-config tests.

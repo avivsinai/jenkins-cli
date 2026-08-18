@@ -45,7 +45,7 @@ scoop install jk
 go install github.com/avivsinai/jenkins-cli/cmd/jk@latest
 
 # Or install specific version
-go install github.com/avivsinai/jenkins-cli/cmd/jk@v0.0.29
+go install github.com/avivsinai/jenkins-cli/cmd/jk@v0.0.36
 ```
 
 Binary will be installed to `$GOPATH/bin` (or `$HOME/go/bin` by default).
@@ -103,7 +103,7 @@ npx skild install @avivsinai/jk -t claude -y
 
 ```bash
 git clone https://github.com/avivsinai/jenkins-cli.git
-cp -r jenkins-cli/.claude/skills/jk ~/.claude/skills/
+cp -r jenkins-cli/skills/jk ~/.claude/skills/
 ```
 
 </details>
@@ -124,7 +124,7 @@ jk job scan platform/services/auth-relay
 jk run ls team/app/pipeline --filter result=SUCCESS --since 7d --limit 5 --json --with-meta
 jk run ls team/app/pipeline --include-queued   # include queued builds (shown as qN)
 jk run params team/app/pipeline                    # inspect inferred parameter metadata
-jk run view team/app/pipeline 128 --follow         # stream logs until completion
+jk log team/app/pipeline 128 --follow              # stream logs until completion
 jk artifact download team/app/pipeline 128 -p "**/*.xml" -o out/
 ```
 
@@ -147,7 +147,7 @@ This works because Jenkins validates API tokens before consulting the security r
 - If the request is redirected to a sign-in page (Jenkins form login, `securityRealm/commenceLogin`, or an external identity provider), `jk` reports that the request never authenticated instead of failing on an HTML response. The same detection applies to every `jk` command, so an expired token against an SSO-fronted controller produces an actionable error.
 - If the controller cannot be reached, the credentials are saved unverified with a warning. Use `--no-verify` to skip the check entirely (for example when bootstrapping configuration before the controller is up).
 
-Service accounts cannot authenticate through a browser-based SSO realm like `google-login` — they never become Jenkins users, so they cannot hold API tokens. That setup requires a bearer-validating front door (Google IAP, a JWT filter, or similar) in front of Jenkins; support for bearer/front-door authentication is tracked in [issue #77](https://github.com/avivsinai/jenkins-cli/issues/77).
+Service accounts cannot authenticate through a browser-based SSO realm like `google-login` — they never become Jenkins users, so they cannot hold API tokens. That setup requires a bearer-validating front door (Google IAP, a JWT filter, or similar) in front of Jenkins; support for bearer/front-door authentication is tracked in [issue #129](https://github.com/avivsinai/jenkins-cli/issues/129).
 
 ### Secret Storage
 
@@ -155,7 +155,7 @@ By default, `jk` stores API tokens in the OS keychain. `--allow-insecure-store` 
 
 For noninteractive file-backend use, set `JK_KEYRING_PASSPHRASE` before running `jk`; compatible fallback variables are `KEYRING_FILE_PASSWORD` and `KEYRING_PASSWORD`.
 
-Structured `jk search` output already includes lightweight search metadata; `--with-meta` is only needed for `jk run ls`.
+Structured `jk search` output already includes lightweight search metadata; `--with-meta` is only needed for `jk run ls` (`jk search` accepts it as a no-op for flag parity).
 
 Add `--json`, `--yaml`, or `--format json|yaml` to supported commands for machine-readable output. Use `--jq` or `--template` to select or reshape JSON results.
 

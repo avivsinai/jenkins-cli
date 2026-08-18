@@ -1,5 +1,7 @@
 # Jenkins CLI ("jk") Specification & Technical Plan
 
+> **Status (v0.0.36):** this document is the design blueprint and still describes planned scope. The shipped command surface is what `jk help --json` reports: `auth`, `context`, `search`, `job`, `run`, `log`, `artifact`, `test`, `cred`, `node`, `queue`, `plugin`, `completion`, `version`. Items marked *(planned)* below — the companion plugin (§10), `casc`/`events`/`metrics`/`extension`/`config`/`analytics`, `jk doctor`, `jk whoami`, telemetry, rate limiting — are not implemented yet.
+
 ## 1. Context & Vision
 - Deliver a cross-platform command line experience that makes Jenkins approachable for day-to-day development workflows while remaining safe for production environments.
 - Pair a lightweight Go CLI with Jenkins intrinsic REST APIs and a thin companion plugin that unifies inconsistent surfaces (runs, credentials, job provisioning, events).
@@ -13,12 +15,12 @@
 - Modular architecture that works against stock Jenkins installs while unlocking richer UX when the companion plugin is installed.
 
 ### Confirmed baselines & policies
-- **Supported Jenkins versions:** full support for three maintained LTS lines at any time — baseline `2.361.4`, baseline + ~12 months, and current LTS — validated continuously in CI. Older LTS versions receive best-effort support only.
+- **Supported Jenkins versions:** target the maintained LTS lines; the e2e suite runs against `jenkins/jenkins:lts-jdk17` (current LTS) in CI. Older LTS versions receive best-effort support only.
 - **Authentication:** v1.0 ships with Jenkins API token + Basic auth, which is also the supported scripted-client path for Google/OIDC/SSO security realms. Browser/device OAuth login flows remain tracked for a post-v1.0 iteration.
 - **Air-gapped & FIPS:** provide offline bundles (binaries, checksums, trust store guidance) in v1.0. FIPS-compatible builds are planned for the 1.x roadmap once Go/toolchain support is validated.
 - **Proxy & CA handling:** support `--proxy`, `HTTPS_PROXY`/`NO_PROXY`, and `--ca-file`/`JK_CA_FILE`, with precedence `flag > env > context config`.
-- **Telemetry:** opt-in only (`jk analytics enable|disable` or `JK_ANALYTICS=1`). Payload is limited to command name, duration, exit code, and capability hash; never transmit URLs, tokens, or identifiers.
-- **Distribution:** GitHub Releases (primary), Homebrew tap, and Scoop manifest at GA. Deb/rpm repositories are 1.x backlog.
+- **Telemetry (planned):** opt-in only (`jk analytics enable|disable` or `JK_ANALYTICS=1`); no telemetry code ships today. Payload is limited to command name, duration, exit code, and capability hash; never transmit URLs, tokens, or identifiers.
+- **Distribution:** GitHub Releases (primary), Homebrew tap, Scoop manifest, and `.deb` packages (goreleaser nfpm). RPM packages and apt/yum repositories are backlog.
 - **CLI ↔ plugin version handshake:** CLI sends `X-JK-Client: <semver>` and `X-JK-Features: runs,cred,events,…`. Plugin responds via `/jk/api/status` with `{version, features[], minClient, recommendedClient}` enabling graceful degradation messaging.
 
 ## 3. Non-Goals
@@ -45,7 +47,7 @@ Key workflows the CLI must make trivial:
 - **Authentication & contexts**
   - `jk auth login <url>` stores API tokens and TLS settings, then verifies the credentials via `GET /whoAmI/api/json`: definite rejections (401/403, anonymous, or a redirect to a sign-in page) fail the login and restore the previous context/token/active selection; unreachable controllers save unverified with a warning; `--no-verify` skips the check.
   - Google/OIDC/SSO users authenticate through Jenkins API tokens: sign in through the browser realm, create a token under `/me/configure`, and pass the Jenkins user ID with `--username`. If the user ID is not known, open `/whoAmI/api/json` while signed in through the browser and use the returned `name` value; some SSO realms use an opaque provider ID rather than an email address. Jenkins core validates API tokens before the security realm, so SSO realms (e.g. `google-login`) keep token-based CLI access working — verified by an e2e test that switches the harness controller to the google-login realm.
-  - `jk context ls|use|rm`, `jk whoami`.
+  - `jk context ls|use|rm`; `jk whoami` *(planned)*.
   - Optional `jk auth status` to show crumb/token health.
 - **Jobs & pipeline management**
   - List and view metadata for Jenkins jobs.
@@ -79,7 +81,7 @@ Key workflows the CLI must make trivial:
 - **Events & metrics**
   - Stream events via SSE (`jk events stream --kind run,queue`).
   - Fetch Prometheus metrics snapshots or tail key gauges (queue length, executor usage).
-- **Diagnostics**
+- **Diagnostics** *(planned)*
   - `jk doctor` validates context configuration, reachability, authentication, crumb retrieval, permission checks for core commands, and optional capabilities (SSE, Prometheus) with both human-readable and `--json` output.
 - **Extensions**
   - Install and manage exec-based extensions (`jk extension install <repo>`, `jk extension ls|rm`).
@@ -87,14 +89,14 @@ Key workflows the CLI must make trivial:
 - Support `--json`/`--yaml`/`--format` output and template-friendly fields.
   - Provide shell completions (bash/zsh/fish) and context-aware prompts.
   - Return normative exit codes detailed in §9.6, including specialized mappings for `jk run --follow`.
-  - Telemetry is opt-in via `jk analytics enable|disable` or `JK_ANALYTICS=0|1`; default is disabled.
+  - Telemetry *(planned)* is opt-in via `jk analytics enable|disable` or `JK_ANALYTICS=0|1`; default is disabled.
 
 ## 6. Non-Functional Requirements
 - **Security:** TLS verification by default with explicit opt-out, secure token storage (OS keychain), automatic crumb handling, adherence to Jenkins permissions.
-- **Performance:** `jk log follow` latency < 500 ms refresh; listing commands limited via pagination (`--limit`) and `tree` query parameters to minimize payloads. Outbound request concurrency defaults to 4 in-flight operations (adjustable via `--max-concurrency` or `JK_MAX_CONCURRENCY`) to protect Jenkins controllers.
+- **Performance:** `jk log follow` latency < 500 ms refresh; listing commands limited via pagination (`--limit`) and `tree` query parameters to minimize payloads. Outbound request concurrency limits (`--max-concurrency`, `JK_MAX_CONCURRENCY`) are planned; there is no limiter today.
 - **Reliability:** Commands retry transient network errors; CLI caches crumb until expiry; operations idempotent when possible.
 - **Portability:** Single static binary for macOS (amd64/arm64), Linux (amd64/arm64), Windows (amd64).
-- **Observability:** Optional verbose logging (`JK_DEBUG=1`), structured logs for integration tests, plugin exposes audit logs/metrics.
+- **Observability:** Optional verbose logging (`JK_LOG=debug|trace`), structured logs for integration tests, plugin exposes audit logs/metrics.
 - **Extensibility:** Clear public interfaces for third-party extensions and plugin endpoints; maintain semantic versioning for the CLI and plugin.
 
 ## 7. High-Level Architecture
@@ -143,30 +145,31 @@ Key workflows the CLI must make trivial:
 | Group          | Example commands                                                | Notes |
 |----------------|-----------------------------------------------------------------|-------|
 | `auth`         | `jk auth login`, `jk auth status`, `jk auth logout`             | Stores contexts securely. |
-| `context`      | `jk context ls`, `jk context use`, `jk context rename`          | Config stored under `$XDG_CONFIG_HOME/jk/config.yaml`. |
+| `context`      | `jk context ls`, `jk context use`, `jk context rm`              | Config stored under `os.UserConfigDir()/jk/config.yaml` (`~/.config/jk` on Linux/XDG, `~/Library/Application Support/jk` on macOS, `%AppData%\jk` on Windows). |
 | `search`       | `jk search --job-glob '*ada*'`, `jk search --folder tools`      | Top-level alias for cross-job discovery (`run search`). |
 | `job`          | `jk job ls`, `jk job view`, `jk job create`, `jk job config`, `jk job configure`, `jk job scan` | `create` currently targets Bitbucket-backed Multibranch Pipeline jobs; `config` emits raw XML; `configure` supports `--file`, `--stdin`, or `--script-path`; `scan` is multibranch-only. |
-| `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run cancel`, `jk run rerun`, `jk run restart-from` | Capability flags printed in `jk run view`. |
+| `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run cancel`, `jk run rerun` | `run restart-from` *(planned)*. |
 | `log`          | `jk log`, `jk log --follow`                                     | Snapshot default; `--follow` streams like `gh run view --log`. |
 | `artifact`     | `jk artifact ls`, `jk artifact download`                        | Glob filtering via `--pattern`. |
-| `test`         | `jk test report`, `jk test junit`                               | Format options `--summary`, `--json`. |
+| `test`         | `jk test report`                                                | `--json` output; `jk test junit` *(planned)*. |
 | `cred`         | `jk cred ls`, `jk cred create-secret`, `jk cred rm`  | Additional types added iteratively; falls back to core APIs when plugin absent. |
-| `node`         | `jk node ls`, `jk node cordon`, `jk node uncordon`, `jk node delete` | Cordon optionally sets offline message. |
-| `queue`        | `jk queue ls`, `jk queue cancel`                                | `jk queue ls --watch` uses SSE if available. |
+| `node`         | `jk node ls`, `jk node cordon`, `jk node uncordon`, `jk node rm` | Cordon optionally sets offline message. |
+| `queue`        | `jk queue ls`, `jk queue cancel`                                | `jk queue ls --watch` (SSE) *(planned)*. |
 | `plugin`       | `jk plugin ls`, `jk plugin install`, `jk plugin enable`, `jk plugin disable` | `install` prompts for confirmation unless `--yes`. |
-| `casc`         | `jk casc apply`, `jk casc export`, `jk casc reload`             | Requires admin rights. |
-| `events`       | `jk events stream`, `jk events tail`                             | Fallback to polling with refresh interval when SSE missing. |
-| `metrics`      | `jk metrics dump`, `jk metrics top`                             | `top` keeps refreshing selected gauges. |
-| `extension`    | `jk extension install`, `jk extension ls`, `jk extension rm`    | Exec-based, loads `jk-<name>` on PATH. |
-| `config`       | `jk config set|get|unset`                                       | Manage CLI preferences. |
-| `analytics`    | `jk analytics enable`, `jk analytics disable`, `jk analytics status` | Manage opt-in telemetry state. |
-| Global flags   | `--context`, `--url`, `--token`, `--insecure`, `--json`, `--yaml`, `--format`, `--jq`, `--template`, `--quiet`, `--color=auto|always|never`, `--trace` | CLI resolves context precedence: flag > env > active context. |
+| `casc` *(planned)* | `jk casc apply`, `jk casc export`, `jk casc reload`         | Requires admin rights. |
+| `events` *(planned)* | `jk events stream`, `jk events tail`                       | Fallback to polling with refresh interval when SSE missing. |
+| `metrics` *(planned)* | `jk metrics dump`, `jk metrics top`                       | `top` keeps refreshing selected gauges. |
+| `extension` *(planned)* | `jk extension install`, `jk extension ls`, `jk extension rm` | Exec-based, loads `jk-<name>` on PATH. |
+| `config` *(planned)* | `jk config set|get|unset`                                 | Manage CLI preferences. |
+| `analytics` *(planned)* | `jk analytics enable`, `jk analytics disable`, `jk analytics status` | Manage opt-in telemetry state. |
+| `completion`   | `jk completion bash|zsh|fish|powershell`                        | Cobra-generated shell completions. |
+| Global flags   | `--context/-c`, `--json`, `--yaml`, `--format`, `--jq`, `--template/-t`, `--quiet/-q` | Persistent on the root command. `--url`, `--token`, `--insecure` belong to `auth login`; `--color` and `--trace` are *(planned)*. Context precedence: flag > `JK_CONTEXT` > active context. |
 
 ### 9.2 Configuration & State
-- Config file `config.yaml` holds contexts (name, URL, Jenkins user ID), toggles (color, pager).
+- Config file `config.yaml` holds contexts (`url`, `username`, `insecure`, `proxy`, `ca_file`, `allow_insecure_store`) and `preferences` (`color`, `output_format`, `max_concurrency`).
 - Secrets (API tokens) stored in OS keychain via `go-keyring`; `--allow-insecure-store` or `JK_ALLOW_INSECURE_STORE=1` selects the encrypted file backend instead of native keyrings. `KEYRING_BACKEND` remains an explicit backend override.
 - Proxy configuration precedence is `flag (--proxy) > environment (HTTPS_PROXY/HTTP_PROXY/NO_PROXY) > context config`. CLI also honors custom CA bundles via `--ca-file` and `JK_CA_FILE`.
-- Per-context cache directory stores crumb and small metadata (capabilities, plugin detection caches) with short TTL.
+- Crumb and capability flags are cached in memory for the life of the process (capabilities: 60s TTL); nothing is cached on disk.
 - Context resolution precedence is `--context` > `JK_CONTEXT` > active config (`SetActive`). An empty `JK_CONTEXT` must be treated as unset so automation can clear it without mutating local config.
 
 #### 9.2.1 Code layout (gh parity)
@@ -198,11 +201,11 @@ Key workflows the CLI must make trivial:
 - `--json`/`--yaml`/`--format json|yaml` return stable schemas documented per command; CLI uses struct tags and `omitempty`.
 - `--jq` and `--template` are JSON-only formatters; they are rejected unless JSON output is selected.
 - JSON output is pretty-printed only when stdout is a TTY; piped output is compact.
-- Support pagination flags `--limit`, `--after` for list commands; CLI surfaces server pagination (if plugin adds support) via `Link` headers.
-- Provide `--open` flag for commands that can open Jenkins UI in browser (optional, off by default).
+- Support pagination flags `--limit`, `--cursor` for list commands; CLI surfaces server pagination (if plugin adds support) via `Link` headers.
+- Provide `--open` flag for commands that can open Jenkins UI in browser (optional, off by default) *(planned)*.
 - Autocomplete scripts generated via Cobra's built-in support.
 
-### 9.5 Extension Model
+### 9.5 Extension Model *(planned)*
 - Compatible executables under PATH named `jk-<name>` or installed into `~/.config/jk/extensions/`.
 - `jk extension install <git-url>` clones repo (shallow) and links binary/script, similar to `gh`.
 - CLI offers environment variables to extensions (`JK_CONTEXT`, `JK_JENKINS_URL`, `JK_TOKEN_PATH`).
@@ -303,7 +306,7 @@ Key workflows the CLI must make trivial:
 - During follow mode, emit a short status footer with the final build result to match `gh` UX expectations.
 
 ### 9.10 Capability detection cache
-- On context activation, probe `/jk/api/status`, `/sse-gateway/`, and `/prometheus` once; cache capability flags for 60 seconds or until an operation fails with 404/403/5xx.
+- On first use, probe `/jk/api/status`, `/sse-gateway/stats`, and `/prometheus` once; cache capability flags in memory for 60 seconds.
 - Capability flags include `hasRunsFacade`, `hasCredentialFacade`, `hasEventRouter`, `hasPrometheus`, and `hasSSE`.
 - Commands fall back to core APIs when a capability is absent and emit a single informational warning (suppressed with `--quiet`).
 - `--quiet` (or `JK_QUIET`) also suppresses HTTP client library warnings such as the resty "Using Basic Auth in HTTP mode" message emitted for plain-HTTP Jenkins instances.
@@ -317,13 +320,13 @@ Key workflows the CLI must make trivial:
 ### 9.12 Error messaging standard
 - First line states the human-readable cause (`Error: failed to fetch job 'team/app' (403 Forbidden)`).
 - Follow with concise remediation hint (`hint: check that your token has Job/Read permission`).
-- Mention `--trace` or `JK_DEBUG=1` for verbose logs. Never surface raw HTML responses; log sanitized details under trace mode only.
+- Mention `JK_LOG=debug` (or `--trace`, *planned*) for verbose logs. Never surface raw HTML responses; log sanitized details under trace mode only.
 
-### 9.13 Rate limiting & concurrency controls
+### 9.13 Rate limiting & concurrency controls *(planned)*
 - Default to 4 concurrent outbound requests; configurable via `--max-concurrency` CLI flag, `JK_MAX_CONCURRENCY` env var, or `config.concurrency` per context.
 - Implement token-bucket rate limiting (default 5 requests/second burst 10). Allow overrides via config for high-throughput automation with caution banner.
 
-## 10. Companion Plugin Design
+## 10. Companion Plugin Design *(planned — `plugin/` is a stub; the CLI runs against baseline Jenkins APIs today)*
 
 ### 10.1 Overview
 - Plugin name: `jk-api` (working name).
@@ -392,24 +395,25 @@ Key workflows the CLI must make trivial:
 
 | Command group                                       | Required Jenkins permissions                                           |
 |-----------------------------------------------------|------------------------------------------------------------------------|
-| `auth`, `context`, `config`                         | Client-side only                                                       |
+| `auth`, `context`, `config` *(config planned)*      | Client-side only                                                       |
 | `job ls`, `job view`, `job config`                  | `Overall/Read` + `Job/Read` (folder scoped)                            |
 | `job create`                                        | `Job/Create` + `Job/Configure` (folder scoped)                         |
 | `job configure`                                     | `Overall/Read` + `Job/Read` + `Job/Configure` (folder scoped)         |
 | `job scan`                                          | `Overall/Read` + `Job/Read` + `Job/Build` (folder scoped)             |
 | `run start`                                         | `Job/Build`                                                            |
 | `run cancel`                                        | `Job/Cancel` (or equivalent policy)                                   |
-| `run rerun`, `run restart-from`                     | Plugin-specific (`Rebuild/Build`, `Replay`, `Restart from Stage`)     |
+| `run rerun`                                         | `Job/Build` (re-triggers via core `build`/`buildWithParameters`)      |
+| `run restart-from` *(planned)*                      | Plugin-specific (`Replay`, `Restart from Stage`)                      |
 | `log follow`, `artifact ls/download`, `test report` | `Job/Read`                                                             |
 | `cred ls`                                           | `Credentials/View` (system or folder scoped)                           |
 | `cred create/update/delete`                         | `Credentials/Create`, `Credentials/Update`, `Credentials/Delete`      |
 | `node ls`                                           | `Overall/Read`                                                         |
-| `node cordon/uncordon`, `node delete`               | `Computer/Configure` (delete also `Computer/Delete` if enabled)        |
+| `node cordon/uncordon`, `node rm`                   | `Computer/Configure` (rm also `Computer/Delete` if enabled)            |
 | `queue ls`                                          | `Overall/Read`                                                         |
 | `queue cancel`                                      | `Job/Cancel`                                                           |
 | `plugin ls/install/enable`                          | `Overall/Administer`                                                   |
-| `casc apply/export/reload`                          | `Overall/Administer`                                                   |
-| `events stream`, `metrics`                          | `Overall/Read` (metrics may require `Overall/Administer` per policy)  |
+| `casc apply/export/reload` *(planned)*              | `Overall/Administer`                                                   |
+| `events stream`, `metrics` *(planned)*              | `Overall/Read` (metrics may require `Overall/Administer` per policy)  |
 
 ## 12. Technology Selection & Tooling
 
@@ -455,7 +459,7 @@ Key workflows the CLI must make trivial:
 - Manage dependencies with Renovate or Dependabot.
 - Documentation site generated via MkDocs or Docusaurus (optional) fed by `docs/`.
 
-## 13. Observability & Telemetry
+## 13. Observability & Telemetry *(planned)*
 - CLI:
   - `--trace` flag outputs HTTP request/response summaries (headers sanitized).
   - Optional OpenTelemetry exporter via `JK_OTEL_EXPORTER` for command metrics (duration, exit code) when teams opt in.
@@ -521,7 +525,7 @@ Key workflows the CLI must make trivial:
 - Finalize extension tooling (`jk extension install/ls/rm`).
 - Add CLI telemetry opt-in and improved error messages.
 - Improve artifact filtering, test summaries, queue watch using SSE.
-- Package installers (Homebrew tap, Scoop manifest, Debian/RPM optional).
+- Package installers (Homebrew tap, Scoop manifest, `.deb` via nfpm shipped; RPM optional).
 - Document plugin installation and security practices.
 - Release v1.0.0.
 
@@ -556,7 +560,7 @@ Each phase is gated by acceptance criteria (functional coverage, test suite pass
 
 ## 19. Open Follow-Ups
 - Schedule FIPS-compatible build validation during the 1.x cycle and document cryptography constraints.
-- Gauge demand and prioritize timeline for official deb/rpm repositories after GA.
+- Gauge demand and prioritize timeline for RPM packages and apt/yum repositories after GA (`.deb` artifacts already ship on GitHub Releases).
 - Reassess priority of OIDC/SSO support post-v1.0 based on customer feedback.
 - Monitor usage of `jk analytics` opt-in telemetry and publish governance documentation alongside release notes.
 
