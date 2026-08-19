@@ -11,11 +11,11 @@
   <a href="https://scorecard.dev/viewer/?uri=github.com/avivsinai/jenkins-cli"><img src="https://api.scorecard.dev/projects/github.com/avivsinai/jenkins-cli/badge" alt="OpenSSF Scorecard"></a>
 </p>
 
-**Install this `jk` this week** if you operate Jenkins and want a single Go binary to search jobs across folders, trigger and follow runs, stream logs, download artifacts, and manage credentials, nodes, queues, and plugins — with JSON/YAML for scripts.
+`jk` is a single Go binary for Jenkins operators. Search jobs across folders, trigger and follow runs, stream logs, download artifacts, and manage credentials, nodes, queues, and plugins. Output is human, JSON, or YAML.
 
-This is **not** the official Jenkins CLI (`jenkins-cli.jar` from your controller, documented on [jenkins.io](https://www.jenkins.io/doc/book/managing/cli/)). We do not publish to PyPI; `pip install jenkins-cli` is a different project.
+This is not the official Jenkins CLI (`jenkins-cli.jar`; [jenkins.io](https://www.jenkins.io/doc/book/managing/cli/)).
 
-**Status ([v0.0.36](https://github.com/avivsinai/jenkins-cli/releases/tag/v0.0.36), 11 Aug 2026):** the CLI is released and tested against stock Jenkins LTS REST APIs. Auth, contexts, search, jobs, runs, logs, artifacts, tests, credentials, nodes, queue, and plugins ship today. The version stays 0.x because the 1.0 design still includes a companion plugin plus JCasC, events, and metrics — those are not in this binary.
+**Status ([v0.0.36](https://github.com/avivsinai/jenkins-cli/releases/tag/v0.0.36), 11 Aug 2026):** released and tested against stock Jenkins LTS REST APIs. Auth, contexts, search, jobs, runs, logs, artifacts, tests, credentials, nodes, queue, and plugins ship today. Companion plugin, JCasC, events, and metrics are not in this binary. The version stays 0.x for that reason.
 
 ## Features
 
