@@ -304,9 +304,9 @@ func configureFileBackend(cfg *keyring.Config, opts openOptions) error {
 		cfg.FilePasswordFunc = keyring.FixedStringPrompt(passphrase)
 	case fileSecretsUnlockWithEmptyPassphrase(cfg):
 		// go-keyring always prompts before decrypting. Skip the prompt when the
-		// store is empty or existing items were written with an empty passphrase
-		// (common for --allow-insecure-store), matching ssh-agent behavior for
-		// unencrypted keys.
+		// existing items were written with an empty passphrase (common for
+		// --allow-insecure-store), matching ssh-agent behavior for unencrypted
+		// keys.
 		cfg.FilePasswordFunc = keyring.FixedStringPrompt("")
 	default:
 		cfg.FilePasswordFunc = keyring.TerminalPrompt
@@ -316,10 +316,14 @@ func configureFileBackend(cfg *keyring.Config, opts openOptions) error {
 }
 
 // fileSecretsUnlockWithEmptyPassphrase reports whether the file keyring in cfg
-// can be used without an interactive passphrase. An empty or missing directory
-// counts as unlockable so first-time writes do not prompt either.
+// can be used without an interactive passphrase. It only returns true after
+// decrypting an existing item with an empty passphrase.
 func fileSecretsUnlockWithEmptyPassphrase(cfg *keyring.Config) bool {
 	probe := *cfg
+	// Probe only the file backend. In particular on macOS, inheriting the
+	// caller's backend list could open the native Keychain instead of the
+	// configured file store.
+	probe.AllowedBackends = []keyring.BackendType{keyring.FileBackend}
 	probe.FilePasswordFunc = keyring.FixedStringPrompt("")
 
 	kr, err := keyring.Open(probe)
@@ -332,13 +336,16 @@ func fileSecretsUnlockWithEmptyPassphrase(cfg *keyring.Config) bool {
 		return false
 	}
 
-	if len(keys) > 0 {
-		// try to get a single key to see if the passphrase is correct
-		_, err = kr.Get(keys[0])
-		return err == nil
+	if len(keys) == 0 {
+		// An empty or cleared store has no evidence that an empty passphrase is
+		// valid. Keep the interactive prompt so a new protected store cannot be
+		// silently downgraded to an empty passphrase.
+		return false
 	}
 
-	return true
+	// Try to get a single key to see if the passphrase is correct.
+	_, err = kr.Get(keys[0])
+	return err == nil
 }
 
 func usesFileBackend(backends []keyring.BackendType) bool {
