@@ -3,6 +3,7 @@ package secret
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -106,7 +107,10 @@ func TestConfigureFileBackendUsesPassphraseOption(t *testing.T) {
 	t.Helper()
 
 	tmpDir := t.TempDir()
-	cfg := keyring.Config{}
+	cfg := keyring.Config{
+		ServiceName:     serviceName,
+		AllowedBackends: []keyring.BackendType{keyring.FileBackend},
+	}
 	opts := openOptions{
 		passphrase: "secret-pass",
 		fileDir:    filepath.Join(tmpDir, "secrets"),
@@ -142,7 +146,10 @@ func TestConfigureFileBackendFallsBackToEnv(t *testing.T) {
 	t.Setenv("KEYRING_FILE_PASSWORD", envPass)
 	t.Setenv("KEYRING_PASSWORD", "")
 
-	cfg := keyring.Config{}
+	cfg := keyring.Config{
+		ServiceName:     serviceName,
+		AllowedBackends: []keyring.BackendType{keyring.FileBackend},
+	}
 	opts := openOptions{
 		fileDir: filepath.Join(tmpDir, "secrets"),
 	}
@@ -162,6 +169,208 @@ func TestConfigureFileBackendFallsBackToEnv(t *testing.T) {
 
 	if value != envPass {
 		t.Fatalf("FilePasswordFunc returned %q, expected %q", value, envPass)
+	}
+}
+
+func TestConfigureFileBackendSkipsPromptWhenEmptyPassphraseWorks(t *testing.T) {
+	t.Helper()
+
+	t.Setenv("KEYRING_FILE_PASSWORD", "")
+	t.Setenv("KEYRING_PASSWORD", "")
+
+	dir := filepath.Join(t.TempDir(), "secrets")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	seed, err := keyring.Open(keyring.Config{
+		ServiceName:      serviceName,
+		AllowedBackends:  []keyring.BackendType{keyring.FileBackend},
+		FileDir:          dir,
+		FilePasswordFunc: keyring.FixedStringPrompt(""),
+	})
+	if err != nil {
+		t.Fatalf("seed open: %v", err)
+	}
+	if err := seed.Set(keyring.Item{Key: "context/test/token", Data: []byte("token-value")}); err != nil {
+		t.Fatalf("seed set: %v", err)
+	}
+
+	cfg := keyring.Config{
+		ServiceName:     serviceName,
+		AllowedBackends: []keyring.BackendType{keyring.FileBackend},
+	}
+	if err := configureFileBackend(&cfg, openOptions{fileDir: dir}); err != nil {
+		t.Fatalf("configureFileBackend: %v", err)
+	}
+
+	value, err := cfg.FilePasswordFunc("should not prompt")
+	if err != nil {
+		t.Fatalf("FilePasswordFunc: %v", err)
+	}
+	if value != "" {
+		t.Fatalf("FilePasswordFunc returned %q, want empty passphrase", value)
+	}
+
+	store, err := Open(WithAllowFileFallback(true), WithFileDir(dir))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	got, err := store.Get("context/test/token")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got != "token-value" {
+		t.Fatalf("Get = %q, want %q", got, "token-value")
+	}
+}
+
+func TestConfigureFileBackendPromptsForEmptyDir(t *testing.T) {
+	t.Helper()
+
+	t.Setenv("KEYRING_FILE_PASSWORD", "")
+	t.Setenv("KEYRING_PASSWORD", "")
+
+	dir := filepath.Join(t.TempDir(), "secrets")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	cfg := keyring.Config{
+		ServiceName:     serviceName,
+		AllowedBackends: []keyring.BackendType{keyring.FileBackend},
+	}
+	if err := configureFileBackend(&cfg, openOptions{fileDir: dir}); err != nil {
+		t.Fatalf("configureFileBackend: %v", err)
+	}
+
+	// TerminalPrompt is the function value itself; compare pointers instead of
+	// invoking it, which would block the test on stdin.
+	if reflect.ValueOf(cfg.FilePasswordFunc).Pointer() != reflect.ValueOf(keyring.TerminalPrompt).Pointer() {
+		t.Fatalf("FilePasswordFunc should be TerminalPrompt for an empty store")
+	}
+}
+
+func TestConfigureFileBackendPromptsWhenPassphraseRequired(t *testing.T) {
+	t.Helper()
+
+	t.Setenv("KEYRING_FILE_PASSWORD", "")
+	t.Setenv("KEYRING_PASSWORD", "")
+
+	dir := filepath.Join(t.TempDir(), "secrets")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	seed, err := keyring.Open(keyring.Config{
+		ServiceName:      serviceName,
+		AllowedBackends:  []keyring.BackendType{keyring.FileBackend},
+		FileDir:          dir,
+		FilePasswordFunc: keyring.FixedStringPrompt("secret-pass"),
+	})
+	if err != nil {
+		t.Fatalf("seed open: %v", err)
+	}
+	if err := seed.Set(keyring.Item{Key: "context/test/token", Data: []byte("token-value")}); err != nil {
+		t.Fatalf("seed set: %v", err)
+	}
+
+	if fileSecretsUnlockWithEmptyPassphrase(&keyring.Config{
+		ServiceName:     serviceName,
+		AllowedBackends: []keyring.BackendType{keyring.FileBackend},
+		FileDir:         dir,
+	}) {
+		t.Fatalf("expected passphrase-protected secrets to require a prompt")
+	}
+
+	cfg := keyring.Config{
+		ServiceName:     serviceName,
+		AllowedBackends: []keyring.BackendType{keyring.FileBackend},
+	}
+	if err := configureFileBackend(&cfg, openOptions{fileDir: dir}); err != nil {
+		t.Fatalf("configureFileBackend: %v", err)
+	}
+
+	// TerminalPrompt is the function value itself; compare pointers.
+	if reflect.ValueOf(cfg.FilePasswordFunc).Pointer() != reflect.ValueOf(keyring.TerminalPrompt).Pointer() {
+		t.Fatalf("FilePasswordFunc should be TerminalPrompt when secrets require a passphrase")
+	}
+}
+
+func TestConfigureFileBackendPromptsAfterClearedProtectedStore(t *testing.T) {
+	t.Helper()
+
+	t.Setenv("KEYRING_FILE_PASSWORD", "")
+	t.Setenv("KEYRING_PASSWORD", "")
+
+	dir := filepath.Join(t.TempDir(), "secrets")
+	const passphrase = "secret-pass"
+	key := TokenKey("test")
+
+	protected, err := Open(
+		WithAllowFileFallback(true),
+		WithPassphrase(passphrase),
+		WithFileDir(dir),
+	)
+	if err != nil {
+		t.Fatalf("open protected store: %v", err)
+	}
+	if err := protected.Set(key, "token-value"); err != nil {
+		t.Fatalf("seed set: %v", err)
+	}
+	if err := protected.Delete(key); err != nil {
+		t.Fatalf("delete last item: %v", err)
+	}
+
+	probeCfg := keyring.Config{
+		ServiceName:     serviceName,
+		AllowedBackends: []keyring.BackendType{keyring.FileBackend},
+		FileDir:         dir,
+	}
+	if fileSecretsUnlockWithEmptyPassphrase(&probeCfg) {
+		t.Fatalf("cleared protected store must not be treated as empty-passphrase unlockable")
+	}
+
+	cfg := keyring.Config{
+		ServiceName:     serviceName,
+		AllowedBackends: []keyring.BackendType{keyring.FileBackend},
+	}
+	if err := configureFileBackend(&cfg, openOptions{fileDir: dir}); err != nil {
+		t.Fatalf("configureFileBackend: %v", err)
+	}
+	if reflect.ValueOf(cfg.FilePasswordFunc).Pointer() != reflect.ValueOf(keyring.TerminalPrompt).Pointer() {
+		t.Fatalf("FilePasswordFunc should be TerminalPrompt after clearing a protected store")
+	}
+
+	// A subsequent process that knows the original passphrase can write to the
+	// same store. The empty-passphrase probe must still reject that item.
+	next, err := Open(
+		WithAllowFileFallback(true),
+		WithPassphrase(passphrase),
+		WithFileDir(dir),
+	)
+	if err != nil {
+		t.Fatalf("open next store: %v", err)
+	}
+	nextKey := TokenKey("next")
+	if err := next.Set(nextKey, "next-value"); err != nil {
+		t.Fatalf("next set: %v", err)
+	}
+
+	emptyCfg := probeCfg
+	emptyCfg.FilePasswordFunc = keyring.FixedStringPrompt("")
+	emptyStore, err := keyring.Open(emptyCfg)
+	if err == nil {
+		if _, err := emptyStore.Get(nextKey); err == nil {
+			t.Fatalf("empty passphrase unexpectedly decrypted a protected store")
+		}
+	}
+
+	got, err := next.Get(nextKey)
+	if err != nil {
+		t.Fatalf("protected readback: %v", err)
+	}
+	if got != "next-value" {
+		t.Fatalf("protected readback = %q, want %q", got, "next-value")
 	}
 }
 
