@@ -3,6 +3,7 @@
 <p align="center"><em>GitHub CLI–style workflows for Jenkins controllers</em></p>
 
 <p align="center">
+  <a href="https://github.com/avivsinai/jenkins-cli/releases/latest"><img src="https://img.shields.io/github/v/release/avivsinai/jenkins-cli" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
   <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.25+-00ADD8.svg" alt="Go Version"></a>
   <a href="https://github.com/avivsinai/jenkins-cli/actions/workflows/ci.yml"><img src="https://github.com/avivsinai/jenkins-cli/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -10,7 +11,11 @@
   <a href="https://scorecard.dev/viewer/?uri=github.com/avivsinai/jenkins-cli"><img src="https://api.scorecard.dev/projects/github.com/avivsinai/jenkins-cli/badge" alt="OpenSSF Scorecard"></a>
 </p>
 
-`jk` gives developers and operators a modern, scriptable interface to Jenkins: inspect runs, stream logs, manage credentials, and administer controllers from a single cross-platform binary.
+**Install this `jk` this week** if you operate Jenkins and want a single Go binary to search jobs across folders, trigger and follow runs, stream logs, download artifacts, and manage credentials, nodes, queues, and plugins — with JSON/YAML for scripts.
+
+This is **not** the official Jenkins CLI (`jenkins-cli.jar` from your controller, documented on [jenkins.io](https://www.jenkins.io/doc/book/managing/cli/)). We do not publish to PyPI; `pip install jenkins-cli` is a different project.
+
+**Status ([v0.0.36](https://github.com/avivsinai/jenkins-cli/releases/tag/v0.0.36), 11 Aug 2026):** the CLI is released and tested against stock Jenkins LTS REST APIs. Auth, contexts, search, jobs, runs, logs, artifacts, tests, credentials, nodes, queue, and plugins ship today. The version stays 0.x because the 1.0 design still includes a companion plugin plus JCasC, events, and metrics — those are not in this binary.
 
 ## Features
 
@@ -24,6 +29,8 @@
 - **GitHub CLI parity** – command structure and UX mirror `gh`, easing adoption in developer toolchains.
 
 ## Installation
+
+Install the `jk` binary from the paths below. Homebrew uses [`avivsinai/tap`](https://github.com/avivsinai/homebrew-tap) (`jk`); Scoop uses [`avivsinai/scoop-bucket`](https://github.com/avivsinai/scoop-bucket). There is no Nix package and no PyPI project for this CLI.
 
 ### Homebrew (macOS/Linux)
 
@@ -52,7 +59,7 @@ Binary will be installed to `$GOPATH/bin` (or `$HOME/go/bin` by default).
 
 ### Binary Downloads
 
-Download prebuilt binaries for your platform from [GitHub Releases](https://github.com/avivsinai/jenkins-cli/releases).
+Download prebuilt binaries (macOS, Linux, Windows) or `.deb` packages from [GitHub Releases](https://github.com/avivsinai/jenkins-cli/releases).
 
 ### From Source
 
