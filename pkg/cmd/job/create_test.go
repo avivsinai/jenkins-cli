@@ -64,6 +64,8 @@ func TestBuildSourcesXML(t *testing.T) {
 	require.Contains(t, xml, `<com.cloudbees.jenkins.plugins.bitbucket.BranchDiscoveryTrait><strategyId>3</strategyId></com.cloudbees.jenkins.plugins.bitbucket.BranchDiscoveryTrait>`)
 	require.Contains(t, xml, `<com.cloudbees.jenkins.plugins.bitbucket.OriginPullRequestDiscoveryTrait><strategyId>1</strategyId></com.cloudbees.jenkins.plugins.bitbucket.OriginPullRequestDiscoveryTrait>`)
 	require.Contains(t, xml, `TrustTeamForks`)
+	require.Contains(t, xml, `<owner class="org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject" reference="../.."/>`)
+	require.True(t, strings.Contains(xml, `</data><owner class="`), "owner must follow </data> inside sources")
 }
 
 func TestBuildSourcesXMLEscapesValues(t *testing.T) {
