@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.0.37] - 2026-09-13
 ### Fixed
 - `jk job create` now emits the Multibranch `<owner reference="../.."/>` back-ref inside `<sources>`, so created jobs can be saved in the Jenkins UI (#146).
 
@@ -14,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation audit against the shipped CLI: README quickstart now streams logs with `jk log --follow` (`jk run view` has no `--follow`), manual skill install points at `skills/jk`, stale version and platform lists updated; `docs/api.md` filter/operator/field catalogs, `run params` `source` values, cancel/rerun acknowledgements and the `help --json` shape corrected, with companion-plugin endpoints marked as planned; the two agent-cookbook recipes that could not work (`--limit 0`, queued-run detection) rewritten; unimplemented command groups in `docs/spec.md` marked *(planned)*; the `jk` skill documents `--no-verify` and the keyring environment variables; stale `docs/CHANGELOG.md` removed.
 ### Fixed
 - Skip the encrypted file keyring passphrase prompt when the secrets directory is empty or existing items unlock with an empty passphrase, so `--allow-insecure-store` no longer asks to unlock unencrypted stores.
+
 
 
 ## [0.0.36] - 2026-08-11
