@@ -311,7 +311,11 @@ func buildSourcesXML(spec multibranchBitbucketSpec) (string, error) {
 	b.WriteString("</traits>")
 	b.WriteString(`</source>`)
 	b.WriteString(`<strategy class="jenkins.branch.DefaultBranchPropertyStrategy"><properties class="empty-list"/></strategy>`)
-	b.WriteString(`</jenkins.branch.BranchSource></data></sources>`)
+	b.WriteString(`</jenkins.branch.BranchSource></data>`)
+	b.WriteString(`<owner class="`)
+	b.WriteString(workflowMultiBranchMode)
+	b.WriteString(`" reference="../.."/>`)
+	b.WriteString(`</sources>`)
 
 	return b.String(), nil
 }
