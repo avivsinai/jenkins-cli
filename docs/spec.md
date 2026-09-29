@@ -147,7 +147,7 @@ Key workflows the CLI must make trivial:
 | `auth`         | `jk auth login`, `jk auth status`, `jk auth logout`             | Stores contexts securely. |
 | `context`      | `jk context ls`, `jk context use`, `jk context rm`              | Config stored under `os.UserConfigDir()/jk/config.yaml` (`~/.config/jk` on Linux/XDG, `~/Library/Application Support/jk` on macOS, `%AppData%\jk` on Windows). |
 | `search`       | `jk search --job-glob '*ada*'`, `jk search --folder tools`      | Top-level alias for cross-job discovery (`run search`). |
-| `job`          | `jk job ls`, `jk job view`, `jk job create`, `jk job config`, `jk job configure`, `jk job scan` | `create` currently targets Bitbucket-backed Multibranch Pipeline jobs; `config` emits raw XML; `configure` supports `--file`, `--stdin`, or `--script-path`; `scan` is multibranch-only. |
+| `job`          | `jk job ls`, `jk job view`, `jk job create`, `jk job config`, `jk job configure`, `jk job scan` | `create` builds a Bitbucket-backed Multibranch Pipeline from flags, or any job type from a full `config.xml` via `--file`/`--stdin`; `config` emits raw XML; `configure` supports `--file`, `--stdin`, or `--script-path`; `scan` is multibranch-only. |
 | `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run cancel`, `jk run rerun` | `run restart-from` *(planned)*. |
 | `log`          | `jk log`, `jk log --follow`                                     | Snapshot default; `--follow` streams like `gh run view --log`. |
 | `artifact`     | `jk artifact ls`, `jk artifact download`                        | Glob filtering via `--pattern`. |
@@ -181,7 +181,7 @@ Key workflows the CLI must make trivial:
 - Legacy `internal/cmd` package was removed to avoid drift; new codepaths must follow the gh-style layering.
 
 #### 9.2.2 Current job command flags
-- `jk job create <name>` supports `--folder`, `--description`, `--repo-owner`, `--repository`, `--script-path`, `--credentials`, `--bitbucket-url`, `--branch-strategy`, `--discover-origin-prs`, and `--discover-fork-prs`.
+- `jk job create <name>` supports `--folder`, `--description`, `--repo-owner`, `--repository`, `--script-path`, `--credentials`, `--bitbucket-url`, `--branch-strategy`, `--discover-origin-prs`, and `--discover-fork-prs`. With `--file <config.xml>` or `--stdin` it creates a job of any type (Pipeline, Freestyle, Multibranch, Folder) from that config in one `createItem` request; the multibranch flags are refused alongside it.
 - `jk job config <jobPath>` emits raw `config.xml` to stdout and does not currently support JSON or YAML output.
 - `jk job configure <jobPath>` supports raw replacement via `--file` or `--stdin`, and targeted Jenkinsfile path updates via `--script-path`.
 - `jk job scan <jobPath>` has no command-specific flags; it validates that the target is a Multibranch Pipeline job before posting `/build?delay=0`.

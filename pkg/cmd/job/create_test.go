@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
 )
 
 func TestNormalizeMultibranchBitbucketSpec(t *testing.T) {
@@ -165,4 +167,14 @@ func TestReplaceElementPreservesDollarSigns(t *testing.T) {
 	result, err := replaceElement(input, "sources", replacement)
 	require.NoError(t, err)
 	require.Contains(t, result, `MultiBranchProject$BranchSourceList`)
+}
+
+func TestCreateFromConfigXMLRejectsMultibranchFlags(t *testing.T) {
+	cmd := newJobCreateCmd(&cmdutil.Factory{})
+	cmd.SetArgs([]string{"amit-release", "--file", "amit-release.config.xml", "--repo-owner", "playg"})
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	err := cmd.Execute()
+	require.Error(t, err)
+	require.ErrorContains(t, err, "drop --repo-owner")
 }
