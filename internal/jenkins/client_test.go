@@ -1,13 +1,18 @@
 package jenkins
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-resty/resty/v2"
+
+	"github.com/avivsinai/jenkins-cli/internal/config"
+	"github.com/avivsinai/jenkins-cli/internal/secret"
 )
 
 // restyDisableWarn reads the DisableWarn field from a resty.Client using reflection,
@@ -161,5 +166,42 @@ func TestDoRawPreservesNonSuccessResponseForStatusCallers(t *testing.T) {
 	}
 	if resp.String() != "missing" {
 		t.Fatalf("expected response body to remain available, got %q", resp.String())
+	}
+}
+
+// Regression: resty's Clone shares the *http.Client, so zeroing the stream
+// client's timeout used to remove the main client's 30s timeout as well.
+func TestNewClientStreamTimeoutDoesNotAffectMainClient(t *testing.T) {
+	t.Setenv("JK_ALLOW_INSECURE_STORE", "1")
+	t.Setenv("JK_KEYRING_PASSPHRASE", "test")
+	t.Setenv("KEYRING_FILE_DIR", t.TempDir())
+
+	store, err := secret.Open(secret.WithAllowFileFallback(true))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	if err := store.Set(secret.TokenKey("test"), "token"); err != nil {
+		t.Fatalf("store token: %v", err)
+	}
+
+	srv := httptest.NewServer(http.NotFoundHandler())
+	defer srv.Close()
+
+	cfg := &config.Config{Contexts: map[string]*config.Context{
+		"test": {URL: srv.URL, Username: "u", AllowInsecureStore: true},
+	}}
+	c, err := NewClient(context.Background(), cfg, "test")
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+
+	if got := c.resty.GetClient().Timeout; got != 30*time.Second {
+		t.Errorf("main client timeout = %v, want 30s", got)
+	}
+	if got := c.restyStream.GetClient().Timeout; got != 0 {
+		t.Errorf("stream client timeout = %v, want 0", got)
+	}
+	if c.resty.GetClient().Transport != c.restyStream.GetClient().Transport {
+		t.Error("stream client must share the main client's Transport")
 	}
 }
