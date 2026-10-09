@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -30,12 +32,64 @@ type Config struct {
 
 // Context represents a Jenkins connection configuration.
 type Context struct {
-	URL                string `yaml:"url"`
-	Username           string `yaml:"username,omitempty"`
-	Insecure           bool   `yaml:"insecure,omitempty"`
-	Proxy              string `yaml:"proxy,omitempty"`
-	CAFile             string `yaml:"ca_file,omitempty"`
-	AllowInsecureStore bool   `yaml:"allow_insecure_store,omitempty"`
+	URL                string     `yaml:"url"`
+	Username           string     `yaml:"username,omitempty"`
+	Insecure           bool       `yaml:"insecure,omitempty"`
+	Proxy              string     `yaml:"proxy,omitempty"`
+	CAFile             string     `yaml:"ca_file,omitempty"`
+	AllowInsecureStore bool       `yaml:"allow_insecure_store,omitempty"`
+	FrontDoor          *FrontDoor `yaml:"front_door,omitempty"`
+}
+
+// FrontDoorModeProxyBearerCommand runs TokenCommand and sends its output as
+// "<Header>: Bearer <token>" next to the Jenkins Basic auth credentials.
+const FrontDoorModeProxyBearerCommand = "proxy-bearer-command"
+
+// FrontDoor configures an extra authentication header for a front door (WAF,
+// SSO proxy, Google IAP) that sits in front of the Jenkins controller.
+type FrontDoor struct {
+	Mode         string   `yaml:"mode"`
+	Header       string   `yaml:"header"`
+	TokenCommand []string `yaml:"token_command"`
+}
+
+// Validate checks that the front door settings are usable. Jenkins auth always
+// uses the Authorization header, so the front door must use another header.
+func (f *FrontDoor) Validate() error {
+	if f.Mode != FrontDoorModeProxyBearerCommand {
+		return fmt.Errorf("front_door.mode must be %q, got %q", FrontDoorModeProxyBearerCommand, f.Mode)
+	}
+	header := strings.TrimSpace(f.Header)
+	if header == "" {
+		return errors.New("front_door.header is required (for example Proxy-Authorization)")
+	}
+	if strings.EqualFold(header, "Authorization") {
+		return errors.New("front_door.header cannot be Authorization: jk sends the Jenkins API token there; " +
+			"use a header the front door accepts in addition to Jenkins auth (Google IAP accepts Proxy-Authorization)")
+	}
+	if len(f.TokenCommand) == 0 || strings.TrimSpace(f.TokenCommand[0]) == "" {
+		return errors.New("front_door.token_command is required (argv list, run without a shell)")
+	}
+	return nil
+}
+
+// validate checks every context so that configuration errors surface at load.
+func (c *Config) validate() error {
+	names := make([]string, 0, len(c.Contexts))
+	for name := range c.Contexts {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		ctx := c.Contexts[name]
+		if ctx == nil || ctx.FrontDoor == nil {
+			continue
+		}
+		if err := ctx.FrontDoor.Validate(); err != nil {
+			return fmt.Errorf("context %q: %w", name, err)
+		}
+	}
+	return nil
 }
 
 // Preferences capture user-level CLI options.
@@ -74,6 +128,9 @@ func Load() (*Config, error) {
 
 		if err := yaml.Unmarshal(data, cfg); err != nil {
 			return nil, fmt.Errorf("decode config: %w", err)
+		}
+		if err := cfg.validate(); err != nil {
+			return nil, fmt.Errorf("invalid config %s: %w", path, err)
 		}
 
 		cfg.path = path

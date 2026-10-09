@@ -130,14 +130,20 @@ func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions
 	prevToken, prevTokenErr := store.Get(key)
 	hadToken := prevTokenErr == nil
 
-	cfg.SetContext(contextName, &config.Context{
+	newCtx := &config.Context{
 		URL:                parsed.String(),
 		Username:           username,
 		Insecure:           opts.insecure,
 		Proxy:              opts.proxy,
 		CAFile:             opts.caFile,
 		AllowInsecureStore: opts.allowInsecureStore,
-	})
+	}
+	// front_door is configured in YAML only; keep it so that re-login (and
+	// its verification request) still passes the front door.
+	if prevCtx != nil {
+		newCtx.FrontDoor = prevCtx.FrontDoor
+	}
+	cfg.SetContext(contextName, newCtx)
 
 	if opts.setActive {
 		if err := cfg.SetActive(contextName); err != nil {

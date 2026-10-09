@@ -166,7 +166,8 @@ Key workflows the CLI must make trivial:
 | Global flags   | `--context/-c`, `--json`, `--yaml`, `--format`, `--jq`, `--template/-t`, `--quiet/-q` | Persistent on the root command. `--url`, `--token`, `--insecure` belong to `auth login`; `--color` and `--trace` are *(planned)*. Context precedence: flag > `JK_CONTEXT` > active context. |
 
 ### 9.2 Configuration & State
-- Config file `config.yaml` holds contexts (`url`, `username`, `insecure`, `proxy`, `ca_file`, `allow_insecure_store`) and `preferences` (`color`, `output_format`, `max_concurrency`).
+- Config file `config.yaml` holds contexts (`url`, `username`, `insecure`, `proxy`, `ca_file`, `allow_insecure_store`, `front_door`) and `preferences` (`color`, `output_format`, `max_concurrency`).
+- `front_door` (`mode: proxy-bearer-command`, `header`, `token_command`) adds a front-door credential (WAF, SSO proxy, Google IAP) next to Jenkins Basic auth: `token_command` runs as argv without a shell, once per process; its trimmed output is sent as `<header>: Bearer <token>` on every request to the context's host (not on cross-host redirects). `header: Authorization` is rejected at config load because Jenkins auth uses it. `jk auth login` keeps an existing `front_door` block.
 - Secrets (API tokens) stored in OS keychain via `go-keyring`; `--allow-insecure-store` or `JK_ALLOW_INSECURE_STORE=1` selects the encrypted file backend instead of native keyrings. `KEYRING_BACKEND` remains an explicit backend override.
 - Proxy configuration precedence is `flag (--proxy) > environment (HTTPS_PROXY/HTTP_PROXY/NO_PROXY) > context config`. CLI also honors custom CA bundles via `--ca-file` and `JK_CA_FILE`.
 - Crumb and capability flags are cached in memory for the life of the process (capabilities: 60s TTL); nothing is cached on disk.
