@@ -176,7 +176,7 @@ jk run view team/app/pipeline 128 --format json --template 'Result={{.result}}'
 
 ## Job Commands
 
-Current job provisioning and config management is focused on Multibranch Pipeline workflows:
+Job provisioning and config management:
 
 ```bash
 # Create a Bitbucket-backed Multibranch Pipeline job
@@ -187,6 +187,10 @@ jk job create auth-relay \
   --script-path services/auth-relay/Jenkinsfile \
   --credentials bitbucket-ro \
   --branch-strategy all
+
+# Create a job of any type (Pipeline, Freestyle, Folder, ...) from a full config.xml
+jk job config platform/services/auth-relay > auth-relay.config.xml
+jk job create auth-relay-copy --folder platform/services --file auth-relay.config.xml
 
 # Fetch raw config.xml (stdout is always XML)
 jk job config platform/services/auth-relay > auth-relay.config.xml

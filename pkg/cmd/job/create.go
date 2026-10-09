@@ -57,13 +57,17 @@ func newJobCreateCmd(f *cmdutil.Factory) *cobra.Command {
 		BitbucketURL:   defaultBitbucketURL,
 		BranchStrategy: "all",
 	}
+	var file string
+	var stdin bool
 
 	cmd := &cobra.Command{
 		Use:   "create <name>",
 		Short: "Create a Jenkins job",
 		Long: "Create a Jenkins job.\n\n" +
-			"Current support is intentionally focused: this command creates a Multibranch\n" +
-			"Pipeline backed by a Bitbucket repository and configures the Jenkinsfile path.\n\n" +
+			"By default this command creates a Multibranch Pipeline backed by a Bitbucket\n" +
+			"repository and configures the Jenkinsfile path.\n\n" +
+			"With --file or --stdin it creates a job of ANY type (Pipeline, Freestyle,\n" +
+			"Multibranch, Folder) from a full config.xml, like `jk job config` prints.\n\n" +
 			"If Jenkins creates the job but a later config.xml step fails, the partially\n" +
 			"created job remains and may need cleanup via the Jenkins UI.",
 		Example: `  jk job create auth-relay \
@@ -71,7 +75,8 @@ func newJobCreateCmd(f *cmdutil.Factory) *cobra.Command {
     --repo-owner playg \
     --repository my-service-repo \
     --script-path services/auth-relay/Jenkinsfile \
-    --credentials bitbucket-readonly`,
+    --credentials bitbucket-readonly
+  jk job create amit-release --file amit-release.config.xml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := shared.ValidateOutputFlags(cmd); err != nil {
@@ -79,6 +84,30 @@ func newJobCreateCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			opts.Name = strings.TrimSpace(args[0])
+			if file != "" || stdin {
+				if conflict := bitbucketFlagsSet(cmd); len(conflict) > 0 {
+					return fmt.Errorf("--file/--stdin create the job from config.xml alone; drop %s", strings.Join(conflict, ", "))
+				}
+				configXML, source, err := readConfigXMLInput(cmd, file, stdin)
+				if err != nil {
+					return err
+				}
+				client, err := shared.JenkinsClient(cmd, f)
+				if err != nil {
+					return err
+				}
+				result, err := createJobFromConfigXML(cmd.Context(), client, strings.Trim(strings.TrimSpace(opts.Folder), "/"), opts.Name, configXML, source)
+				if err != nil {
+					return err
+				}
+				return shared.PrintOutput(cmd, result, func() error {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created %s from %s\n", result.Path, result.Source)
+					if result.URL != "" {
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "URL: %s\n", result.URL)
+					}
+					return nil
+				})
+			}
 			spec, err := normalizeMultibranchBitbucketSpec(opts)
 			if err != nil {
 				return err
@@ -116,6 +145,8 @@ func newJobCreateCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&opts.BranchStrategy, "branch-strategy", opts.BranchStrategy, "Branch discovery strategy: all, exclude-prs, only-prs")
 	cmd.Flags().BoolVar(&opts.DiscoverOriginPRs, "discover-origin-prs", false, "Discover pull requests raised from the origin repository")
 	cmd.Flags().BoolVar(&opts.DiscoverForkPRs, "discover-fork-prs", false, "Discover pull requests raised from forks using TrustTeamForks")
+	cmd.Flags().StringVar(&file, "file", "", "Create the job from a full config.xml file (any job type)")
+	cmd.Flags().BoolVar(&stdin, "stdin", false, "Create the job from a full config.xml on standard input (any job type)")
 
 	return cmd
 }
@@ -227,6 +258,57 @@ func createMultibranchBitbucketJob(ctx context.Context, client *jenkins.Client, 
 		DiscoverOriginPRs: spec.DiscoverOriginPRs,
 		DiscoverForkPRs:   spec.DiscoverForkPRs,
 	}, nil
+}
+
+// bitbucketFlagSet names the multibranch-only flags; a config.xml create
+// carries its whole definition, so any of them alongside it is a mistake.
+var bitbucketFlagSet = []string{"repo-owner", "repository", "script-path", "credentials", "bitbucket-url", "branch-strategy", "discover-origin-prs", "discover-fork-prs", "description"}
+
+func bitbucketFlagsSet(cmd *cobra.Command) []string {
+	var set []string
+	for _, name := range bitbucketFlagSet {
+		if cmd.Flags().Changed(name) {
+			set = append(set, "--"+name)
+		}
+	}
+	return set
+}
+
+type jobCreateFromConfigResult struct {
+	Name   string `json:"name" yaml:"name"`
+	Path   string `json:"path" yaml:"path"`
+	Folder string `json:"folder,omitempty" yaml:"folder,omitempty"`
+	URL    string `json:"url,omitempty" yaml:"url,omitempty"`
+	Source string `json:"source" yaml:"source"`
+}
+
+// createJobFromConfigXML is Jenkins' own createItem-with-XML-body call: one
+// request, the job exists with exactly this config or not at all.
+func createJobFromConfigXML(ctx context.Context, client *jenkins.Client, folder, name, configXML, source string) (*jobCreateFromConfigResult, error) {
+	if name == "" {
+		return nil, errors.New("job name is required")
+	}
+	if strings.TrimSpace(configXML) == "" {
+		return nil, fmt.Errorf("config.xml from %s is empty", source)
+	}
+	resp, err := client.DoRaw(
+		client.NewRequest().
+			SetContext(ctx).
+			SetHeader("Content-Type", "application/xml").
+			SetQueryParam("name", name).
+			SetBody(configXML),
+		http.MethodPost,
+		createItemPath(folder),
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create %s from config.xml: %w", name, err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, responseStatusError(fmt.Sprintf("create %s from config.xml", name), resp.Status(), resp.String())
+	}
+	jobPath := fullJobPath(folder, name)
+	return &jobCreateFromConfigResult{Name: name, Path: jobPath, Folder: folder, URL: jobURL(client, jobPath), Source: source}, nil
 }
 
 func createItemPath(folder string) string {

@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- `jk job create <name> --file config.xml` (or `--stdin`) creates a job of any type from a full config.xml in one `createItem` request; the multibranch-only flags are refused alongside it.
 
 ## [0.0.37] - 2026-09-13
 ### Fixed
