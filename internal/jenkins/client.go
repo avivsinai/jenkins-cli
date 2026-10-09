@@ -157,17 +157,23 @@ func NewClient(ctx context.Context, cfg *config.Config, contextName string, opts
 		return nil, fmt.Errorf("invalid Jenkins URL for context %s: %w", contextName, err)
 	}
 
+	// configureCommon applies the settings both clients share. The timeout is
+	// not one of them: it lives on the *http.Client, which must not be shared.
+	configureCommon := func(c *resty.Client) {
+		c.SetBaseURL(strings.TrimSuffix(parsedURL.String(), "/"))
+		c.SetHeader(headerJKClient, build.Version)
+		c.SetHeader(headerJKFeatures, defaultFeatures)
+		c.SetHeader("User-Agent", fmt.Sprintf("%s/%s", defaultUserAgent, build.Version))
+		c.SetRetryCount(2)
+		c.SetRetryWaitTime(500 * time.Millisecond)
+		c.SetRetryMaxWaitTime(3 * time.Second)
+		c.SetBasicAuth(ctxDef.Username, token)
+		c.SetHeader("Accept", "application/json")
+	}
+
 	restyClient := resty.New()
-	restyClient.SetBaseURL(strings.TrimSuffix(parsedURL.String(), "/"))
-	restyClient.SetHeader(headerJKClient, build.Version)
-	restyClient.SetHeader(headerJKFeatures, defaultFeatures)
-	restyClient.SetHeader("User-Agent", fmt.Sprintf("%s/%s", defaultUserAgent, build.Version))
-	restyClient.SetRetryCount(2)
-	restyClient.SetRetryWaitTime(500 * time.Millisecond)
-	restyClient.SetRetryMaxWaitTime(3 * time.Second)
-	restyClient.SetBasicAuth(ctxDef.Username, token)
+	configureCommon(restyClient)
 	restyClient.SetTimeout(30 * time.Second)
-	restyClient.SetHeader("Accept", "application/json")
 
 	if ctxDef.Proxy != "" {
 		restyClient.SetProxy(ctxDef.Proxy)
@@ -183,8 +189,14 @@ func NewClient(ctx context.Context, cfg *config.Config, contextName string, opts
 		}
 	}
 
-	restyStream := restyClient.Clone()
-	restyStream.SetTimeout(0)
+	// resty's Clone shares the *http.Client, so SetTimeout(0) on a clone would
+	// also remove the main client's timeout. Give the stream client its own
+	// http.Client value; the Transport pointer stays shared so proxy, TLS and
+	// CA settings apply to both.
+	streamHTTP := *restyClient.GetClient()
+	streamHTTP.Timeout = 0
+	restyStream := resty.NewWithClient(&streamHTTP)
+	configureCommon(restyStream)
 
 	// SetRedirectPolicy replaces http.Client.CheckRedirect, dropping Go's
 	// default 10-hop cap — FlexibleRedirectPolicy restores it. Applied to both
