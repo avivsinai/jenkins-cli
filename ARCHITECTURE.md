@@ -1,7 +1,7 @@
 # Architecture
 
 `jk` is a CLI for Jenkins controllers modeled after the GitHub CLI (`gh`).
-It is written in Go 1.25+ using [Cobra](https://github.com/spf13/cobra) for
+It is written in Go 1.26+ using [Cobra](https://github.com/spf13/cobra) for
 command routing and [go-resty](https://github.com/go-resty/resty) for HTTP.
 
 ## Directory layout

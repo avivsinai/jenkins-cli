@@ -31,7 +31,7 @@ make e2e
 
 ## Architecture
 
-This is `jk`, a GitHub CLI–style interface for Jenkins controllers written in Go 1.25+.
+This is `jk`, a GitHub CLI–style interface for Jenkins controllers written in Go 1.26+.
 
 ### Code Layout (mirrors `gh` CLI)
 
