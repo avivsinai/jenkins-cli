@@ -154,7 +154,28 @@ This works because Jenkins validates API tokens before consulting the security r
 - If the request is redirected to a sign-in page (Jenkins form login, `securityRealm/commenceLogin`, or an external identity provider), `jk` reports that the request never authenticated instead of failing on an HTML response. The same detection applies to every `jk` command, so an expired token against an SSO-fronted controller produces an actionable error.
 - If the controller cannot be reached, the credentials are saved unverified with a warning. Use `--no-verify` to skip the check entirely (for example when bootstrapping configuration before the controller is up).
 
-Service accounts cannot authenticate through a browser-based SSO realm like `google-login` — they never become Jenkins users, so they cannot hold API tokens. That setup requires a bearer-validating front door (Google IAP, a JWT filter, or similar) in front of Jenkins; support for bearer/front-door authentication is tracked in [issue #129](https://github.com/avivsinai/jenkins-cli/issues/129).
+Service accounts cannot authenticate through a browser-based SSO realm like `google-login` — they never become Jenkins users, so they cannot hold API tokens. Jenkins itself still needs a Jenkins API token; a front door in front of Jenkins can admit the service account (see below).
+
+### Front door (WAF, SSO proxy, Google IAP)
+
+Some controllers sit behind a front door that needs its own credential before a request reaches Jenkins (the controller answers by IP, but not through its DNS name). Add a `front_door` block to the context in `config.yaml`. `jk` keeps Jenkins Basic auth unchanged and also sends `<header>: Bearer <token>`, where the token is the output of `token_command`:
+
+```yaml
+contexts:
+  prod:
+    url: https://jenkins.example.com
+    username: alice@example.com
+    front_door:
+      mode: proxy-bearer-command
+      header: Proxy-Authorization
+      token_command: [gcloud, auth, print-identity-token, --audiences=<IAP_CLIENT_ID>]
+```
+
+- `token_command` is an argv list. `jk` runs it without a shell before the first request, trims the output, and runs it again when the token is older than 30 minutes. For a service account, add `--impersonate-service-account=<sa-email>` to the gcloud command.
+- The header goes on every request to the context's host, including login verification and CSRF crumb requests. Redirects to other hosts (for example artifact downloads from object storage) do not get it.
+- `header` cannot be `Authorization`, because `jk` sends the Jenkins API token there. Google IAP accepts `Proxy-Authorization`.
+- If the command fails, the error names the context and the command. `jk` never prints the token.
+- Configure `front_door` in `config.yaml` first, then run `jk auth login <url> --name prod ...`. Login keeps the existing `front_door` block and verifies through the front door.
 
 ### Secret Storage
 

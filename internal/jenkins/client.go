@@ -193,6 +193,19 @@ func NewClient(ctx context.Context, cfg *config.Config, contextName string, opts
 	restyClient.SetRedirectPolicy(ssoPolicy, resty.FlexibleRedirectPolicy(maxRedirects))
 	restyStream.SetRedirectPolicy(ssoPolicy, resty.FlexibleRedirectPolicy(maxRedirects))
 
+	// Wrap the transport last: proxy, TLS, and CA setup above need the
+	// concrete *http.Transport.
+	if fd := ctxDef.FrontDoor; fd != nil {
+		if err := fd.Validate(); err != nil {
+			return nil, fmt.Errorf("context %s: %w", contextName, err)
+		}
+		fdTransport := newFrontDoorTransport(restyClient.GetClient().Transport, parsedURL, contextName, fd)
+		restyClient.GetClient().Transport = fdTransport
+		if hc := restyStream.GetClient(); hc != restyClient.GetClient() {
+			hc.Transport = fdTransport
+		}
+	}
+
 	client := &Client{
 		resty:       restyClient,
 		restyStream: restyStream,
