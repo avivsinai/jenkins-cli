@@ -78,7 +78,7 @@ func newFrontDoorTransport(base http.RoundTripper, host, contextName string, fd 
 }
 
 func (t *frontDoorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.URL == nil || req.URL.Host != t.host {
+	if req.URL == nil || !strings.EqualFold(req.URL.Host, t.host) {
 		return t.base.RoundTrip(req)
 	}
 
