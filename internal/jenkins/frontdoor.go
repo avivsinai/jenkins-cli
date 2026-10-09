@@ -5,7 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"strings"
 	"sync"
@@ -14,7 +16,12 @@ import (
 	"github.com/avivsinai/jenkins-cli/internal/config"
 )
 
-const frontDoorCommandTimeout = time.Minute
+const (
+	frontDoorCommandTimeout = time.Minute
+	// frontDoorTokenRefresh re-runs the token command before short-lived
+	// tokens expire (Google IAP identity tokens last one hour).
+	frontDoorTokenRefresh = 30 * time.Minute
+)
 
 // runTokenCommand executes a front door token command. Tests replace it.
 var runTokenCommand = execTokenCommand
@@ -47,38 +54,53 @@ func lastLine(s string) string {
 }
 
 // frontDoorTransport adds "<header>: Bearer <token>" to every request sent to
-// the Jenkins host. The token comes from the configured command, which runs
-// once per process; its result (token or error) is cached. Requests to other
-// hosts (for example artifact redirects to object storage) do not get the
-// header.
+// the Jenkins host. The token comes from the configured command; it is cached
+// and the command runs again once the token is older than
+// frontDoorTokenRefresh. A command failure fails only the current request.
+// Requests to other hosts (for example artifact redirects to object storage)
+// do not get the header.
 type frontDoorTransport struct {
 	base        http.RoundTripper
-	host        string
+	hostPort    string
 	header      string
 	argv        []string
 	contextName string
 
-	mu    sync.Mutex
-	done  bool
-	token string
-	err   error
+	mu      sync.Mutex
+	token   string
+	fetched time.Time
 }
 
-func newFrontDoorTransport(base http.RoundTripper, host, contextName string, fd *config.FrontDoor) *frontDoorTransport {
+func newFrontDoorTransport(base http.RoundTripper, target *url.URL, contextName string, fd *config.FrontDoor) *frontDoorTransport {
 	if base == nil {
 		base = http.DefaultTransport
 	}
 	return &frontDoorTransport{
 		base:        base,
-		host:        host,
+		hostPort:    canonicalHostPort(target),
 		header:      http.CanonicalHeaderKey(strings.TrimSpace(fd.Header)),
 		argv:        append([]string(nil), fd.TokenCommand...),
 		contextName: contextName,
 	}
 }
 
+// canonicalHostPort returns "host:port" with the host lowercased and a
+// missing port replaced by the scheme default.
+func canonicalHostPort(u *url.URL) string {
+	port := u.Port()
+	if port == "" {
+		switch strings.ToLower(u.Scheme) {
+		case "http":
+			port = "80"
+		case "https":
+			port = "443"
+		}
+	}
+	return net.JoinHostPort(strings.ToLower(u.Hostname()), port)
+}
+
 func (t *frontDoorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.URL == nil || !strings.EqualFold(req.URL.Host, t.host) {
+	if req.URL == nil || canonicalHostPort(req.URL) != t.hostPort {
 		return t.base.RoundTrip(req)
 	}
 
@@ -99,13 +121,12 @@ func (t *frontDoorTransport) tokenFor(ctx context.Context) (string, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	if t.done {
-		return t.token, t.err
+	if t.token != "" && time.Since(t.fetched) < frontDoorTokenRefresh {
+		return t.token, nil
 	}
 
 	out, err := runTokenCommand(ctx, t.argv)
 	if err != nil && ctx.Err() != nil {
-		// The request was canceled; do not cache that as a command failure.
 		return "", ctx.Err()
 	}
 	token := strings.TrimSpace(string(out))
@@ -113,11 +134,10 @@ func (t *frontDoorTransport) tokenFor(ctx context.Context) (string, error) {
 		err = errors.New("command printed no token")
 	}
 	if err != nil {
-		t.err = fmt.Errorf("front door token command for context %q (%s) failed: %w",
+		return "", fmt.Errorf("front door token command for context %q (%s) failed: %w",
 			t.contextName, t.argv[0], err)
-	} else {
-		t.token = token
 	}
-	t.done = true
-	return t.token, t.err
+	t.token = token
+	t.fetched = time.Now()
+	return token, nil
 }

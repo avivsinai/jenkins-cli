@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 
@@ -73,25 +72,6 @@ func (f *FrontDoor) Validate() error {
 	return nil
 }
 
-// validate checks every context so that configuration errors surface at load.
-func (c *Config) validate() error {
-	names := make([]string, 0, len(c.Contexts))
-	for name := range c.Contexts {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		ctx := c.Contexts[name]
-		if ctx == nil || ctx.FrontDoor == nil {
-			continue
-		}
-		if err := ctx.FrontDoor.Validate(); err != nil {
-			return fmt.Errorf("context %q: %w", name, err)
-		}
-	}
-	return nil
-}
-
 // Preferences capture user-level CLI options.
 type Preferences struct {
 	Color          string `yaml:"color,omitempty"`
@@ -128,9 +108,6 @@ func Load() (*Config, error) {
 
 		if err := yaml.Unmarshal(data, cfg); err != nil {
 			return nil, fmt.Errorf("decode config: %w", err)
-		}
-		if err := cfg.validate(); err != nil {
-			return nil, fmt.Errorf("invalid config %s: %w", path, err)
 		}
 
 		cfg.path = path

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- Per-context `front_door` config for controllers behind a WAF, SSO proxy, or Google IAP: `jk` runs `token_command` (argv, no shell) once per process and sends `<header>: Bearer <token>` on every request to the controller, next to the unchanged Jenkins Basic auth. `header: Authorization` is rejected because Jenkins auth uses it (#129).
+- Per-context `front_door` config for controllers behind a WAF, SSO proxy, or Google IAP: `jk` runs `token_command` (argv, no shell), refreshes the token every 30 minutes, and sends `<header>: Bearer <token>` on every request to the controller, next to the unchanged Jenkins Basic auth. `header: Authorization` is rejected because Jenkins auth uses it (#129).
 
 ## [0.0.37] - 2026-09-13
 ### Fixed

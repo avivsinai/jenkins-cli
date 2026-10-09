@@ -171,7 +171,7 @@ contexts:
       token_command: [gcloud, auth, print-identity-token, --audiences=<IAP_CLIENT_ID>]
 ```
 
-- `token_command` is an argv list. `jk` runs it without a shell, once per process, before the first request, and trims the output. For a service account, add `--impersonate-service-account=<sa-email>` to the gcloud command.
+- `token_command` is an argv list. `jk` runs it without a shell before the first request, trims the output, and runs it again when the token is older than 30 minutes. For a service account, add `--impersonate-service-account=<sa-email>` to the gcloud command.
 - The header goes on every request to the context's host, including login verification and CSRF crumb requests. Redirects to other hosts (for example artifact downloads from object storage) do not get it.
 - `header` cannot be `Authorization`, because `jk` sends the Jenkins API token there. Google IAP accepts `Proxy-Authorization`.
 - If the command fails, the error names the context and the command. `jk` never prints the token.

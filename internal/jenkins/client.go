@@ -199,7 +199,7 @@ func NewClient(ctx context.Context, cfg *config.Config, contextName string, opts
 		if err := fd.Validate(); err != nil {
 			return nil, fmt.Errorf("context %s: %w", contextName, err)
 		}
-		fdTransport := newFrontDoorTransport(restyClient.GetClient().Transport, parsedURL.Host, contextName, fd)
+		fdTransport := newFrontDoorTransport(restyClient.GetClient().Transport, parsedURL, contextName, fd)
 		restyClient.GetClient().Transport = fdTransport
 		if hc := restyStream.GetClient(); hc != restyClient.GetClient() {
 			hc.Transport = fdTransport
