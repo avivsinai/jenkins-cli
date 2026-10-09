@@ -1,11 +1,19 @@
 package job
 
 import (
+	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/avivsinai/jenkins-cli/internal/config"
+	"github.com/avivsinai/jenkins-cli/internal/jenkins"
+	"github.com/avivsinai/jenkins-cli/internal/secret"
 )
 
 func TestNormalizeMultibranchBitbucketSpec(t *testing.T) {
@@ -165,4 +173,50 @@ func TestReplaceElementPreservesDollarSigns(t *testing.T) {
 	result, err := replaceElement(input, "sources", replacement)
 	require.NoError(t, err)
 	require.Contains(t, result, `MultiBranchProject$BranchSourceList`)
+}
+
+func TestCreateJobFromConfigXMLPostsToFolderCreateItem(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	t.Setenv("KEYRING_BACKEND", "file")
+	t.Setenv("KEYRING_FILE_DIR", tmp+"/secrets")
+	t.Setenv("JK_ALLOW_INSECURE_STORE", "1")
+	t.Setenv("JK_KEYRING_PASSPHRASE", "test-pass")
+	t.Setenv("KEYRING_FILE_PASSWORD", "test-pass")
+
+	store, err := secret.Open(secret.WithAllowFileFallback(true))
+	require.NoError(t, err)
+	require.NoError(t, store.Set(secret.TokenKey("test"), "token"))
+
+	const configXML = "<?xml version='1.1' encoding='UTF-8'?><flow-definition/>"
+	var got *http.Request
+	var gotBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/crumbIssuer/api/json" {
+			_, _ = w.Write([]byte(`{"crumb":"c","crumbRequestField":"Jenkins-Crumb"}`))
+			return
+		}
+		gotBody, _ = io.ReadAll(r.Body)
+		got = r
+	}))
+	defer srv.Close()
+
+	cfg := &config.Config{}
+	cfg.SetContext("test", &config.Context{URL: srv.URL, Username: "alice", AllowInsecureStore: true})
+	client, err := jenkins.NewClient(context.Background(), cfg, "test", jenkins.WithSkipCapabilityProbe(), jenkins.WithDisableWarn(true))
+	require.NoError(t, err)
+
+	result, err := createJobFromConfigXML(context.Background(), client, "platform/release", "amit-release", configXML, "stdin")
+	require.NoError(t, err)
+	require.Equal(t, "platform/release/amit-release", result.Path)
+
+	require.NotNil(t, got)
+	require.Equal(t, http.MethodPost, got.Method)
+	require.Equal(t, "/job/platform/job/release/createItem", got.URL.Path)
+	require.Equal(t, "amit-release", got.URL.Query().Get("name"))
+	require.Equal(t, "application/xml", got.Header.Get("Content-Type"))
+	require.Equal(t, "c", got.Header.Get("Jenkins-Crumb"))
+	require.Equal(t, configXML, string(gotBody))
 }
