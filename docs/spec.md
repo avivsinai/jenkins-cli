@@ -419,7 +419,7 @@ Key workflows the CLI must make trivial:
 ## 12. Technology Selection & Tooling
 
 ### 12.1 CLI
-- Language: Go 1.25+ (module mode, static builds).
+- Language: Go 1.26+ (module mode, static builds).
 - Libraries:
   - `spf13/cobra` + `spf13/pflag` for command structure.
   - `spf13/viper` for config binding and env overrides.

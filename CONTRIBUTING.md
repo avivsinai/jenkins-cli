@@ -16,8 +16,8 @@ pull requests, and feedback from the community.
 1. Fork the repository and clone your fork.
 2. Install dependencies:
    ```bash
-   # Go 1.25+
-   go version  # should report go1.25.x
+   # Go 1.26+
+   go version  # should report go1.26.x
 
    # Dev tools (macOS)
    brew install golangci-lint gitleaks pre-commit
