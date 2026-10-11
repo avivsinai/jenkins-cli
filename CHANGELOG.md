@@ -10,8 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `jk auth login` hints at the `front_door` config block when verification is rejected (401/403/407) by something that is not Jenkins (no `X-Jenkins` header) and the context has no `front_door` block.
 - Per-context `front_door` config for controllers behind a WAF, SSO proxy, or Google IAP: `jk` runs `token_command` (argv, no shell), refreshes the token every 30 minutes, and sends `<header>: Bearer <token>` on every request to the controller, next to the unchanged Jenkins Basic auth. `header: Authorization` is rejected because Jenkins auth uses it (#129).
 - `jk job create <name> --file config.xml` (or `--stdin`) creates a job of any type from a full config.xml in one `createItem` request; the multibranch-only flags are refused alongside it.
+### Changed
+- Build with the Go 1.26 toolchain and updated Go dependencies (#158).
 ### Fixed
 - Fatal errors print one `Error:` line on stderr instead of two.
+- The streaming client keeps the 30s API timeout; before, it zeroed the timeout so API calls could hang (#157).
 
 ## [0.0.37] - 2026-09-13
 ### Fixed
