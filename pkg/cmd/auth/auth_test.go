@@ -301,7 +301,7 @@ func TestAuthLoginVerificationFrontDoorRejectionHintsFrontDoor(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "front_door")
 	require.Contains(t, err.Error(), "#front-door")
-	require.NotContains(t, err.Error(), "/me/configure")
+	require.Contains(t, err.Error(), "/me/configure")
 
 	_, ctxErr := cfg.Context("t1")
 	require.ErrorIs(t, ctxErr, config.ErrContextNotFound)

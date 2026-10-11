@@ -273,20 +273,24 @@ func loginVerificationError(verifyErr error, parsed *url.URL, contextName string
 	}
 
 	base := strings.TrimSuffix(parsed.String(), "/")
-	if errors.Is(verifyErr, errFrontDoorRejected) {
-		return fmt.Errorf("login verification failed: %v; %s. "+
-			"The response did not come from Jenkins (no X-Jenkins header), so a front door such as a WAF, SSO proxy, or Google IAP "+
-			"is probably blocking %s. Add a front_door block to this context in config.yaml and run login again "+
-			"(see \"Front door\" in the README: https://github.com/avivsinai/jenkins-cli#front-door-waf-sso-proxy-google-iap). "+
-			"Use --no-verify to store credentials without checking them",
-			verifyErr, outcome, base)
-	}
 	return fmt.Errorf("login verification failed: %v; %s. "+
 		"Use a Jenkins API token (create one at %s/me/configure), not a password or SSO token; "+
 		"for SSO realms, sign in with your browser and open %s/whoAmI/api/json; use the returned name value as --username "+
 		"(if it says anonymous, sign in first). "+
-		"Use --no-verify to store credentials without checking them",
-		verifyErr, outcome, base, base)
+		"Use --no-verify to store credentials without checking them%s",
+		verifyErr, outcome, base, base, frontDoorHint(verifyErr))
+}
+
+// frontDoorHint is appended to the generic guidance when the rejection did not
+// carry Jenkins headers. Some Jenkins security realms also answer 401 without
+// X-Jenkins, so the hint adds to the API-token guidance instead of replacing it.
+func frontDoorHint(verifyErr error) string {
+	if !errors.Is(verifyErr, errFrontDoorRejected) {
+		return ""
+	}
+	return ". The response had no X-Jenkins header, so a front door (WAF, SSO proxy, Google IAP) may have answered instead of Jenkins: " +
+		"if the controller sits behind one, add a front_door block to this context in config.yaml and log in again " +
+		"(see \"Front door\" in the README: https://github.com/avivsinai/jenkins-cli#front-door-waf-sso-proxy-google-iap)"
 }
 
 func deriveContextName(u *url.URL) string {

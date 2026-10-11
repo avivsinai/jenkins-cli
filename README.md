@@ -175,7 +175,7 @@ contexts:
 - The header goes on every request to the context's host, including login verification and CSRF crumb requests. Redirects to other hosts (for example artifact downloads from object storage) do not get it.
 - `header` cannot be `Authorization`, because `jk` sends the Jenkins API token there. Google IAP accepts `Proxy-Authorization`.
 - If the command fails, the error names the context and the command. `jk` never prints the token.
-- If a first `jk auth login` is rejected with a 401, 403, or 407 that has no `X-Jenkins` header, the response came from the front door and the login error points here.
+- If a first `jk auth login` is rejected with a 401, 403, or 407 that has no `X-Jenkins` header, the response came from the front door and the login error adds a hint pointing here.
 - Configure `front_door` in `config.yaml` first, then run `jk auth login <url> --name prod ...`. Login keeps the existing `front_door` block and verifies through the front door.
 
 ### Secret Storage
