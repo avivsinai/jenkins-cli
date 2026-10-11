@@ -38,6 +38,8 @@ Quick start:
   jk search --job-glob "*ada*" --limit 5    # discover jobs across folders
   jk run start <jobPath> --follow           # trigger and watch a build`,
 		SilenceUsage: true,
+		// The entry point prints the error; cobra must not print it too.
+		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = cmd.Help()
 		},
