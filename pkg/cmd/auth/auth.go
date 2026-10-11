@@ -196,6 +196,11 @@ func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions
 // rejection, which rolls the login back.
 var errVerifyInconclusive = errors.New("could not verify credentials")
 
+// errFrontDoorRejected marks a verification response that did not come from
+// Jenkins: an auth failure without the X-Jenkins header means a WAF, SSO proxy,
+// or IAP answered before the request reached the controller.
+var errFrontDoorRejected = errors.New("rejected before reaching Jenkins")
+
 // verifyLogin asks Jenkins how the just-stored credentials authenticate.
 // A nil error means the credentials are valid. Errors wrapping
 // errVerifyInconclusive mean Jenkins could not be consulted; any other error
@@ -215,6 +220,8 @@ func verifyLogin(cmd *cobra.Command, cfg *config.Config, contextName string) (*j
 		return nil, err
 	case err != nil:
 		return nil, fmt.Errorf("%w: %v", errVerifyInconclusive, err)
+	case isAuthFailure(resp.StatusCode()) && resp.Header().Get("X-Jenkins") == "" && !hasFrontDoor(cfg, contextName):
+		return nil, fmt.Errorf("%w (%s)", errFrontDoorRejected, resp.Status())
 	case resp.StatusCode() == http.StatusUnauthorized || resp.StatusCode() == http.StatusForbidden:
 		return nil, fmt.Errorf("jenkins rejected the credentials (%s)", resp.Status())
 	case resp.IsSuccess() && who.Authenticated:
@@ -224,6 +231,15 @@ func verifyLogin(cmd *cobra.Command, cfg *config.Config, contextName string) (*j
 	default:
 		return nil, fmt.Errorf("%w: unexpected response %s", errVerifyInconclusive, resp.Status())
 	}
+}
+
+func isAuthFailure(code int) bool {
+	return code == http.StatusUnauthorized || code == http.StatusForbidden || code == http.StatusProxyAuthRequired
+}
+
+func hasFrontDoor(cfg *config.Config, contextName string) bool {
+	c, err := cfg.Context(contextName)
+	return err == nil && c.FrontDoor != nil
 }
 
 // rollbackLogin restores the pre-login context, token, and active-context
@@ -261,8 +277,20 @@ func loginVerificationError(verifyErr error, parsed *url.URL, contextName string
 		"Use a Jenkins API token (create one at %s/me/configure), not a password or SSO token; "+
 		"for SSO realms, sign in with your browser and open %s/whoAmI/api/json; use the returned name value as --username "+
 		"(if it says anonymous, sign in first). "+
-		"Use --no-verify to store credentials without checking them",
-		verifyErr, outcome, base, base)
+		"Use --no-verify to store credentials without checking them%s",
+		verifyErr, outcome, base, base, frontDoorHint(verifyErr))
+}
+
+// frontDoorHint is appended to the generic guidance when the rejection did not
+// carry Jenkins headers. Some Jenkins security realms also answer 401 without
+// X-Jenkins, so the hint adds to the API-token guidance instead of replacing it.
+func frontDoorHint(verifyErr error) string {
+	if !errors.Is(verifyErr, errFrontDoorRejected) {
+		return ""
+	}
+	return ". The response had no X-Jenkins header, so a front door (WAF, SSO proxy, Google IAP) may have answered instead of Jenkins: " +
+		"if the controller sits behind one, add a front_door block to this context in config.yaml and log in again " +
+		"(see \"Front door\" in the README: https://github.com/avivsinai/jenkins-cli#front-door-waf-sso-proxy-google-iap)"
 }
 
 func deriveContextName(u *url.URL) string {

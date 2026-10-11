@@ -263,6 +263,7 @@ func TestAuthLoginVerificationSuccess(t *testing.T) {
 func TestAuthLoginVerificationRejectedRollsBackNewContext(t *testing.T) {
 	loginTestEnv(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Jenkins", "2.440")
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer server.Close()
@@ -285,9 +286,31 @@ func TestAuthLoginVerificationRejectedRollsBackNewContext(t *testing.T) {
 	require.ErrorIs(t, tokenErr, os.ErrNotExist)
 }
 
+func TestAuthLoginVerificationFrontDoorRejectionHintsFrontDoor(t *testing.T) {
+	loginTestEnv(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	cmd, _, _ := newLoginCmd(t)
+	cfg := &config.Config{}
+	opts := &authLoginOptions{name: "t1", username: "admin", token: "tok", setActive: true}
+
+	err := runAuthLogin(cmd, cfg, opts, server.URL)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "front_door")
+	require.Contains(t, err.Error(), "#front-door")
+	require.Contains(t, err.Error(), "/me/configure")
+
+	_, ctxErr := cfg.Context("t1")
+	require.ErrorIs(t, ctxErr, config.ErrContextNotFound)
+}
+
 func TestAuthLoginVerificationRejectedRestoresPreviousState(t *testing.T) {
 	loginTestEnv(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Jenkins", "2.440")
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer server.Close()
