@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -258,6 +259,31 @@ func TestAuthLoginVerificationSuccess(t *testing.T) {
 	got, err := openTestStore(t).Get(secret.TokenKey("t1"))
 	require.NoError(t, err)
 	require.Equal(t, "tok", got)
+}
+
+func TestAuthLoginWithTokenReadsStdin(t *testing.T) {
+	// A script pipes the API token instead of passing --token, which ps shows.
+	loginTestEnv(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		require.True(t, ok)
+		require.Equal(t, "admin", user)
+		require.Equal(t, "piped-token", pass)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"name":"admin","authenticated":true}`))
+	}))
+	defer server.Close()
+
+	cmd, out, _ := newLoginCmd(t)
+	cmd.SetIn(strings.NewReader("piped-token\n"))
+	cfg := &config.Config{}
+	opts := &authLoginOptions{name: "t1", username: "admin", withToken: true, setActive: true}
+
+	require.NoError(t, runAuthLogin(cmd, cfg, opts, server.URL))
+	require.Contains(t, out.String(), "as admin")
+	got, err := openTestStore(t).Get(secret.TokenKey("t1"))
+	require.NoError(t, err)
+	require.Equal(t, "piped-token", got)
 }
 
 func TestAuthLoginVerificationRejectedRollsBackNewContext(t *testing.T) {
