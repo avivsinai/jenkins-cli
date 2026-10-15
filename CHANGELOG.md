@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.39] - 2026-10-15
 ### Added
 - `jk auth login --with-token` reads the API token from stdin, so a script signs in without the token showing in the process list. It needs `--username` and refuses `--token`.
+
 
 ## [0.0.38] - 2026-10-11
 ### Added
