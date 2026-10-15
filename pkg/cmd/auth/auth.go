@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -43,6 +44,7 @@ type authLoginOptions struct {
 	setActive          bool
 	allowInsecureStore bool
 	noVerify           bool
+	withToken          bool
 }
 
 const (
@@ -69,7 +71,8 @@ func newAuthLoginCmd(f *cmdutil.Factory) *cobra.Command {
 
 	cmd.Flags().StringVar(&opts.name, "name", "", "Context name (defaults to Jenkins hostname)")
 	cmd.Flags().StringVar(&opts.username, "username", "", usernameFlagHelp)
-	cmd.Flags().StringVar(&opts.token, "token", "", "Jenkins API token")
+	cmd.Flags().StringVar(&opts.token, "token", "", "Jenkins API token (visible in the process list; prefer --with-token)")
+	cmd.Flags().BoolVar(&opts.withToken, "with-token", false, "Read the API token from standard input")
 	cmd.Flags().BoolVar(&opts.insecure, "insecure", false, "Skip TLS certificate verification")
 	cmd.Flags().StringVar(&opts.proxy, "proxy", "", "Proxy URL for this context")
 	cmd.Flags().StringVar(&opts.caFile, "ca-file", "", "Custom CA bundle for TLS verification")
@@ -92,6 +95,15 @@ func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions
 		contextName = deriveContextName(parsed)
 	}
 
+	if opts.withToken {
+		if opts.token != "" {
+			return errors.New("--with-token cannot be used with --token")
+		}
+		if opts.username == "" {
+			return errors.New("--with-token needs --username: standard input carries the token")
+		}
+	}
+
 	username := opts.username
 	if username == "" {
 		if username, err = terminal.Prompt(usernamePrompt, ""); err != nil {
@@ -100,6 +112,11 @@ func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions
 	}
 
 	token := opts.token
+	if opts.withToken {
+		if token, err = readTokenFromStdin(cmd.InOrStdin()); err != nil {
+			return err
+		}
+	}
 	if token == "" {
 		if token, err = terminal.PromptSecret(tokenPrompt); err != nil {
 			return fmt.Errorf("read token: %w", err)
@@ -401,4 +418,18 @@ func resolveAuthContextName(cmd *cobra.Command, cfg *config.Config, args []strin
 		return args[0], nil
 	}
 	return shared.ResolveContextName(cmd, cfg)
+}
+
+// readTokenFromStdin reads the token piped on stdin for --with-token, so a
+// script signs in without the token showing in the process list.
+func readTokenFromStdin(in io.Reader) (string, error) {
+	data, err := io.ReadAll(in)
+	if err != nil {
+		return "", fmt.Errorf("read token from stdin: %w", err)
+	}
+	token := strings.TrimSpace(string(data))
+	if token == "" {
+		return "", errors.New("--with-token: no token on stdin")
+	}
+	return token, nil
 }

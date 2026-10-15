@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `jk auth login --with-token` reads the API token from stdin, so a script signs in without the token showing in the process list. It needs `--username` and refuses `--token`.
+
 ## [0.0.38] - 2026-10-11
 ### Added
 - `jk auth login` hints at the `front_door` config block when verification is rejected (401/403/407) by something that is not Jenkins (no `X-Jenkins` header) and the context has no `front_door` block.
