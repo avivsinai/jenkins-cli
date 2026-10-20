@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+- macOS release binaries are signed with a Developer ID and notarized when the
+  release signing secrets are configured. Keychain then keys the token's
+  partition to the team ID instead of the build hash, so one "Always Allow"
+  survives `brew upgrade`. The first run of the first signed release asks one
+  last time.
 
 ## [0.0.40] - 2026-10-19
 ### Changed
