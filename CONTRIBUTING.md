@@ -104,6 +104,21 @@ Releases are automated with the PR-based `./scripts/release.sh X.Y.Z` flow:
 3. After the release PR merges, `.github/workflows/release.yml` validates the merged release commit, creates the matching tag, builds binaries for Linux and macOS (amd64 + arm64) and Windows (amd64), and publishes the GitHub release with artifacts and checksums.
 4. Conventional commits (`feat:`, `fix:`, `deps:`) still help keep changelog entries and release summaries consistent.
 
+### macOS signing
+
+macOS binaries are signed with a Developer ID and notarized by
+`scripts/codesign-macos.sh` when these repository secrets are set:
+`APPLE_TEAM_ID`, `APPLE_DEVELOPER_ID_P12_BASE64` (a "Developer ID Application"
+certificate, its key and the Developer ID intermediate, base64 of the .p12),
+`APPLE_DEVELOPER_ID_P12_PASSWORD`, `APPLE_NOTARY_ISSUER_ID`,
+`APPLE_NOTARY_KEY_ID`, and `APPLE_NOTARY_KEY_P8_BASE64` (an App Store Connect
+API key, base64 of the .p8). Set all six or none: with none, the release warns
+and signs ad-hoc; with some, it fails. Ad-hoc binaries get a new Keychain
+partition ID (`cdhash:`) per build, so users must approve Keychain access again
+after each upgrade; Developer ID binaries share one `teamid:` partition ID.
+Keep the signing identifier `io.github.avivsinai.jk`: a changed identifier or
+team makes every user approve again.
+
 ## Questions?
 
 Open a GitHub issue or start a discussion in the repository. For
