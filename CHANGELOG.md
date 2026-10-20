@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Fixed
+- macOS release binaries run on macOS 13 and later again. Releases built on the
+  `macos-latest` runner required macOS 26, so older Macs refused to start `jk`.
 - macOS release binaries are signed with a Developer ID and notarized when the
   release signing secrets are configured. Keychain then keys the token's
   partition to the team ID instead of the build hash, so one "Always Allow"
