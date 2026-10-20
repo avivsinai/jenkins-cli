@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.0.41] - 2026-10-20
 ### Fixed
 - macOS release binaries run on macOS 13 and later again. Releases built on the
   `macos-latest` runner required macOS 26, so older Macs refused to start `jk`.
@@ -14,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   partition to the team ID instead of the build hash, so one "Always Allow"
   survives `brew upgrade`. The first run of the first signed release asks one
   last time.
+
 
 ## [0.0.40] - 2026-10-19
 ### Changed
