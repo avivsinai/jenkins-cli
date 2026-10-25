@@ -7,10 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.42] - 2026-10-25
 ### Security
 - Build with golang.org/x/net 0.61.0 and golang.org/x/crypto 0.58.0, which fix
   published security advisories.
 - Release and skill-publishing workflows run on Node 24.
+
 
 ## [0.0.41] - 2026-10-20
 ### Fixed
