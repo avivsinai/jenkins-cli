@@ -4,29 +4,16 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Existing tag to (re)release (e.g., v1.0.0)'
-        required: true
-        type: string
-      skip-skill-publish:
-        description: 'Skip skill publishing (useful for GoReleaser/Homebrew-only reruns)'
-        required: false
-        type: boolean
-        default: true
-
 permissions:
   contents: read
 
-# Keep workflow_dispatch reruns serialized per tag while letting distinct release commits run independently.
 concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.sha }}
+  group: release-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
   prepare:
-    if: "${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'chore(release): v') }}"
+    if: "${{ startsWith(github.event.head_commit.message, 'chore(release): v') }}"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -46,7 +33,6 @@ jobs:
         id: prepare
         env:
           EVENT_NAME: ${{ github.event_name }}
-          INPUT_TAG: ${{ github.event.inputs.tag }}
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         shell: bash
         run: |
@@ -65,20 +51,6 @@ jobs:
           }
 
           case "$EVENT_NAME" in
-            workflow_dispatch)
-              tag="$INPUT_TAG"
-              validate_tag "$tag"
-              git fetch --force --tags origin
-              if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null 2>&1; then
-                echo "::error::Tag ${tag} does not exist. workflow_dispatch is only for rerunning an existing release."
-                exit 1
-              fi
-              git checkout --detach "$tag"
-              version="${tag#v}"
-              ./scripts/check-release-version.sh "$version"
-              release_ref="$tag"
-              release_sha="$(tag_commit_sha "$tag")"
-              ;;
             push)
               commit_subject="${COMMIT_MESSAGE%%$'\n'*}"
               tag="${commit_subject#chore(release): }"
@@ -193,11 +165,22 @@ jobs:
       - name: Install Syft
         run: brew install syft
 
+      # The v* tag ruleset lets only the release App create tags. Until the
+      # App is configured (vars.RELEASE_APP_CLIENT_ID), the job token is used.
+      - name: Mint release App token
+        id: release-app
+        if: vars.RELEASE_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
       - name: Create release tag after verification
         shell: bash
         env:
           TAG: ${{ needs.prepare.outputs.tag }}
           RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
+          GH_TOKEN: ${{ steps.release-app.outputs.token || github.token }}
         run: |
           set -euo pipefail
 
@@ -213,8 +196,7 @@ jobs:
               exit 1
             fi
           else
-            git tag "$TAG" "$RELEASE_SHA"
-            git push origin "refs/tags/${TAG}"
+            gh api "repos/${GITHUB_REPOSITORY}/git/refs" -f ref="refs/tags/${TAG}" -f sha="$RELEASE_SHA" >/dev/null
           fi
 
       - name: Extract release notes for this tag
@@ -299,6 +281,18 @@ jobs:
             echo "JK_NOTARY_KEY_PATH=$RUNNER_TEMP/notary-key.p8"
           } >>"$GITHUB_ENV"
 
+      # Tap and Scoop pushes use a short-lived release App token scoped to
+      # the tap repo; the PAT is only the fallback until the App is
+      # configured (vars.RELEASE_APP_CLIENT_ID). Same pattern as yoetz #623.
+      - name: Mint release App token for the tap
+        id: tap-app
+        if: vars.RELEASE_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          repositories: homebrew-tap
+
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
@@ -307,7 +301,7 @@ jobs:
           args: release --clean --release-notes ${{ runner.temp }}/RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ steps.tap-app.outputs.token || secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
           JK_MACOS_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           JK_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           JK_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
