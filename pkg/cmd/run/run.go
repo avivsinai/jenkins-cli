@@ -710,6 +710,7 @@ func extractJobPathFromURL(rawURL string) string {
 func buildRunListTree(fetchLimit int, includeArtifacts, includeParameters, includeCauses bool) string {
 	actionsFields := []string{
 		"lastBuiltRevision[SHA1,branch[name]]",
+		"revision[hash,pullHash]",
 		"buildsByBranchName[*]",
 		"remoteUrls",
 	}
@@ -1647,7 +1648,33 @@ func fetchRunDetail(client *jenkins.Client, jobPath string, buildNumber int64) (
 	if err != nil {
 		return nil, fmt.Errorf("view run %s #%d: %w", jobPath, buildNumber, err)
 	}
+	addSCMRevision(client, path, &detail)
 	return &detail, nil
+}
+
+// addSCMRevision fetches the SCMRevisionAction revision, which the default API
+// depth lists by class only. Without it, a Pipeline library's git checkout could
+// be mistaken for the job's source.
+func addSCMRevision(client *jenkins.Client, path string, detail *runDetail) {
+	marked := false
+	for _, action := range detail.Actions {
+		if class, _ := action["_class"].(string); class == "jenkins.scm.api.SCMRevisionAction" {
+			marked = true
+		}
+	}
+	if !marked || scmRevisionHash(detail.Actions) != "" {
+		return
+	}
+	var revisions struct {
+		Actions []map[string]any `json:"actions"`
+	}
+	req := client.NewRequest().SetQueryParam("tree", "actions[revision[hash,pullHash]]")
+	if _, err := client.Do(req, http.MethodGet, path, &revisions); err != nil {
+		return
+	}
+	if hash := scmRevisionHash(revisions.Actions); hash != "" {
+		detail.Actions = append(detail.Actions, map[string]any{"revision": map[string]any{"hash": hash}})
+	}
 }
 
 func resolveCancelAction(mode string) (string, error) {

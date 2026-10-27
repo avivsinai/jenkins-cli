@@ -478,8 +478,53 @@ func displayParameterValue(value any) string {
 	return fmt.Sprint(value)
 }
 
+// scmRevisionHash returns the revision recorded by SCMRevisionAction, which
+// multibranch and other SCM API jobs attach for the job's own source. Branch
+// and tag revisions carry "hash"; pull request revisions carry "pullHash".
+func scmRevisionHash(actions []map[string]any) string {
+	for _, action := range actions {
+		if revision, ok := action["revision"].(map[string]any); ok {
+			for _, key := range []string{"hash", "pullHash"} {
+				if hash, ok := revision[key].(string); ok && hash != "" {
+					return hash
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// sourceBuildData selects the git BuildData for the job's own source. Pipeline
+// libraries loaded from Git add BuildData actions too, often before the source
+// checkout, so prefer the one that built the SCMRevisionAction revision.
+func sourceBuildData(actions []map[string]any, revision string) map[string]any {
+	if revision == "" {
+		return nil
+	}
+	for _, action := range actions {
+		if lastBuilt, ok := action["lastBuiltRevision"].(map[string]any); ok {
+			if sha, _ := lastBuilt["SHA1"].(string); sha == revision {
+				return action
+			}
+		}
+	}
+	return nil
+}
+
 func extractSCMInfo(actions []map[string]any, change changeSet) *runSCMInfo {
 	info := &runSCMInfo{}
+
+	revision := scmRevisionHash(actions)
+	info.Commit = revision
+	if revision != "" {
+		// Any other git checkout (a Pipeline library) describes another
+		// repository, so only the one that built the revision applies.
+		source := sourceBuildData(actions, revision)
+		actions = nil
+		if source != nil {
+			actions = []map[string]any{source}
+		}
+	}
 
 	for _, action := range actions {
 		if lastBuilt, ok := action["lastBuiltRevision"].(map[string]any); ok {
