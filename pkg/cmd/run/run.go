@@ -711,7 +711,7 @@ func buildRunListTree(fetchLimit int, includeArtifacts, includeParameters, inclu
 	actionsFields := []string{
 		"lastBuiltRevision[SHA1,branch[name]]",
 		"revision[hash,pullHash]",
-		"buildsByBranchName[*]",
+		"buildsByBranchName[marked[SHA1],revision[SHA1]]",
 		"remoteUrls",
 	}
 	if includeParameters {
@@ -783,7 +783,7 @@ func processRunList(jobPath string, opts runListOptions, builds []runSummary, ne
 			break
 		}
 
-		inspection := inspectRun(summary, needParams, needCauses, needArtifacts)
+		inspection := inspectRun(jobPath, summary, needParams, needCauses, needArtifacts)
 		if inspection == nil {
 			continue
 		}
@@ -834,7 +834,7 @@ func minInt(a, b int) int {
 	return b
 }
 
-func inspectRun(summary runSummary, needParams, needCauses, needArtifacts bool) *runInspection {
+func inspectRun(jobPath string, summary runSummary, needParams, needCauses, needArtifacts bool) *runInspection {
 	ctx := filter.Context{
 		"result":            strings.ToUpper(strings.TrimSpace(summary.Result)),
 		"status":            statusFromFlags(summary.Building),
@@ -899,7 +899,7 @@ func inspectRun(summary runSummary, needParams, needCauses, needArtifacts bool) 
 		}
 	}
 
-	if scm := extractSCMInfo(summary.Actions, summary.ChangeSet); scm != nil {
+	if scm := extractSCMInfo(jobPath, summary.Actions, summary.ChangeSet); scm != nil {
 		if scm.Branch != "" {
 			ctx["branch"] = scm.Branch
 		}

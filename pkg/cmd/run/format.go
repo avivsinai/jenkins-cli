@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -257,7 +258,7 @@ func buildRunListItem(jobPath string, inspection *runInspection, opts runListOpt
 	summary := inspection.Summary
 	status := statusFromFlags(summary.Building)
 	result := resultForList(summary.Result, summary.Building)
-	scm := extractSCMInfo(summary.Actions, summary.ChangeSet)
+	scm := extractSCMInfo(jobPath, summary.Actions, summary.ChangeSet)
 
 	item := runListItem{
 		ID:         fmt.Sprintf("%s/%d", jobPath, summary.Number),
@@ -339,7 +340,7 @@ func buildRunDetailOutput(jobPath string, detail runDetail, testReport *shared.T
 	result := resultForList(detail.Result, detail.Building)
 
 	parameters := extractParameters(detail)
-	scm := extractSCMInfo(detail.Actions, detail.ChangeSet)
+	scm := extractSCMInfo(normalized, detail.Actions, detail.ChangeSet)
 	causes := extractCauses(detail.Actions)
 	stages := extractStages(detail.Stages)
 	tests := extractTestSummary(testReport)
@@ -496,22 +497,73 @@ func scmRevisionHash(actions []map[string]any) string {
 
 // sourceBuildData selects the git BuildData for the job's own source. Pipeline
 // libraries loaded from Git add BuildData actions too, often before the source
-// checkout, so prefer the one that built the SCMRevisionAction revision.
-func sourceBuildData(actions []map[string]any, revision string) map[string]any {
+// checkout, so prefer the one that built the SCMRevisionAction revision. When
+// no BuildData records that revision, fall back to the one whose last built
+// branch is the job's own branch (multibranch jobs are named after it).
+func sourceBuildData(actions []map[string]any, revision, jobBranch string) map[string]any {
 	if revision == "" {
 		return nil
 	}
 	for _, action := range actions {
-		if lastBuilt, ok := action["lastBuiltRevision"].(map[string]any); ok {
-			if sha, _ := lastBuilt["SHA1"].(string); sha == revision {
-				return action
+		if buildDataHasRevision(action, revision) {
+			return action
+		}
+	}
+	if jobBranch == "" {
+		return nil
+	}
+	for _, action := range actions {
+		lastBuilt, _ := action["lastBuiltRevision"].(map[string]any)
+		branches, _ := lastBuilt["branch"].([]any)
+		for _, branchAny := range branches {
+			if bMap, ok := branchAny.(map[string]any); ok {
+				if name, _ := bMap["name"].(string); name == jobBranch {
+					return action
+				}
 			}
 		}
 	}
 	return nil
 }
 
-func extractSCMInfo(actions []map[string]any, change changeSet) *runSCMInfo {
+// buildDataHasRevision reports whether a BuildData action built revision.
+// Pull requests built with the merge strategy record a local merge commit as
+// lastBuiltRevision; the pull request head is the build's marked revision in
+// buildsByBranchName.
+func buildDataHasRevision(action map[string]any, revision string) bool {
+	if lastBuilt, ok := action["lastBuiltRevision"].(map[string]any); ok {
+		if sha, _ := lastBuilt["SHA1"].(string); sha == revision {
+			return true
+		}
+	}
+	builds, _ := action["buildsByBranchName"].(map[string]any)
+	for _, raw := range builds {
+		build, _ := raw.(map[string]any)
+		for _, key := range []string{"marked", "revision"} {
+			if rev, ok := build[key].(map[string]any); ok {
+				if sha, _ := rev["SHA1"].(string); sha == revision {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// jobBranchName returns the branch a multibranch job builds: its job name,
+// which Jenkins URL-encodes (feature%2Ffoo for feature/foo).
+func jobBranchName(jobPath string) string {
+	name := normalizeJobPath(jobPath)
+	if idx := strings.LastIndex(name, "/"); idx >= 0 {
+		name = name[idx+1:]
+	}
+	if decoded, err := url.PathUnescape(name); err == nil {
+		name = decoded
+	}
+	return name
+}
+
+func extractSCMInfo(jobPath string, actions []map[string]any, change changeSet) *runSCMInfo {
 	info := &runSCMInfo{}
 
 	revision := scmRevisionHash(actions)
@@ -519,7 +571,7 @@ func extractSCMInfo(actions []map[string]any, change changeSet) *runSCMInfo {
 	if revision != "" {
 		// Any other git checkout (a Pipeline library) describes another
 		// repository, so only the one that built the revision applies.
-		source := sourceBuildData(actions, revision)
+		source := sourceBuildData(actions, revision, jobBranchName(jobPath))
 		actions = nil
 		if source != nil {
 			actions = []map[string]any{source}

@@ -102,7 +102,7 @@ func TestExtractSCMInfoPrefersSCMRevisionActionOverLibraryBuildData(t *testing.T
 		},
 	}
 
-	info := extractSCMInfo(actions, changeSet{})
+	info := extractSCMInfo("", actions, changeSet{})
 	if info == nil {
 		t.Fatal("expected SCM info")
 	}
@@ -125,7 +125,7 @@ func TestExtractSCMInfoWithoutSCMRevisionActionKeepsFirstBuildData(t *testing.T)
 		},
 	}
 
-	info := extractSCMInfo(actions, changeSet{})
+	info := extractSCMInfo("", actions, changeSet{})
 	if info == nil || info.Commit != "3333333333333333333333333333333333333333" || info.Branch != "origin/main" {
 		t.Fatalf("unexpected SCM info: %+v", info)
 	}
@@ -141,11 +141,94 @@ func TestExtractSCMInfoUsesPullRequestRevision(t *testing.T) {
 		},
 	}
 
-	info := extractSCMInfo(actions, changeSet{})
+	info := extractSCMInfo("app/PR-4", actions, changeSet{})
 	if info == nil || info.Commit != "4444444444444444444444444444444444444444" {
 		t.Fatalf("commit = %+v, want the pull request head", info)
 	}
 	if info.Branch != "" || info.Repo != "" {
 		t.Fatalf("branch/repo = %q/%q, want none from the library checkout", info.Branch, info.Repo)
 	}
+}
+
+// mergeStrategySourceBuildData is the job's BuildData for a pull request built
+// with the merge strategy: lastBuiltRevision is the local merge commit, and the
+// pull request head is the marked revision in buildsByBranchName.
+func mergeStrategySourceBuildData() map[string]any {
+	return map[string]any{
+		"_class":            "hudson.plugins.git.util.BuildData",
+		"lastBuiltRevision": map[string]any{"SHA1": "5555555555555555555555555555555555555555", "branch": []any{map[string]any{"name": "PR-12"}}},
+		"buildsByBranchName": map[string]any{
+			"PR-12": map[string]any{
+				"marked":   map[string]any{"SHA1": "4444444444444444444444444444444444444444"},
+				"revision": map[string]any{"SHA1": "5555555555555555555555555555555555555555"},
+			},
+		},
+		"remoteUrls": []any{"https://example.com/org/app.git"},
+	}
+}
+
+func TestExtractSCMInfoMergeStrategyPullRequest(t *testing.T) {
+	actions := []map[string]any{
+		{"_class": "jenkins.scm.api.SCMRevisionAction", "revision": map[string]any{"pullHash": "4444444444444444444444444444444444444444"}},
+		mergeStrategySourceBuildData(),
+	}
+
+	info := extractSCMInfo("app/PR-12", actions, changeSet{})
+	require.NotNil(t, info)
+	require.Equal(t, "4444444444444444444444444444444444444444", info.Commit)
+	require.Equal(t, "PR-12", info.Branch)
+	require.Equal(t, "https://example.com/org/app.git", info.Repo)
+}
+
+func TestExtractSCMInfoMergeStrategyPullRequestWithLibraryCheckout(t *testing.T) {
+	actions := []map[string]any{
+		{"_class": "jenkins.scm.api.SCMRevisionAction", "revision": map[string]any{"pullHash": "4444444444444444444444444444444444444444"}},
+		{
+			"_class":            "hudson.plugins.git.util.BuildData",
+			"lastBuiltRevision": map[string]any{"SHA1": "1111111111111111111111111111111111111111", "branch": []any{map[string]any{"name": "library-branch"}}},
+			"buildsByBranchName": map[string]any{
+				"library-branch": map[string]any{
+					"marked":   map[string]any{"SHA1": "1111111111111111111111111111111111111111"},
+					"revision": map[string]any{"SHA1": "1111111111111111111111111111111111111111"},
+				},
+			},
+			"remoteUrls": []any{"https://example.com/org/pipeline-library.git"},
+		},
+		mergeStrategySourceBuildData(),
+	}
+
+	info := extractSCMInfo("app/PR-12", actions, changeSet{})
+	require.NotNil(t, info)
+	require.Equal(t, "4444444444444444444444444444444444444444", info.Commit)
+	require.Equal(t, "PR-12", info.Branch)
+	require.Equal(t, "https://example.com/org/app.git", info.Repo)
+}
+
+func TestExtractSCMInfoFallsBackToJobBranchBuildData(t *testing.T) {
+	// Without buildsByBranchName, only the branch name links the merge
+	// commit's BuildData to the job.
+	source := mergeStrategySourceBuildData()
+	delete(source, "buildsByBranchName")
+	source["lastBuiltRevision"] = map[string]any{"SHA1": "5555555555555555555555555555555555555555", "branch": []any{map[string]any{"name": "feature/login"}}}
+	actions := []map[string]any{
+		{"_class": "jenkins.scm.api.SCMRevisionAction", "revision": map[string]any{"pullHash": "4444444444444444444444444444444444444444"}},
+		{
+			"_class":            "hudson.plugins.git.util.BuildData",
+			"lastBuiltRevision": map[string]any{"SHA1": "1111111111111111111111111111111111111111", "branch": []any{map[string]any{"name": "library-branch"}}},
+			"remoteUrls":        []any{"https://example.com/org/pipeline-library.git"},
+		},
+		source,
+	}
+
+	info := extractSCMInfo("app/feature%2Flogin", actions, changeSet{})
+	require.NotNil(t, info)
+	require.Equal(t, "4444444444444444444444444444444444444444", info.Commit)
+	require.Equal(t, "feature/login", info.Branch)
+	require.Equal(t, "https://example.com/org/app.git", info.Repo)
+}
+
+func TestBuildRunListTreeRequestsBuildsByBranchNameRevisions(t *testing.T) {
+	tree := buildRunListTree(10, false, false, false)
+	require.Contains(t, tree, "buildsByBranchName[marked[SHA1],revision[SHA1]]")
+	require.Contains(t, tree, "revision[hash,pullHash]")
 }

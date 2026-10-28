@@ -57,7 +57,7 @@ func TestFetchRunDetailUsesSCMRevisionWithPipelineLibraryCheckout(t *testing.T) 
 	require.NoError(t, err)
 	require.Equal(t, []string{"", "actions[revision[hash,pullHash]]"}, trees)
 
-	info := extractSCMInfo(detail.Actions, detail.ChangeSet)
+	info := extractSCMInfo("app/main", detail.Actions, detail.ChangeSet)
 	require.NotNil(t, info)
 	require.Equal(t, "2222222222222222222222222222222222222222", info.Commit)
 	require.Equal(t, "main", info.Branch)
