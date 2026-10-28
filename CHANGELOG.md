@@ -9,7 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `jk run ls`, `jk run view` and `jk search` report the job's own source commit,
   branch and repository when a Pipeline library is loaded from Git. They
-  previously showed the library checkout's revision.
+  previously showed the library checkout's revision. Pull requests built with
+  the merge strategy report the pull request head commit and its branch and
+  repository. Bitbucket and GitLab pull request revisions, which carry neither
+  `hash` nor `pullHash`, keep the previous behaviour.
 
 ## [0.0.42] - 2026-10-25
 ### Security
