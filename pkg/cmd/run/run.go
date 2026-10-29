@@ -709,6 +709,7 @@ func extractJobPathFromURL(rawURL string) string {
 
 func buildRunListTree(fetchLimit int, includeArtifacts, includeParameters, includeCauses bool) string {
 	actionsFields := []string{
+		"_class",
 		"lastBuiltRevision[SHA1,branch[name]]",
 		"revision[hash,pullHash]",
 		"buildsByBranchName[marked[SHA1],revision[SHA1]]",
@@ -1648,14 +1649,16 @@ func fetchRunDetail(client *jenkins.Client, jobPath string, buildNumber int64) (
 	if err != nil {
 		return nil, fmt.Errorf("view run %s #%d: %w", jobPath, buildNumber, err)
 	}
-	addSCMRevision(client, path, &detail)
+	if err := addSCMRevision(client, path, &detail); err != nil {
+		return nil, fmt.Errorf("view run %s #%d source revision: %w", jobPath, buildNumber, err)
+	}
 	return &detail, nil
 }
 
 // addSCMRevision fetches the SCMRevisionAction revision, which the default API
 // depth lists by class only. Without it, a Pipeline library's git checkout could
 // be mistaken for the job's source.
-func addSCMRevision(client *jenkins.Client, path string, detail *runDetail) {
+func addSCMRevision(client *jenkins.Client, path string, detail *runDetail) error {
 	marked := false
 	for _, action := range detail.Actions {
 		if class, _ := action["_class"].(string); class == "jenkins.scm.api.SCMRevisionAction" {
@@ -1663,18 +1666,19 @@ func addSCMRevision(client *jenkins.Client, path string, detail *runDetail) {
 		}
 	}
 	if !marked || scmRevisionHash(detail.Actions) != "" {
-		return
+		return nil
 	}
 	var revisions struct {
 		Actions []map[string]any `json:"actions"`
 	}
-	req := client.NewRequest().SetQueryParam("tree", "actions[revision[hash,pullHash]]")
+	req := client.NewRequest().SetQueryParam("tree", "actions[_class,revision[hash,pullHash]]")
 	if _, err := client.Do(req, http.MethodGet, path, &revisions); err != nil {
-		return
+		return err
 	}
 	if hash := scmRevisionHash(revisions.Actions); hash != "" {
-		detail.Actions = append(detail.Actions, map[string]any{"revision": map[string]any{"hash": hash}})
+		detail.Actions = append(detail.Actions, map[string]any{"_class": "jenkins.scm.api.SCMRevisionAction", "revision": map[string]any{"hash": hash}})
 	}
+	return nil
 }
 
 func resolveCancelAction(mode string) (string, error) {

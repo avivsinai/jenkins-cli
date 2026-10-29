@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -484,6 +483,9 @@ func displayParameterValue(value any) string {
 // and tag revisions carry "hash"; pull request revisions carry "pullHash".
 func scmRevisionHash(actions []map[string]any) string {
 	for _, action := range actions {
+		if action["_class"] != "jenkins.scm.api.SCMRevisionAction" {
+			continue
+		}
 		if revision, ok := action["revision"].(map[string]any); ok {
 			for _, key := range []string{"hash", "pullHash"} {
 				if hash, ok := revision[key].(string); ok && hash != "" {
@@ -497,30 +499,21 @@ func scmRevisionHash(actions []map[string]any) string {
 
 // sourceBuildData selects the git BuildData for the job's own source. Pipeline
 // libraries loaded from Git add BuildData actions too, often before the source
-// checkout, so prefer the one that built the SCMRevisionAction revision. When
-// no BuildData records that revision, fall back to the one whose last built
-// branch is the job's own branch (multibranch jobs are named after it).
-func sourceBuildData(actions []map[string]any, revision, jobBranch string) map[string]any {
+// checkout, so prefer an exact current checkout match across all actions before
+// considering a marked PR head. Branch names alone cannot identify a repository.
+func sourceBuildData(actions []map[string]any, revision string) map[string]any {
 	if revision == "" {
 		return nil
 	}
 	for _, action := range actions {
-		if buildDataHasRevision(action, revision) {
+		lastBuilt, _ := action["lastBuiltRevision"].(map[string]any)
+		if sha, _ := lastBuilt["SHA1"].(string); sha == revision {
 			return action
 		}
 	}
-	if jobBranch == "" {
-		return nil
-	}
 	for _, action := range actions {
-		lastBuilt, _ := action["lastBuiltRevision"].(map[string]any)
-		branches, _ := lastBuilt["branch"].([]any)
-		for _, branchAny := range branches {
-			if bMap, ok := branchAny.(map[string]any); ok {
-				if name, _ := bMap["name"].(string); name == jobBranch {
-					return action
-				}
-			}
+		if buildDataHasRevision(action, revision) {
+			return action
 		}
 	}
 	return nil
@@ -531,39 +524,26 @@ func sourceBuildData(actions []map[string]any, revision, jobBranch string) map[s
 // lastBuiltRevision; the pull request head is the build's marked revision in
 // buildsByBranchName.
 func buildDataHasRevision(action map[string]any, revision string) bool {
-	if lastBuilt, ok := action["lastBuiltRevision"].(map[string]any); ok {
-		if sha, _ := lastBuilt["SHA1"].(string); sha == revision {
-			return true
-		}
+	lastBuilt, _ := action["lastBuiltRevision"].(map[string]any)
+	current, _ := lastBuilt["SHA1"].(string)
+	if current == "" {
+		return false
 	}
 	builds, _ := action["buildsByBranchName"].(map[string]any)
 	for _, raw := range builds {
 		build, _ := raw.(map[string]any)
-		for _, key := range []string{"marked", "revision"} {
-			if rev, ok := build[key].(map[string]any); ok {
-				if sha, _ := rev["SHA1"].(string); sha == revision {
-					return true
-				}
-			}
+		built, _ := build["revision"].(map[string]any)
+		marked, _ := build["marked"].(map[string]any)
+		// buildsByBranchName retains historical branches. Only a marked
+		// revision associated with this action's current checkout applies.
+		if built["SHA1"] == current && marked["SHA1"] == revision {
+			return true
 		}
 	}
 	return false
 }
 
-// jobBranchName returns the branch a multibranch job builds: its job name,
-// which Jenkins URL-encodes (feature%2Ffoo for feature/foo).
-func jobBranchName(jobPath string) string {
-	name := normalizeJobPath(jobPath)
-	if idx := strings.LastIndex(name, "/"); idx >= 0 {
-		name = name[idx+1:]
-	}
-	if decoded, err := url.PathUnescape(name); err == nil {
-		name = decoded
-	}
-	return name
-}
-
-func extractSCMInfo(jobPath string, actions []map[string]any, change changeSet) *runSCMInfo {
+func extractSCMInfo(_ string, actions []map[string]any, change changeSet) *runSCMInfo {
 	info := &runSCMInfo{}
 
 	revision := scmRevisionHash(actions)
@@ -571,7 +551,7 @@ func extractSCMInfo(jobPath string, actions []map[string]any, change changeSet) 
 	if revision != "" {
 		// Any other git checkout (a Pipeline library) describes another
 		// repository, so only the one that built the revision applies.
-		source := sourceBuildData(actions, revision, jobBranchName(jobPath))
+		source := sourceBuildData(actions, revision)
 		actions = nil
 		if source != nil {
 			actions = []map[string]any{source}
