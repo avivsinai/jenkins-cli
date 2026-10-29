@@ -230,6 +230,41 @@ Unlike `jk run ls`, structured search output always includes this lightweight `m
 
 `source` reflects the discovery path actually used (`config` or `runs`; `--source auto`, the default, tries config first and falls back to runs), and `sampleValues`/`frequency` are derived from recent runs. Secret parameters omit defaults and sample values.
 
+### 2.8 JUnit report (`jk test report --json`)
+
+```json
+{
+  "totalCount": 3,
+  "passCount": 1,
+  "failCount": 1,
+  "skipCount": 1,
+  "suites": [{
+    "name": "example.Calculator",
+    "cases": [{
+      "className": "example.Calculator",
+      "name": "test_sum",
+      "status": "FAILED",
+      "duration": 0.1,
+      "errorDetails": "expected 4, got 5",
+      "errorStackTrace": "AssertionError: expected 4, got 5\n  at Calculator.test_sum",
+      "age": 2,
+      "failedSince": 41
+    }]
+  }]
+}
+```
+
+The suite and case arrays contain every reported case by default; the example
+abbreviates them. `--failed` filters cases to `FAILED` and `REGRESSION`, omits
+empty suites and keeps the complete report's aggregate counts. No matches produce
+`"suites": []`. `passCount` is omitted when zero; failure detail/history fields
+are optional and omitted when empty or zero. Full stack traces are preserved.
+If Jenkins omits or returns null for `totalCount`, the CLI derives it from
+pass/fail/skip counts; an explicit total, including zero, is preserved. A missing
+report retains the existing human message, including when `--json` is selected.
+`run view --json` retains its existing `tests: {total, failed, skipped}` shape;
+failure details are displayed only by its human `--summary` mode.
+
 ## 3. Logs
 
 ### 3.1 Run log snapshot (`jk log --json`)

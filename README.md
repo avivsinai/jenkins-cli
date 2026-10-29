@@ -268,6 +268,20 @@ jk job configure platform/services/auth-relay --script-path services/auth-relay/
 jk job scan platform/services/auth-relay
 ```
 
+## Test reports
+
+Inspect JUnit results with `jk test report <job> <build>` or show only failing
+cases with `jk test report <job> <build> --failed`. The filter includes both
+`FAILED` and `REGRESSION` cases and keeps aggregate counts for the whole report.
+Add `--json` or `--yaml` for case failure details, full stack traces, `age` and
+`failedSince` when Jenkins supplies them.
+
+`jk run view <job> <build> --summary` includes at most five failed cases with
+their failure history and a short error detail. Names and details are bounded to
+160 and 240 Unicode characters respectively (plus an ellipsis when truncated);
+stack traces remain available through `test report --failed --json`. When
+Jenkins omits `totalCount`, totals are derived from pass, fail and skip counts.
+
 ## Documentation
 
 - [Specification](docs/spec.md) - Architecture and design decisions

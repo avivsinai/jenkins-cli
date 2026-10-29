@@ -306,6 +306,13 @@ lookup failures are errors rather than silently selecting a library checkout.
 - The schema mirrors the Cobra tree, enabling agents to self-discover supported commands without scraping text help.
 - `help` respects `--json` globally: `jk --json` falls back to the same representation when help is invoked implicitly.
 
+#### 9.7.5 JUnit reports and failure summaries
+
+- `jk test report <job> <build>` retains JUnit aggregate counts and suite/case identity. Optional case fields `errorDetails`, `errorStackTrace`, `age` and `failedSince` are preserved in JSON/YAML when nonempty. `passCount` is also retained when nonzero.
+- An absent or null `totalCount` is derived from `passCount + failCount + skipCount`; an explicit total, including zero, is authoritative. Missing counts default to zero. Missing reports keep the existing “No test report available” behavior.
+- `test report --failed` includes only `FAILED` and `REGRESSION` cases, omits suites without matching cases and preserves aggregate counts for the complete report. Human output lists the matching case identities, failure history and error details; JSON/YAML retain full stack traces.
+- `run view --summary` lists up to five matching failed cases, with failure history and error details. Case identities are limited to 160 Unicode characters and error details to 240 (plus an ellipsis), whitespace is collapsed, control characters are removed and stack traces are omitted. The summary indicates omitted cases and points to `test report --failed`. Existing `run view --json` test aggregates remain unchanged.
+
 ### 9.8 Job path encoding
 - Accept human-readable job paths such as `team/app/main`.
 - Split on `/`, percent-encode each segment (spaces → `%20`, encode `%` and characters disallowed in Jenkins identifiers), and join with `/job/<segment>`.

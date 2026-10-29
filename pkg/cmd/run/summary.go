@@ -5,9 +5,12 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/spf13/cobra"
 )
+
+const maxSummaryFailures = 5
 
 // printRunSummary outputs a compact, human-readable build summary with optional colors.
 func printRunSummary(cmd *cobra.Command, output runDetailOutput) error {
@@ -78,8 +81,66 @@ func printRunSummary(cmd *cobra.Command, output runDetailOutput) error {
 			output.Tests.Failed,
 			output.Tests.Skipped)
 	}
+	if output.Tests != nil && len(output.Tests.failedCases) > 0 {
+		_, _ = fmt.Fprintln(w, "Failed tests:")
+		for _, c := range output.Tests.failedCases {
+			name := c.Name
+			if c.ClassName != "" {
+				name = c.ClassName + "." + name
+			}
+			_, _ = fmt.Fprintf(w, "  %s", testSummaryText(name, 160))
+			if c.FailedSince > 0 || c.Age > 0 {
+				_, _ = fmt.Fprint(w, " (")
+				if c.FailedSince > 0 {
+					_, _ = fmt.Fprintf(w, "since #%d", c.FailedSince)
+				}
+				if c.Age > 0 {
+					if c.FailedSince > 0 {
+						_, _ = fmt.Fprint(w, ", ")
+					}
+					_, _ = fmt.Fprintf(w, "age %d", c.Age)
+				}
+				_, _ = fmt.Fprint(w, ")")
+			}
+			_, _ = fmt.Fprintln(w)
+			if c.ErrorDetails != "" {
+				_, _ = fmt.Fprintf(w, "    %s\n", testSummaryText(c.ErrorDetails, 240))
+			}
+		}
+		if remaining := output.Tests.failedCaseCount - len(output.Tests.failedCases); remaining > 0 {
+			_, _ = fmt.Fprintf(w, "  ... %d more failed cases; use jk test report --failed for details\n", remaining)
+		}
+	}
 
 	return nil
+}
+
+// testSummaryText produces one bounded line, preserving Unicode characters.
+func testSummaryText(value string, limit int) string {
+	var out strings.Builder
+	count := 0
+	space := false
+	for _, r := range value {
+		if unicode.IsSpace(r) {
+			space = count > 0
+			continue
+		}
+		if unicode.IsControl(r) {
+			continue
+		}
+		if count >= limit || (space && count+1 >= limit) {
+			out.WriteString("...")
+			break
+		}
+		if space {
+			out.WriteByte(' ')
+			count++
+			space = false
+		}
+		out.WriteRune(r)
+		count++
+	}
+	return out.String()
 }
 
 // formatDuration formats milliseconds into a human-readable duration string.
