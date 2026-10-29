@@ -204,9 +204,9 @@ func TestExtractSCMInfoMergeStrategyPullRequestWithLibraryCheckout(t *testing.T)
 	require.Equal(t, "https://example.com/org/app.git", info.Repo)
 }
 
-func TestExtractSCMInfoFallsBackToJobBranchBuildData(t *testing.T) {
-	// Without buildsByBranchName, only the branch name links the merge
-	// commit's BuildData to the job.
+func TestExtractSCMInfoDoesNotInferRepositoryFromBranchName(t *testing.T) {
+	// Without a matching current revision, a branch name is insufficient
+	// evidence of the source repository.
 	source := mergeStrategySourceBuildData()
 	delete(source, "buildsByBranchName")
 	source["lastBuiltRevision"] = map[string]any{"SHA1": "5555555555555555555555555555555555555555", "branch": []any{map[string]any{"name": "feature/login"}}}
@@ -223,8 +223,8 @@ func TestExtractSCMInfoFallsBackToJobBranchBuildData(t *testing.T) {
 	info := extractSCMInfo("app/feature%2Flogin", actions, changeSet{})
 	require.NotNil(t, info)
 	require.Equal(t, "4444444444444444444444444444444444444444", info.Commit)
-	require.Equal(t, "feature/login", info.Branch)
-	require.Equal(t, "https://example.com/org/app.git", info.Repo)
+	require.Empty(t, info.Branch)
+	require.Empty(t, info.Repo)
 }
 
 func TestBuildRunListTreeRequestsBuildsByBranchNameRevisions(t *testing.T) {
