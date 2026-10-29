@@ -132,6 +132,8 @@ jk run ls team/app/pipeline --filter result=SUCCESS --since 7d --limit 5 --json 
 jk run ls team/app/pipeline --include-queued   # include queued builds (shown as qN)
 jk run params team/app/pipeline                    # inspect inferred parameter metadata
 jk log team/app/pipeline 128 --follow              # stream logs until completion
+jk log team/app/pipeline 128 --tail 40 --plain      # last 40 lines of a completed console
+jk log team/app/pipeline 128 --grep '(?i)error|fail' --tail 20 --json # last 20 matching lines
 jk artifact download team/app/pipeline 128 -p "**/*.xml" -o out/
 ```
 
@@ -167,6 +169,8 @@ a deadline. A timeout covers discovery and execution and exits 124; cancellation
 exits 130. With `--exit-status`, build results use the same codes as `run view`
 (SUCCESS 0, UNSTABLE 10, FAILURE 11, ABORTED 12, NOT_BUILT 13); an unknown terminal
 result exits 1. See the [watch output contract](docs/api.md#25-commit-watch-jk-run-watch---json).
+
+Log filters use Go regular expressions and apply `--grep` before `--tail`. They scan the complete console of a **completed** build; running builds and `--follow` cannot use these filters. Selected output is limited to 2 MiB: if the requested result does not fit, JSON/YAML reports `truncated: true` and `complete: false`. A line larger than 1 MiB fails explicitly. `--plain` keeps output free of headings and notices; use structured output when completeness matters.
 
 ### Jenkins SSO / Google OAuth
 

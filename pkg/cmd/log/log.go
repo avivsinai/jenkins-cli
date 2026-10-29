@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,9 @@ type logOptions struct {
 	interval    time.Duration
 	plain       bool
 	maxBytes    int
+	tailLines   int
+	grepPattern string
+	grep        *regexp.Regexp
 }
 
 type logOutput struct {
@@ -36,6 +40,7 @@ type logOutput struct {
 	Duration  string `json:"duration,omitempty"`
 	Log       string `json:"log"`
 	Truncated bool   `json:"truncated,omitempty"`
+	Complete  bool   `json:"complete"`
 }
 
 type runDetail struct {
@@ -67,10 +72,15 @@ func NewCmdLog(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().BoolVar(&opts.follow, "follow", false, "Stream log output until the run finishes")
 	cmd.Flags().DurationVar(&opts.interval, "interval", time.Second, "Polling interval while following live logs")
 	cmd.Flags().BoolVar(&opts.plain, "plain", false, "Disable headings and additional formatting")
+	cmd.Flags().IntVar(&opts.tailLines, "tail", 0, "Show the last N matching lines of a completed log")
+	cmd.Flags().StringVar(&opts.grepPattern, "grep", "", "Select completed-log lines matching a Go regular expression (before --tail)")
 	return cmd
 }
 
 func runLog(cmd *cobra.Command, f *cmdutil.Factory, opts *logOptions) error {
+	if err := validateLogFilters(cmd, opts); err != nil {
+		return err
+	}
 	client, err := shared.JenkinsClient(cmd, f)
 	if err != nil {
 		return err
@@ -100,6 +110,10 @@ func runLog(cmd *cobra.Command, f *cmdutil.Factory, opts *logOptions) error {
 	}
 	if resp.StatusCode() >= 400 {
 		return fmt.Errorf("view run %s #%d: %s", opts.jobPath, num, resp.Status())
+	}
+
+	if hasLogFilters(opts) && detail.Building {
+		return errors.New("--tail/--grep require a completed build; use --follow for running builds")
 	}
 
 	status := statusFromFlags(detail.Building)
@@ -148,7 +162,15 @@ func renderLogSnapshot(cmd *cobra.Command, client *jenkins.Client, opts *logOpti
 	}
 
 	var buf bytes.Buffer
-	truncated, err := shared.CollectLogSnapshot(ctx, client, opts.jobPath, buildNumber, opts.maxBytes, &buf)
+	var truncated bool
+	var err error
+	if hasLogFilters(opts) {
+		var selected []byte
+		selected, truncated, err = collectFilteredLog(ctx, client, opts, buildNumber)
+		_, _ = buf.Write(selected)
+	} else {
+		truncated, err = shared.CollectLogSnapshot(ctx, client, opts.jobPath, buildNumber, opts.maxBytes, &buf)
+	}
 	if err != nil {
 		return err
 	}
@@ -160,6 +182,7 @@ func renderLogSnapshot(cmd *cobra.Command, client *jenkins.Client, opts *logOpti
 		Result:    result,
 		Log:       buf.String(),
 		Truncated: truncated,
+		Complete:  !truncated && !detail.Building,
 	}
 	if detail.Timestamp > 0 {
 		output.StartTime = time.UnixMilli(detail.Timestamp).UTC().Format(time.RFC3339)
@@ -190,7 +213,7 @@ func renderLogSnapshot(cmd *cobra.Command, client *jenkins.Client, opts *logOpti
 
 		if truncated && !opts.plain {
 			_, _ = fmt.Fprintln(writer)
-			_, _ = fmt.Fprintln(writer, "(log truncated; use --follow to stream live output)")
+			_, _ = fmt.Fprintln(writer, "(log truncated; the requested log output is incomplete)")
 		}
 		return nil
 	})

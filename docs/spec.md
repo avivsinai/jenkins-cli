@@ -326,9 +326,12 @@ lookup failures are errors rather than silently selecting a library checkout.
 - Reuse encoder everywhere (HTTP requests, UI links, plugin identifiers) and verify via unit tests covering nested folders, spaces, and special characters.
 
 ### 9.9 Progressive log streaming
-- `jk log <jobPath> <buildNumber>` prints a formatted snapshot of the console log, mirroring `gh run view --log`. When the run is still executing we fetch incremental chunks (up to ~2 MiB) and annotate output as truncated.
+- `jk log <jobPath> <buildNumber>` prints a formatted console snapshot, capped at 2 MiB even if Jenkins returns a complete log in one response. `truncated` indicates omitted bytes. `complete` is true only for a completed build whose requested output is exact; a running snapshot is never a complete build log.
+- `--tail N` selects the last N lines of a completed console, with positive N required. `--grep <pattern>` matches Go regular expressions against individual lines without their CRLF/LF endings. Filtering precedes tail selection. Empty patterns match every line; empty input produces no lines. Line endings and an absent final newline are retained in JSON/YAML.
+- Filters stream `consoleText` through a fixed byte-budget accumulator, scanning the complete console rather than tailing the default snapshot prefix. The selected result remains capped at 2 MiB. For tail output, keep the newest whole lines that fit; grep-only output retains the first whole matching lines that fit. If selected lines are omitted by that cap, `truncated: true` and `complete: false` explicitly indicate an inexact requested result. Requested tail exclusion and grep nonmatches do not by themselves mean truncation. A line over 1 MiB (including its line ending) fails explicitly so a possible match cannot silently disappear. N never determines the allocation size.
+- `--tail`/`--grep` reject running builds and combinations with `--follow`.
 - `jk log --follow` streams live output, reusing the progressive text endpoint with a default 1s polling interval (`--interval` override).
-- Honor `X-Text-Size` to maintain offsets. When 416 is returned, reset the offset to `0` (Jenkins rotated logs).
+- Honor `X-Text-Size` to maintain offsets. Follow mode resets to `0` on 416 (Jenkins rotated logs); snapshots restart only before emitting any bytes, otherwise mark the snapshot truncated to avoid duplicate content.
 - `--plain` disables headings and truncation notices for scripts. (`--since` remains a backlog item captured in §19).
 - During follow mode, emit a short status footer with the final build result to match `gh` UX expectations.
 

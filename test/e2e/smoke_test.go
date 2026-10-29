@@ -90,6 +90,41 @@ func TestDogfoodSmoke(t *testing.T) {
 		t.Fatalf("console log missing go test invocation:\n%s", console)
 	}
 
+	// Compare against Jenkins' complete console, rather than a bounded jk
+	// snapshot, so this proves that --tail selects the actual end of the log.
+	logJSON, stderr, err := h.runCLI(ctx, "log", jobPath, fmt.Sprintf("%d", latest.Number), "--tail", "3", "--json")
+	if err != nil {
+		t.Fatalf("log --tail failed: %v\nstderr: %s", err, stderr)
+	}
+	var logSelection struct {
+		Log       string `json:"log"`
+		Complete  bool   `json:"complete"`
+		Truncated bool   `json:"truncated"`
+	}
+	if err := json.Unmarshal([]byte(logJSON), &logSelection); err != nil {
+		t.Fatalf("decode log selection: %v\npayload: %s", err, logJSON)
+	}
+	lines := strings.SplitAfter(console, "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	if len(lines) > 3 {
+		lines = lines[len(lines)-3:]
+	}
+	if logSelection.Log != strings.Join(lines, "") || !logSelection.Complete || logSelection.Truncated {
+		t.Fatalf("tail does not match complete Jenkins console: %+v", logSelection)
+	}
+	logJSON, stderr, err = h.runCLI(ctx, "log", jobPath, fmt.Sprintf("%d", latest.Number), "--grep", "^Finished:", "--tail", "1", "--json")
+	if err != nil {
+		t.Fatalf("log --grep --tail failed: %v\nstderr: %s", err, stderr)
+	}
+	if err := json.Unmarshal([]byte(logJSON), &logSelection); err != nil {
+		t.Fatalf("decode filtered log selection: %v", err)
+	}
+	if strings.TrimSpace(logSelection.Log) != "Finished: SUCCESS" || !logSelection.Complete || logSelection.Truncated {
+		t.Fatalf("unexpected filtered completed console: %+v", logSelection)
+	}
+
 	artifactJSON, stderr, err := h.runCLI(ctx, "artifact", "ls", jobPath, fmt.Sprintf("%d", latest.Number), "--json")
 	if err != nil {
 		t.Fatalf("artifact ls failed: %v\nstderr: %s", err, stderr)

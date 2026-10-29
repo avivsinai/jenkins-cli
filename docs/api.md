@@ -309,11 +309,16 @@ and do not produce a successful watch result.
   "startTime": "2025-08-12T18:24:03Z",
   "duration": "1m32s",
   "log": "Started by user Jane Doe\nRunning on linux-agent-1...\n...",
-  "truncated": false
+  "truncated": false,
+  "complete": true
 }
 ```
 
-When the run is still executing the snapshot may be truncated; the `truncated` flag is set to `true` and callers should retry with `--follow` to stream the full log. The `--follow` mode emits live text only and does not support JSON/YAML serialization.
+Snapshot output is capped at 2 MiB, including completed logs returned in a single response. `truncated: true` means available selected output was omitted. `complete` is always present and is true only when the completed build's requested selection is exact; running snapshots set it to false even when all currently available bytes fit. The false `truncated` value may be omitted for backward compatibility. `--follow` emits live text only and does not support JSON/YAML.
+
+`jk log <job> <build> --tail N --grep <pattern> --json` scans the complete console of a completed build, applies the Go regular expression to each line (excluding its LF/CRLF ending), then retains the last N matching lines. `--tail` must be positive; an explicitly empty pattern matches all lines. Either flag works alone, and both reject running builds and `--follow`. JSON/YAML preserves line endings and the absence of a final newline.
+
+The selected output budget is 2 MiB, independent of N. If it cannot hold the requested selection, tail output keeps the newest whole lines that fit; grep-only output keeps a prefix of whole matching lines. These cases set `truncated: true, complete: false`. Intentional exclusion by grep or tail does not count as truncation. Lines over 1 MiB including the line ending fail the command explicitly rather than yielding an inexact result. `--plain` suppresses metadata and notices, so callers that must detect truncation should use JSON/YAML.
 
 ## 4. Credentials
 
