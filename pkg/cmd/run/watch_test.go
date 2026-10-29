@@ -1,6 +1,7 @@
 package run
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -8,6 +9,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -265,4 +269,58 @@ func TestWatchHTTPErrorIsNotCompletion(t *testing.T) {
 	require.Error(t, err)
 	require.NotEqual(t, "completed", output.Status)
 	require.False(t, errors.Is(err, context.Canceled))
+}
+
+// A process signal is different from a programmatically cancelled Cobra context:
+// without watcher-scoped signal handling the OS terminates before JSON is emitted.
+func TestWatchProcessInterrupt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("os.Interrupt cannot be sent to a process on Windows")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	process := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestWatchProcessSignalHelper$")
+	process.Env = append(os.Environ(), "GO_WANT_WATCH_SIGNAL_HELPER=1")
+	var stdout bytes.Buffer
+	process.Stdout = &stdout
+	stderr, err := process.StderrPipe()
+	require.NoError(t, err)
+	require.NoError(t, process.Start())
+	scanner := bufio.NewScanner(stderr)
+	ready := false
+	for scanner.Scan() {
+		if strings.Contains(scanner.Text(), "Waiting for a build of") {
+			ready = true
+			break
+		}
+	}
+	require.True(t, ready, "watcher never started")
+	require.NoError(t, process.Process.Signal(os.Interrupt))
+	err = process.Wait()
+	var exit *exec.ExitError
+	require.ErrorAs(t, err, &exit)
+	require.Equal(t, 130, exit.ExitCode())
+	var output runWatchOutput
+	require.NoError(t, json.Unmarshal(stdout.Bytes(), &output), stdout.String())
+	require.Equal(t, "cancelled", output.Status)
+	require.Zero(t, output.Number)
+}
+
+func TestWatchProcessSignalHelper(t *testing.T) {
+	if os.Getenv("GO_WANT_WATCH_SIGNAL_HELPER") != "1" {
+		t.Skip("subprocess helper")
+	}
+	client, cfg := watchTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `{"builds":[],"items":[]}`)
+	})
+	cmd, _, _ := newWatchTestCommand(client, cfg)
+	cmd.SetOut(os.Stdout)
+	cmd.SetErr(os.Stderr)
+	cmd.SetArgs([]string{"run", "watch", "app", "--commit", watchTestSHA, "--json", "--interval", "1h"})
+	err := cmd.Execute()
+	var exit *cmdutil.ExitError
+	if errors.As(err, &exit) {
+		os.Exit(exit.Code)
+	}
+	os.Exit(1)
 }

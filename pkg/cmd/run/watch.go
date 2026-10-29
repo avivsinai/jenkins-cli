@@ -7,9 +7,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
 	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -64,6 +67,8 @@ func newRunWatchCmd(f *cmdutil.Factory) *cobra.Command {
 			if ctx == nil {
 				ctx = context.Background()
 			}
+			ctx, stopSignals := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+			defer stopSignals()
 			if opts.timeout > 0 {
 				var cancel context.CancelFunc
 				ctx, cancel = context.WithTimeout(ctx, opts.timeout)
@@ -78,11 +83,12 @@ func newRunWatchCmd(f *cmdutil.Factory) *cobra.Command {
 			if ctx.Err() != nil {
 				err = ctx.Err()
 			}
-			if errors.Is(err, context.DeadlineExceeded) {
+			switch {
+			case errors.Is(err, context.DeadlineExceeded):
 				output.Status = "timed_out"
-			} else if errors.Is(err, context.Canceled) {
+			case errors.Is(err, context.Canceled):
 				output.Status = "cancelled"
-			} else if err != nil {
+			case err != nil:
 				return err
 			}
 			if printErr := shared.PrintOutput(cmd, output, func() error { return nil }); printErr != nil {
@@ -224,7 +230,7 @@ func findCommitRun(ctx context.Context, client *jenkins.Client, jobPath, commit 
 		}
 		last := response.Builds[len(response.Builds)-1].Number
 		if offset > 0 && last >= previousLast {
-			return nil, errors.New("Jenkins build history did not advance while paging")
+			return nil, errors.New("jenkins build history did not advance while paging")
 		}
 		previousLast = last
 	}
