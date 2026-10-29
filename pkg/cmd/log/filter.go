@@ -104,7 +104,8 @@ func selectLogLines(ctx context.Context, input io.Reader, opts *logOptions) ([]b
 			continue
 		}
 		matched++
-		if opts.tailLines > 0 {
+		switch {
+		case opts.tailLines > 0:
 			for selected.lines >= opts.tailLines || selected.size+len(line) > maxBytes {
 				if selected.lines == 0 {
 					return nil, false, fmt.Errorf("console line exceeds the %d-byte output budget", maxBytes)
@@ -112,9 +113,9 @@ func selectLogLines(ctx context.Context, input io.Reader, opts *logOptions) ([]b
 				selected.dropLine()
 			}
 			selected.append(line)
-		} else if !omitted && selected.size+len(line) <= maxBytes {
+		case !omitted && selected.size+len(line) <= maxBytes:
 			selected.append(line)
-		} else {
+		default:
 			// Keep a prefix for grep-only output, while scanning every line so
 			// completeness is never inferred from an early bounded snapshot.
 			omitted = true

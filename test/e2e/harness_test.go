@@ -379,7 +379,7 @@ func launchJenkins(ctx context.Context, repoRoot, bareRepoPath string) (tc.Conta
 		req.FromDockerfile = tc.FromDockerfile{}
 	} else {
 		for key, value := range proxyEnv {
-			req.FromDockerfile.BuildArgs[key] = ptr(value)
+			req.BuildArgs[key] = ptr(value)
 		}
 	}
 

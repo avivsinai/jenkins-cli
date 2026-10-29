@@ -6,7 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Headless authentication through `JK_TOKEN` and ephemeral `JK_URL`/`JK_USER`
+  contexts, with credential-source reporting and no token persistence.
+- `jk run watch --commit` follows a source revision from queue to completion,
+  with structured output, result exit codes, timeouts and signal cancellation.
+- JUnit failure details and regression history, `test report --failed`, and
+  bounded failed-test diagnostics in `run view --summary`.
+- Optional Pipeline Graph View stage/step inspection through `run steps` and
+  isolated node logs through `log --step`.
+- Completed-console `log --tail` and regular-expression `log --grep`, with
+  bounded memory and explicit completeness/truncation metadata.
+
 ### Fixed
+- Derive JUnit totals from pass/fail/skip counts when Jenkins omits the total.
+- Enforce the console snapshot byte budget even for a large single response.
+- Sanitize terminal controls in new human test and Pipeline metadata output.
 - `jk run ls`, `jk run view` and `jk search` report the job's own source commit,
   branch and repository when a Pipeline library is loaded from Git. They
   previously showed the library checkout's revision. Pull requests built with

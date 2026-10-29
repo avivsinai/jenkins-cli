@@ -108,7 +108,7 @@ func runLog(cmd *cobra.Command, f *cmdutil.Factory, opts *logOptions) error {
 
 	path := fmt.Sprintf("/%s/%d/api/json", encoded, num)
 	detail := &runDetail{}
-	resp, err := client.DoRaw(client.NewRequest(), http.MethodGet, path, detail)
+	resp, err := client.DoRaw(client.NewRequest().SetContext(cmd.Context()), http.MethodGet, path, detail)
 	if err != nil {
 		return err
 	}

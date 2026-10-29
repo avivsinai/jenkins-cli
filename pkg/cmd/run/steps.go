@@ -3,7 +3,6 @@ package run
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -38,7 +37,7 @@ func newRunStepsCmd(f *cmdutil.Factory) *cobra.Command {
 				var stages func([]shared.PipelineNode, string) error
 				stages = func(nodes []shared.PipelineNode, indent string) error {
 					for _, node := range nodes {
-						if _, err := fmt.Fprintf(out, "stage\t%s\t\t%s\t%s%s\n", node.ID, node.State, indent, pipelineLabel(node)); err != nil {
+						if _, err := fmt.Fprintf(out, "stage\t%s\t\t%s\t%s%s\n", shared.BoundedHumanText(node.ID, 64), shared.BoundedHumanText(node.State, 32), indent, pipelineLabel(node)); err != nil {
 							return err
 						}
 						if err := stages(node.Children, indent+"  "); err != nil {
@@ -56,7 +55,7 @@ func newRunStepsCmd(f *cmdutil.Factory) *cobra.Command {
 					return err
 				}
 				for _, step := range output.Steps {
-					if _, err := fmt.Fprintf(out, "step\t%s\t%s\t%s\t%s\n", step.ID, step.StageID, step.State, pipelineLabel(step)); err != nil {
+					if _, err := fmt.Fprintf(out, "step\t%s\t%s\t%s\t%s\n", shared.BoundedHumanText(step.ID, 64), shared.BoundedHumanText(step.StageID, 64), shared.BoundedHumanText(step.State, 32), pipelineLabel(step)); err != nil {
 						return err
 					}
 				}
@@ -71,5 +70,5 @@ func pipelineLabel(node shared.PipelineNode) string {
 	if label == "" {
 		label = node.Title
 	}
-	return strings.Join(strings.Fields(label), " ")
+	return shared.BoundedHumanText(label, 160)
 }

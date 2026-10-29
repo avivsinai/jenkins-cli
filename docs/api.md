@@ -265,7 +265,7 @@ report retains the existing human message, including when `--json` is selected.
 `run view --json` retains its existing `tests: {total, failed, skipped}` shape;
 failure details are displayed only by its human `--summary` mode.
 
-### 2.5 Commit watch (`jk run watch --json`)
+### 2.9 Commit watch (`jk run watch --json`)
 
 `jk run watch <jobPath> --commit <full-source-sha>` prints progress to stderr and
 one final JSON/YAML object to stdout. It selects the newest retained matching
@@ -297,7 +297,7 @@ ABORTED=12, NOT_BUILT=13; unknown terminal results exit 1. Without it, watching 
 completed failed build exits 0. HTTP/authentication failures propagate as errors
 and do not produce a successful watch result.
 
-### 2.8 Pipeline stage and step inspection (`jk run steps --json`)
+### 2.10 Pipeline stage and step inspection (`jk run steps --json`)
 
 Requires the optional Pipeline Graph View plugin and run read permission. The CLI decodes the plugin's `status/data` envelope; its own output is:
 

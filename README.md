@@ -168,7 +168,7 @@ timeout or cancellation. `--interval` defaults to `2s`; `--timeout 0` waits with
 a deadline. A timeout covers discovery and execution and exits 124; cancellation
 exits 130. With `--exit-status`, build results use the same codes as `run view`
 (SUCCESS 0, UNSTABLE 10, FAILURE 11, ABORTED 12, NOT_BUILT 13); an unknown terminal
-result exits 1. See the [watch output contract](docs/api.md#25-commit-watch-jk-run-watch---json).
+result exits 1. See the [watch output contract](docs/api.md#29-commit-watch-jk-run-watch---json).
 
 Log filters use Go regular expressions and apply `--grep` before `--tail`. They scan the complete console of a **completed** build; running builds and `--follow` cannot use these filters. Selected output is limited to 2 MiB: if the requested result does not fit, JSON/YAML reports `truncated: true` and `complete: false`. A line larger than 1 MiB fails explicitly. `--plain` keeps output free of headings and notices; use structured output when completeness matters.
 
