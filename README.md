@@ -262,6 +262,18 @@ jk run view team/app/pipeline 128 --format json --jq '.result'
 jk run view team/app/pipeline 128 --format json --template 'Result={{.result}}'
 ```
 
+## Pipeline Stage and Step Logs
+
+With the optional [Pipeline Graph View plugin](https://plugins.jenkins.io/pipeline-graph-view/), inspect native Pipeline stages and labelled steps without parsing the combined console:
+
+```bash
+jk run steps team/app/main 128
+jk run steps team/app/main 128 --json
+jk log team/app/main 128 --step 23 --plain
+```
+
+Use the returned node IDs, since parallel branches and repeated labels can have the same name. `--step` accepts a stage or step ID and reads only that node's log, capped at 2 MiB. JSON/YAML includes `stepId`, `truncated` and `complete`; `complete` is false for an unfinished build or capped response. Step logs cannot currently be combined with `--follow`, `--tail` or `--grep`. An absent plugin or unsupported run produces an explicit capability error; ordinary console logs keep working without the plugin. These endpoints require only read access to the run.
+
 ## Job Commands
 
 Job provisioning and config management:

@@ -297,6 +297,22 @@ ABORTED=12, NOT_BUILT=13; unknown terminal results exit 1. Without it, watching 
 completed failed build exits 0. HTTP/authentication failures propagate as errors
 and do not produce a successful watch result.
 
+### 2.8 Pipeline stage and step inspection (`jk run steps --json`)
+
+Requires the optional Pipeline Graph View plugin and run read permission. The CLI decodes the plugin's `status/data` envelope; its own output is:
+
+```json
+{
+  "jobPath": "team/app/main",
+  "build": 128,
+  "complete": true,
+  "stages": [{"id":"2","name":"Test","state":"failure","type":"STAGE"}],
+  "steps": [{"id":"3","name":"unit checks","state":"failure","type":"STEP","title":"Shell Script","stageId":"2"}]
+}
+```
+
+Stages may contain `children` and a `nextSibling` stage. Step labels may repeat; `id` is the node identity, and `stageId` links each step to a stage. States are passed through from the plugin (for example `running`, `paused`, `success`, `failure`, `skipped`). Empty collections are arrays. `complete` is true only when both plugin snapshots report completion.
+
 ## 3. Logs
 
 ### 3.1 Run log snapshot (`jk log --json`)
@@ -319,6 +335,10 @@ Snapshot output is capped at 2 MiB, including completed logs returned in a singl
 `jk log <job> <build> --tail N --grep <pattern> --json` scans the complete console of a completed build, applies the Go regular expression to each line (excluding its LF/CRLF ending), then retains the last N matching lines. `--tail` must be positive; an explicitly empty pattern matches all lines. Either flag works alone, and both reject running builds and `--follow`. JSON/YAML preserves line endings and the absence of a final newline.
 
 The selected output budget is 2 MiB, independent of N. If it cannot hold the requested selection, tail output keeps the newest whole lines that fit; grep-only output keeps a prefix of whole matching lines. These cases set `truncated: true, complete: false`. Intentional exclusion by grep or tail does not count as truncation. Lines over 1 MiB including the line ending fail the command explicitly rather than yielding an inexact result. `--plain` suppresses metadata and notices, so callers that must detect truncation should use JSON/YAML.
+
+### 3.2 Pipeline node log (`jk log --step <id> --json`)
+
+The snapshot schema in §3.1 gains `stepId` and `complete` for an isolated Pipeline stage or step log. `truncated` is true when the response exceeds 2 MiB; `complete` is false if capped, the build is still running, or plugin metadata reports incomplete execution. YAML uses the same keys. A stage ID returns the stage's aggregated step log. Unknown IDs are rejected before requesting the log, since the plugin can otherwise return HTTP 200 for an invalid node. `--step` cannot be combined with `--follow`, `--tail` or `--grep`.
 
 ## 4. Credentials
 

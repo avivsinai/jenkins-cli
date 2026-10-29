@@ -29,26 +29,28 @@ type logOptions struct {
 	tailLines   int
 	grepPattern string
 	grep        *regexp.Regexp
+	stepID      string
 }
 
 type logOutput struct {
-	JobPath   string `json:"jobPath"`
-	Build     int64  `json:"build"`
-	Status    string `json:"status"`
-	Result    string `json:"result,omitempty"`
-	StartTime string `json:"startTime,omitempty"`
-	Duration  string `json:"duration,omitempty"`
-	Log       string `json:"log"`
-	Truncated bool   `json:"truncated,omitempty"`
-	Complete  bool   `json:"complete"`
+	JobPath   string `json:"jobPath" yaml:"jobPath"`
+	Build     int64  `json:"build" yaml:"build"`
+	Status    string `json:"status" yaml:"status"`
+	Result    string `json:"result,omitempty" yaml:"result,omitempty"`
+	StartTime string `json:"startTime,omitempty" yaml:"startTime,omitempty"`
+	Duration  string `json:"duration,omitempty" yaml:"duration,omitempty"`
+	Log       string `json:"log" yaml:"log"`
+	Truncated bool   `json:"truncated,omitempty" yaml:"truncated,omitempty"`
+	Complete  bool   `json:"complete" yaml:"complete"`
+	StepID    string `json:"stepId,omitempty" yaml:"stepId,omitempty"`
 }
 
 type runDetail struct {
-	Building          bool   `json:"building"`
-	Result            string `json:"result"`
-	Timestamp         int64  `json:"timestamp"`
-	Duration          int64  `json:"duration"`
-	EstimatedDuration int64  `json:"estimatedDuration"`
+	Building          bool   `json:"building" yaml:"building"`
+	Result            string `json:"result" yaml:"result"`
+	Timestamp         int64  `json:"timestamp" yaml:"timestamp"`
+	Duration          int64  `json:"duration" yaml:"duration"`
+	EstimatedDuration int64  `json:"estimatedDuration" yaml:"estimatedDuration"`
 }
 
 func NewCmdLog(f *cmdutil.Factory) *cobra.Command {
@@ -69,6 +71,7 @@ func NewCmdLog(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&opts.stepID, "step", "", "Show an isolated Pipeline stage or step log (requires Pipeline Graph View)")
 	cmd.Flags().BoolVar(&opts.follow, "follow", false, "Stream log output until the run finishes")
 	cmd.Flags().DurationVar(&opts.interval, "interval", time.Second, "Polling interval while following live logs")
 	cmd.Flags().BoolVar(&opts.plain, "plain", false, "Disable headings and additional formatting")
@@ -79,6 +82,10 @@ func NewCmdLog(f *cmdutil.Factory) *cobra.Command {
 
 func runLog(cmd *cobra.Command, f *cmdutil.Factory, opts *logOptions) error {
 	if err := validateLogFilters(cmd, opts); err != nil {
+
+		return err
+	}
+	if err := validateStepLogOptions(cmd, opts); err != nil {
 		return err
 	}
 	client, err := shared.JenkinsClient(cmd, f)
@@ -120,6 +127,10 @@ func runLog(cmd *cobra.Command, f *cmdutil.Factory, opts *logOptions) error {
 	result := strings.ToUpper(strings.TrimSpace(detail.Result))
 	if status == "completed" && result == "" {
 		result = "SUCCESS"
+	}
+
+	if opts.stepID != "" {
+		return renderStepLog(cmd, client, opts, num, detail, status, result)
 	}
 
 	if opts.follow {

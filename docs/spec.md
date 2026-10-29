@@ -148,7 +148,7 @@ Key workflows the CLI must make trivial:
 | `context`      | `jk context ls`, `jk context use`, `jk context rm`              | Config stored under `os.UserConfigDir()/jk/config.yaml` (`~/.config/jk` on Linux/XDG, `~/Library/Application Support/jk` on macOS, `%AppData%\jk` on Windows). |
 | `search`       | `jk search --job-glob '*ada*'`, `jk search --folder tools`      | Top-level alias for cross-job discovery (`run search`). |
 | `job`          | `jk job ls`, `jk job view`, `jk job create`, `jk job config`, `jk job configure`, `jk job scan` | `create` builds a Bitbucket-backed Multibranch Pipeline from flags, or any job type from a full `config.xml` via `--file`/`--stdin`; `config` emits raw XML; `configure` supports `--file`, `--stdin`, or `--script-path`; `scan` is multibranch-only. |
-| `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run watch`, `jk run cancel`, `jk run rerun` | `run restart-from` *(planned)*. |
+| `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run watch`, `jk run steps`, `jk run cancel`, `jk run rerun` | `run restart-from` *(planned)*. |
 | `log`          | `jk log`, `jk log --follow`                                     | Snapshot default; `--follow` streams like `gh run view --log`. |
 | `artifact`     | `jk artifact ls`, `jk artifact download`                        | Glob filtering via `--pattern`. |
 | `test`         | `jk test report`                                                | `--json` output; `jk test junit` *(planned)*. |
@@ -198,6 +198,14 @@ lookup failures are errors rather than silently selecting a library checkout.
 - `jk job config <jobPath>` emits raw `config.xml` to stdout and does not currently support JSON or YAML output.
 - `jk job configure <jobPath>` supports raw replacement via `--file` or `--stdin`, and targeted Jenkinsfile path updates via `--script-path`.
 - `jk job scan <jobPath>` has no command-specific flags; it validates that the target is a Multibranch Pipeline job before posting `/build?delay=0`.
+
+#### 9.2.3 Optional Pipeline stage and step inspection
+
+- `jk run steps <jobPath> <buildNumber>` reads Pipeline Graph View's `<build>/stages/tree` and `<build>/stages/allSteps`. It decodes their `{status:"ok",data:...}` envelopes and returns stage hierarchy plus step IDs, labels, stage IDs and states. The plugin is optional; ordinary commands do not probe it.
+- `jk log <jobPath> <buildNumber> --step <id>` validates the ID against those nodes, then reads `<build>/stages/log?nodeId=<id>`. Stage IDs select that stage's combined step log. Node labels are not identifiers and may repeat in parallel branches.
+- The build is checked before plugin discovery so an absent run is reported as not found. Plugin-route 404 on an existing run reports unsupported Pipeline Graph View; 401/403 remains an authentication/authorization error.
+- Step snapshots read at most 2 MiB plus one detection byte, exposing `truncated` and `complete` in JSON/YAML. `complete` requires completed graph/step snapshots, a finished build and an uncapped log response. Reject `--step` with `--follow`, `--tail` or `--grep`. Plain output contains only the selected log.
+- Metadata reads are capped at 16 MiB. Wire-format fixtures follow the plugin's `PipelineGraph`, `PipelineStepList` and `PipelineJsonWriterTest` contracts; the issue reporter's fixture used plugin `1053.v9df19e6ceed2`.
 
 ### 9.3 HTTP & Auth Flow
 1. Resolve server URL (ensuring trailing slash trimmed) and credentials from context or flags.

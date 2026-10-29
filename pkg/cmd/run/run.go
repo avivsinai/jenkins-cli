@@ -301,6 +301,7 @@ func NewCmdRun(f *cmdutil.Factory) *cobra.Command {
 		newRunParamsCmd(f),
 		newRunViewCmd(f),
 		newRunWatchCmd(f),
+		newRunStepsCmd(f),
 		newRunCancelCmd(f),
 		newRunRerunCmd(f),
 	)
