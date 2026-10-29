@@ -62,7 +62,7 @@ func newTestReportCmd(f *cmdutil.Factory) *cobra.Command {
 							if c.ClassName != "" {
 								name = c.ClassName + "." + name
 							}
-							_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s (%s", name, c.Status)
+							_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s (%s", shared.BoundedHumanText(name, 160), shared.BoundedHumanText(c.Status, 32))
 							if c.FailedSince > 0 {
 								_, _ = fmt.Fprintf(cmd.OutOrStdout(), "; since #%d", c.FailedSince)
 							}
@@ -71,7 +71,7 @@ func newTestReportCmd(f *cmdutil.Factory) *cobra.Command {
 							}
 							_, _ = fmt.Fprintln(cmd.OutOrStdout(), ")")
 							if c.ErrorDetails != "" {
-								_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", c.ErrorDetails)
+								_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", shared.BoundedHumanText(c.ErrorDetails, 1024))
 							}
 						}
 					}

@@ -162,7 +162,8 @@ func TestJUnitReportCommands(t *testing.T) {
 			require.NotContains(t, out, "SKIPPED")
 			require.Contains(t, out, "REGRESSION")
 			require.Contains(t, out, "FAILED")
-			if format == "json" {
+			switch format {
+			case "json":
 				var report shared.TestReport
 				require.NoError(t, json.Unmarshal([]byte(out), &report))
 				require.Equal(t, 4, report.TotalCount)
@@ -171,7 +172,7 @@ func TestJUnitReportCommands(t *testing.T) {
 				require.Equal(t, 1, report.SkipCount)
 				require.Len(t, report.Suites[0].Cases, 2)
 				require.Equal(t, "full trace", report.Suites[0].Cases[1].ErrorStackTrace)
-			} else if format == "human" {
+			case "human":
 				require.Contains(t, out, "Total: 4\nFailed: 2\nSkipped: 1\n")
 				require.Contains(t, out, "expected four")
 			}
@@ -233,4 +234,30 @@ func TestRunJUnitSummaryWithoutFailureDetailsAndJSONCompatibility(t *testing.T) 
 	require.NoError(t, json.Unmarshal([]byte(out), &result))
 	require.JSONEq(t, `{"total":2,"failed":1,"skipped":0}`, string(result["tests"]))
 	require.NotContains(t, out, "minimal_failure")
+}
+
+func TestFailedReportHumanTextIsSafeAndBounded(t *testing.T) {
+	name := "clipboard\x1b]52;c;c2VjcmV0\a\n" + strings.Repeat("界", 300)
+	details := "\x1b[2J\x1b[Hclear screen\r\n" + strings.Repeat("甲", 2000)
+	payload, err := json.Marshal(shared.TestReport{FailCount: 1, TotalCount: 1, Suites: []shared.TestSuite{{Cases: []shared.TestCase{{Name: name, Status: "\nFAILED\n", ErrorDetails: details}}}}})
+	require.NoError(t, err)
+	f, _ := junitFactory(t, string(payload), http.StatusOK)
+	out, err := junitCommand(t, f, "test", "report", "app/main", "42", "--failed")
+	require.NoError(t, err)
+	require.NotContains(t, out, "\x1b")
+	require.NotContains(t, out, "\a")
+	require.NotContains(t, out, "\r")
+	require.Contains(t, out, "(FAILED)")
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	require.Len(t, lines, 6)
+	require.LessOrEqual(t, len([]rune(lines[4])), 160+3+len(" (FAILED)"))
+	require.LessOrEqual(t, len([]rune(lines[5])), 2+1024+3)
+
+	// Machine-readable reports retain the precise data, including control bytes.
+	out, err = junitCommand(t, f, "test", "report", "app/main", "42", "--failed", "--json")
+	require.NoError(t, err)
+	var report shared.TestReport
+	require.NoError(t, json.Unmarshal([]byte(out), &report))
+	require.Equal(t, name, report.Suites[0].Cases[0].Name)
+	require.Equal(t, details, report.Suites[0].Cases[0].ErrorDetails)
 }

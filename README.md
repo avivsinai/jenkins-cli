@@ -311,6 +311,8 @@ jk job scan platform/services/auth-relay
 Inspect JUnit results with `jk test report <job> <build>` or show only failing
 cases with `jk test report <job> <build> --failed`. The filter includes both
 `FAILED` and `REGRESSION` cases and keeps aggregate counts for the whole report.
+Human case names and error details are single lines with control characters
+removed, capped at 160 and 1,024 Unicode characters respectively (plus an ellipsis).
 Add `--json` or `--yaml` for case failure details, full stack traces, `age` and
 `failedSince` when Jenkins supplies them.
 

@@ -5,9 +5,10 @@ import (
 	"os"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/spf13/cobra"
+
+	"github.com/avivsinai/jenkins-cli/pkg/cmd/shared"
 )
 
 const maxSummaryFailures = 5
@@ -88,7 +89,7 @@ func printRunSummary(cmd *cobra.Command, output runDetailOutput) error {
 			if c.ClassName != "" {
 				name = c.ClassName + "." + name
 			}
-			_, _ = fmt.Fprintf(w, "  %s", testSummaryText(name, 160))
+			_, _ = fmt.Fprintf(w, "  %s", shared.BoundedHumanText(name, 160))
 			if c.FailedSince > 0 || c.Age > 0 {
 				_, _ = fmt.Fprint(w, " (")
 				if c.FailedSince > 0 {
@@ -104,7 +105,7 @@ func printRunSummary(cmd *cobra.Command, output runDetailOutput) error {
 			}
 			_, _ = fmt.Fprintln(w)
 			if c.ErrorDetails != "" {
-				_, _ = fmt.Fprintf(w, "    %s\n", testSummaryText(c.ErrorDetails, 240))
+				_, _ = fmt.Fprintf(w, "    %s\n", shared.BoundedHumanText(c.ErrorDetails, 240))
 			}
 		}
 		if remaining := output.Tests.failedCaseCount - len(output.Tests.failedCases); remaining > 0 {
@@ -113,34 +114,6 @@ func printRunSummary(cmd *cobra.Command, output runDetailOutput) error {
 	}
 
 	return nil
-}
-
-// testSummaryText produces one bounded line, preserving Unicode characters.
-func testSummaryText(value string, limit int) string {
-	var out strings.Builder
-	count := 0
-	space := false
-	for _, r := range value {
-		if unicode.IsSpace(r) {
-			space = count > 0
-			continue
-		}
-		if unicode.IsControl(r) {
-			continue
-		}
-		if count >= limit || (space && count+1 >= limit) {
-			out.WriteString("...")
-			break
-		}
-		if space {
-			out.WriteByte(' ')
-			count++
-			space = false
-		}
-		out.WriteRune(r)
-		count++
-	}
-	return out.String()
 }
 
 // formatDuration formats milliseconds into a human-readable duration string.
