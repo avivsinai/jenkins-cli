@@ -104,52 +104,20 @@ func NewClient(ctx context.Context, cfg *config.Config, contextName string, opts
 		return nil, errors.New("configuration is required")
 	}
 
-	if contextName == "" {
-		_, name, err := cfg.ActiveContext()
-		if err != nil {
-			return nil, err
-		}
-		contextName = name
-	}
-
-	if contextName == "" {
-		return nil, errors.New("no active context; use 'jk context use' or provide --context")
-	}
-
-	ctxDef, err := cfg.Context(contextName)
+	ctxDef, resolvedName, _, err := ResolveAuthContext(cfg, contextName)
 	if err != nil {
 		return nil, err
 	}
+	contextName = resolvedName
 
-	storeOpts := []secret.Option{}
-	if ctxDef.AllowInsecureStore {
-		storeOpts = append(storeOpts, secret.WithAllowFileFallback(true))
-	}
-
-	store, err := secret.Open(storeOpts...)
-	var token string
-	switch {
-	case err == nil:
-		token, err = store.Get(secret.TokenKey(contextName))
+	// An environment token must not open the keyring, even to probe a legacy
+	// file backend. Headless use works without a keyring or a config write.
+	token := strings.TrimSpace(os.Getenv("JK_TOKEN"))
+	if token == "" {
+		token, err = loadStoredToken(ctxDef, contextName)
 		if err != nil {
-			return nil, fmt.Errorf("load token for context %s: %w", contextName, err)
-		}
-	case !ctxDef.AllowInsecureStore && secret.IsNoKeyringError(err):
-		legacyOpts := append([]secret.Option{}, storeOpts...)
-		legacyOpts = append(legacyOpts, secret.WithAllowFileFallback(true))
-		legacyStore, legacyErr := secret.Open(legacyOpts...)
-		if legacyErr != nil {
-			return nil, errors.Join(err, legacyErr)
-		}
-		token, legacyErr = legacyStore.Get(secret.TokenKey(contextName))
-		switch {
-		case errors.Is(legacyErr, os.ErrNotExist):
 			return nil, err
-		case legacyErr != nil:
-			return nil, fmt.Errorf("load token for context %s: %w", contextName, legacyErr)
 		}
-	default:
-		return nil, err
 	}
 
 	parsedURL, err := url.Parse(ctxDef.URL)
@@ -586,4 +554,39 @@ func composeFeaturesHeader(caps Capabilities) string {
 		features = append(features, "prometheus")
 	}
 	return strings.Join(features, ",")
+}
+
+func loadStoredToken(ctxDef *config.Context, contextName string) (string, error) {
+	storeOpts := []secret.Option{}
+	if ctxDef.AllowInsecureStore {
+		storeOpts = append(storeOpts, secret.WithAllowFileFallback(true))
+	}
+
+	store, err := secret.Open(storeOpts...)
+	var token string
+	switch {
+	case err == nil:
+		token, err = store.Get(secret.TokenKey(contextName))
+		if err != nil {
+			return "", fmt.Errorf("load token for context %s: %w", contextName, err)
+		}
+	case !ctxDef.AllowInsecureStore && secret.IsNoKeyringError(err):
+		legacyOpts := append([]secret.Option{}, storeOpts...)
+		legacyOpts = append(legacyOpts, secret.WithAllowFileFallback(true))
+		legacyStore, legacyErr := secret.Open(legacyOpts...)
+		if legacyErr != nil {
+			return "", errors.Join(err, legacyErr)
+		}
+		token, legacyErr = legacyStore.Get(secret.TokenKey(contextName))
+		switch {
+		case errors.Is(legacyErr, os.ErrNotExist):
+			return "", err
+		case legacyErr != nil:
+			return "", fmt.Errorf("load token for context %s: %w", contextName, legacyErr)
+		}
+	default:
+		return "", err
+	}
+
+	return token, nil
 }

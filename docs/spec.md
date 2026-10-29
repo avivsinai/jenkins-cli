@@ -183,6 +183,7 @@ lookup failures are errors rather than silently selecting a library checkout.
 - Proxy configuration precedence is `flag (--proxy) > environment (HTTPS_PROXY/HTTP_PROXY/NO_PROXY) > context config`. CLI also honors custom CA bundles via `--ca-file` and `JK_CA_FILE`.
 - Crumb and capability flags are cached in memory for the life of the process (capabilities: 60s TTL); nothing is cached on disk.
 - Context resolution precedence is `--context` > `JK_CONTEXT` > active config (`SetActive`). An empty `JK_CONTEXT` must be treated as unset so automation can clear it without mutating local config.
+- A nonempty `JK_TOKEN` overrides the selected context's stored token and bypasses secret-store opening entirely. Empty or whitespace-only `JK_TOKEN`, `JK_URL` and `JK_USER` values are treated as unset. With no selected context, a complete `JK_URL`/`JK_USER`/`JK_TOKEN` tuple supplies an ephemeral in-memory context. If URL or user is supplied, the entire tuple is required; with a selected stored context, URL and user must match it. An explicit missing context remains an error. `JK_URL` must be HTTP(S), without userinfo, query or fragment. Neither environment credentials nor the ephemeral context are persisted. `auth status` reports `Credential source: environment` (or `stored`) without printing the token. `auth login` and `auth logout` require these three variables to be unset before changing stored credentials.
 
 #### 9.2.1 Code layout (gh parity)
 - `cmd/jk` contains only the entrypoint; execution flows into `internal/jkcmd` mirroring `ghcmd`.

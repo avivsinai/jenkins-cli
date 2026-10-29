@@ -471,3 +471,65 @@ func mustURL(t *testing.T, raw string) *url.URL {
 	require.NoError(t, err)
 	return u
 }
+
+func TestAuthStatusEnvironmentCredentials(t *testing.T) {
+	for _, ephemeral := range []bool{false, true} {
+		t.Run(map[bool]string{false: "stored context", true: "ephemeral context"}[ephemeral], func(t *testing.T) {
+			loginTestEnv(t)
+			t.Setenv("JK_CONTEXT", "")
+			t.Setenv("JK_URL", "")
+			t.Setenv("JK_USER", "")
+			t.Setenv("JK_TOKEN", "never-print-this")
+			cfg := authContextConfig(t)
+			if ephemeral {
+				cfg = &config.Config{}
+				t.Setenv("JK_URL", "https://ci.example/jenkins")
+				t.Setenv("JK_USER", "headless")
+			}
+			out, err := executeAuthCommand(t, cfg, "auth", "status")
+			require.NoError(t, err)
+			require.Contains(t, out, "Credential source: environment")
+			require.NotContains(t, out, "never-print-this")
+			if ephemeral {
+				require.Contains(t, out, "URL: https://ci.example/jenkins")
+				require.Contains(t, out, "Username: headless")
+				require.Empty(t, cfg.Contexts)
+			} else {
+				require.Contains(t, out, "Active context: ctx-a")
+			}
+		})
+	}
+}
+
+func TestEnvironmentAuthRejectsLoginAndLogoutWithoutWrites(t *testing.T) {
+	for _, operation := range []string{"login", "logout"} {
+		t.Run(operation, func(t *testing.T) {
+			loginTestEnv(t)
+			t.Setenv("JK_TOKEN", "never-save-this")
+			cfg, err := config.Load()
+			require.NoError(t, err)
+			args := []string{"auth", operation}
+			if operation == "login" {
+				args = append(args, "https://ci.example", "--username", "headless", "--token", "explicit-token", "--no-verify")
+			}
+			out, err := executeAuthCommand(t, cfg, args...)
+			require.ErrorContains(t, err, "unset JK_URL, JK_USER and JK_TOKEN")
+			require.NotContains(t, out, "never-save-this")
+			require.Empty(t, cfg.Contexts)
+			_, err = os.Stat(cfg.Path())
+			require.ErrorIs(t, err, os.ErrNotExist)
+		})
+	}
+}
+
+func TestAuthStatusTokenDoesNotChangeContextPrecedence(t *testing.T) {
+	loginTestEnv(t)
+	t.Setenv("JK_TOKEN", "never-print-this")
+	t.Setenv("JK_CONTEXT", "ctx-a")
+	t.Setenv("JK_URL", "")
+	t.Setenv("JK_USER", "")
+	out, err := executeAuthCommand(t, authContextConfig(t), "auth", "status", "--context", "ctx-b")
+	require.NoError(t, err)
+	require.Contains(t, out, "Context: ctx-b")
+	require.Contains(t, out, "Credential source: environment")
+}

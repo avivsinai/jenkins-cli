@@ -197,6 +197,33 @@ By default, `jk` stores API tokens in the OS keychain. `--allow-insecure-store` 
 
 For noninteractive file-backend use, set `JK_KEYRING_PASSPHRASE` before running `jk`; compatible fallback variables are `KEYRING_FILE_PASSWORD` and `KEYRING_PASSWORD`.
 
+### Headless authentication
+
+Set `JK_TOKEN` to supply the API token for the selected context without opening
+the keyring or storing the token. Context selection stays `--context` >
+`JK_CONTEXT` > active context. Empty environment variables are treated as unset.
+
+With no selected context, provide `JK_URL`, `JK_USER` (the Jenkins user ID) and
+`JK_TOKEN` together to use an ephemeral connection. For example, after your
+secrets manager supplies `JK_TOKEN`:
+
+```bash
+export JK_URL=https://jenkins.example.com
+export JK_USER=automation
+jk run ls team/app/main --json
+jk auth status
+```
+
+Nothing is written to config or the keyring. `auth status` reports
+`Credential source: environment` and never prints the token.
+
+`JK_URL` and `JK_USER` require the complete three-variable tuple. When a stored
+context is selected, those values must match its URL and user; they cannot
+silently redirect its credential to another controller. An explicitly selected
+missing context is an error. `JK_TOKEN` alone requires an existing selected
+context. Unset all three variables before `auth login` or `auth logout` to manage
+stored credentials; these commands do not persist or remove environment tokens.
+
 Structured `jk search` output already includes lightweight search metadata; `--with-meta` is only needed for `jk run ls` (`jk search` accepts it as a no-op for flag parity).
 
 Add `--json`, `--yaml`, or `--format json|yaml` to supported commands for machine-readable output. Use `--jq` or `--template` to select or reshape JSON results.
