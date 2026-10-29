@@ -18,6 +18,7 @@ import (
 
 	"github.com/containerd/platforms"
 	mobycontainertypes "github.com/moby/moby/api/types/container"
+	mobymount "github.com/moby/moby/api/types/mount"
 	mobyclient "github.com/moby/moby/client"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	tc "github.com/testcontainers/testcontainers-go"
@@ -320,6 +321,24 @@ func launchJenkins(ctx context.Context, repoRoot, bareRepoPath string) (tc.Conta
 		"JAVA_OPTS":           "-Djenkins.install.runSetupWizard=false -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true",
 	}
 
+	proxyEnv, err := dockerProxyEnvironment(os.Getenv("DOCKER_CONFIG"))
+	if err != nil {
+		return nil, "", err
+	}
+	for key, value := range proxyEnv {
+		env[key] = value
+	}
+	caFile, err := e2eCAFile()
+	if err != nil {
+		return nil, "", err
+	}
+	const caTarget = "/run/jk-e2e-ca.pem"
+	if caFile != "" {
+		for _, name := range []string{"SSL_CERT_FILE", "CURL_CA_BUNDLE", "GIT_SSL_CAINFO"} {
+			env[name] = caTarget
+		}
+	}
+
 	targetArch, targetPlatform := detectTargetPlatform()
 	buildPlatform, err := platforms.Parse(targetPlatform)
 	if err != nil {
@@ -345,11 +364,23 @@ func launchJenkins(ctx context.Context, repoRoot, bareRepoPath string) (tc.Conta
 		ExposedPorts:  []string{"8080/tcp"},
 		WaitingFor:    wait.ForLog("Jenkins is fully up and running").WithStartupTimeout(5 * time.Minute),
 		HostConfigModifier: func(hc *mobycontainertypes.HostConfig) {
+			if caFile != "" {
+				hc.Mounts = append(hc.Mounts, mobymount.Mount{Type: mobymount.TypeBind, Source: caFile, Target: caTarget, ReadOnly: true})
+			}
 			hc.Binds = append(hc.Binds,
 				fmt.Sprintf("%s:/var/jenkins_home/casc:ro", cascDir),
 				fmt.Sprintf("%s:/fixtures/repos/jenkins-cli.git:ro", bareRepoPath),
 			)
 		},
+	}
+
+	if image := strings.TrimSpace(os.Getenv("JK_E2E_IMAGE")); image != "" {
+		req.Image = image
+		req.FromDockerfile = tc.FromDockerfile{}
+	} else {
+		for key, value := range proxyEnv {
+			req.FromDockerfile.BuildArgs[key] = ptr(value)
+		}
 	}
 
 	container, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{

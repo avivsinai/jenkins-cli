@@ -55,6 +55,14 @@ pull requests, and feedback from the community.
 
 - The harness keeps its configuration and keyring inside a temporary directory, so no extra setup is required on CI runners.
 
+### Prebuilt E2E controllers and proxy trust
+
+`JK_E2E_IMAGE=<image-reference> make e2e` uses an already-built controller image instead of building `hack/e2e/controller.Dockerfile`. Use an image built from that Dockerfile (including its test plugins and tools); this override does not change the fixture repository or JCasC mounts.
+
+The harness forwards only HTTP/HTTPS/no-proxy defaults from Docker's `config.json` (`proxies.default`, using `DOCKER_CONFIG` when set) into controller processes and default image build arguments. It does not forward registry authentication settings. An inner container must be able to resolve and reach the configured proxy.
+
+For a proxy requiring an additional CA, set `JK_E2E_CA_FILE=/absolute/path/to/combined-ca-bundle.pem` to mount that file read-only at runtime. The harness points `SSL_CERT_FILE`, `CURL_CA_BUNDLE` and `GIT_SSL_CAINFO` at the mount. Use a combined public/system trust bundle readable by the controller's Jenkins user. Build-time trust remains the image builder's responsibility: supply a BuildKit secret to the tools that need it; do not copy a session CA into image layers or disable TLS verification.
+
 ## Reporting issues
 
 - Use the issue templates to provide reproduction steps and environment details.
