@@ -282,16 +282,16 @@ jobs:
           } >>"$GITHUB_ENV"
 
       # Tap and Scoop pushes use a short-lived release App token scoped to
-      # the tap repo; the PAT is only the fallback until the App is
+      # the tap and Scoop repos; the PAT is only the fallback until the App is
       # configured (vars.RELEASE_APP_CLIENT_ID). Same pattern as yoetz #623.
-      - name: Mint release App token for the tap
+      - name: Mint release App token for tap and Scoop
         id: tap-app
         if: vars.RELEASE_APP_CLIENT_ID != ''
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          repositories: homebrew-tap
+          repositories: homebrew-tap,scoop-bucket
 
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
