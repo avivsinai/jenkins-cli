@@ -148,7 +148,7 @@ Key workflows the CLI must make trivial:
 | `context`      | `jk context ls`, `jk context use`, `jk context rm`              | Config stored under `os.UserConfigDir()/jk/config.yaml` (`~/.config/jk` on Linux/XDG, `~/Library/Application Support/jk` on macOS, `%AppData%\jk` on Windows). |
 | `search`       | `jk search --job-glob '*ada*'`, `jk search --folder tools`      | Top-level alias for cross-job discovery (`run search`). |
 | `job`          | `jk job ls`, `jk job view`, `jk job create`, `jk job config`, `jk job configure`, `jk job scan` | `create` builds a Bitbucket-backed Multibranch Pipeline from flags, or any job type from a full `config.xml` via `--file`/`--stdin`; `config` emits raw XML; `configure` supports `--file`, `--stdin`, or `--script-path`; `scan` is multibranch-only. |
-| `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run cancel`, `jk run rerun` | `run restart-from` *(planned)*. |
+| `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run watch`, `jk run cancel`, `jk run rerun` | `run restart-from` *(planned)*. |
 | `log`          | `jk log`, `jk log --follow`                                     | Snapshot default; `--follow` streams like `gh run view --log`. |
 | `artifact`     | `jk artifact ls`, `jk artifact download`                        | Glob filtering via `--pattern`. |
 | `test`         | `jk test report`                                                | `--json` output; `jk test junit` *(planned)*. |
@@ -248,6 +248,13 @@ lookup failures are errors rather than silently selecting a library checkout.
 | RUNNING   | 14        |
 
 `jk run view --result --exit-status` also uses RUNNING=14 when a build is still in progress. Other commands keep the general-purpose codes, surfaced consistently in help text and docs.
+
+#### Commit watching
+
+- `jk run watch <jobPath> --commit <sha>` requires an exact full 40- or 64-digit hexadecimal source SHA. Discovery reads retained history in newest-first pages of 100 and chooses the newest matching build; it then pins that build number through completion.
+- Before a matching build exists, queue entries with the job's task URL are job-level context only. For a selected running build, executor waits require the queue task URL to identify that same job and build number. Unrelated queue entries are never attributed to the commit.
+- Poll immediately, then at `--interval` (default `2s`, must be positive). A nonnegative `--timeout` (default `0`, unlimited) covers both discovery and execution, including HTTP requests. Terminal timeout/cancellation codes are 124/130. With `--exit-status`, terminal builds use the result table above and unknown terminal results exit 1.
+- Emit state changes and normalized queue reasons on stderr, suppressing changing parenthesized ETA values. JSON/YAML output is a single final object with `jobPath`, `commit`, `number`, `url`, `status`, `result` and `durationMs`; timeout/cancellation statuses are `timed_out`/`cancelled`, with `number: 0` when no build was identified. Normal completion uses `status: completed`.
 
 ### 9.7 Discovery flags, cursors & metadata
 - `jk run ls` accepts composable discovery flags:

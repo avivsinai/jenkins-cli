@@ -300,6 +300,7 @@ func NewCmdRun(f *cmdutil.Factory) *cobra.Command {
 		NewCmdRunSearch(f),
 		newRunParamsCmd(f),
 		newRunViewCmd(f),
+		newRunWatchCmd(f),
 		newRunCancelCmd(f),
 		newRunRerunCmd(f),
 	)

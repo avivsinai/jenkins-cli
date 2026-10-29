@@ -265,6 +265,38 @@ report retains the existing human message, including when `--json` is selected.
 `run view --json` retains its existing `tests: {total, failed, skipped}` shape;
 failure details are displayed only by its human `--summary` mode.
 
+### 2.5 Commit watch (`jk run watch --json`)
+
+`jk run watch <jobPath> --commit <full-source-sha>` prints progress to stderr and
+one final JSON/YAML object to stdout. It selects the newest retained matching
+build, then follows that fixed build number. The full SHA must contain 40 or 64
+hexadecimal characters; abbreviated hashes are rejected. Queue entries before
+discovery are job context rather than commit attribution.
+
+```json
+{
+  "jobPath": "team/app/main",
+  "commit": "2222222222222222222222222222222222222222",
+  "number": 128,
+  "url": "https://jenkins.example/job/team/job/app/job/main/128/",
+  "status": "completed",
+  "result": "SUCCESS",
+  "durationMs": 92345
+}
+```
+
+All fields are present. `status` is `completed`, `timed_out`, or `cancelled` in a
+final result. Before a build is identified, `number` is 0, `url` and `result` are
+empty strings, and `durationMs` is 0. If a selected build is still running at
+timeout/cancellation, the result contains its last observed URL and duration;
+`result` may still be empty. An empty terminal Jenkins result becomes `UNKNOWN`.
+
+`--timeout` exits 124 and cancellation exits 130, regardless of `--exit-status`.
+With `--exit-status`, build results map to SUCCESS=0, UNSTABLE=10, FAILURE=11,
+ABORTED=12, NOT_BUILT=13; unknown terminal results exit 1. Without it, watching a
+completed failed build exits 0. HTTP/authentication failures propagate as errors
+and do not produce a successful watch result.
+
 ## 3. Logs
 
 ### 3.1 Run log snapshot (`jk log --json`)

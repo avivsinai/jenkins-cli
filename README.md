@@ -146,6 +146,28 @@ is insufficient. Controllers whose SCM revision exposes neither `hash` nor
 `pullHash` (including some Bitbucket/GitLab PR revisions) retain legacy checkout
 selection. A failed source-revision lookup is reported as an error.
 
+### Watch a commit's build
+
+```bash
+jk run watch team/app/main --commit <full-source-sha> --exit-status --timeout 20m
+jk run watch team/app/main --commit <full-source-sha> --json --timeout 20m
+```
+
+`run watch` scans retained build history in newest-first pages for an exact full
+40- or 64-character hexadecimal source SHA. If no build exists yet, it polls and
+shows queue reasons for the job without claiming that those queue entries belong
+to the commit. Once it finds a build, it pins that build number even if another
+build of the same commit starts later. Executor waits are correlated by the
+queue task's build URL, not by its display name.
+
+Progress goes to stderr and is printed only when the state changes; ETA-only
+changes are suppressed. JSON/YAML stdout contains one final result, including on
+timeout or cancellation. `--interval` defaults to `2s`; `--timeout 0` waits without
+a deadline. A timeout covers discovery and execution and exits 124; cancellation
+exits 130. With `--exit-status`, build results use the same codes as `run view`
+(SUCCESS 0, UNSTABLE 10, FAILURE 11, ABORTED 12, NOT_BUILT 13); an unknown terminal
+result exits 1. See the [watch output contract](docs/api.md#25-commit-watch-jk-run-watch---json).
+
 ### Jenkins SSO / Google OAuth
 
 `jk` uses Jenkins API tokens for scripted clients. If your controller uses Google OAuth, OpenID Connect, Okta, Azure AD, or another browser-based SSO realm, sign in to Jenkins in the browser first, open `/me/configure`, create a Jenkins API token, then run:
