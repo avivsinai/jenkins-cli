@@ -95,7 +95,11 @@ func selectLogLines(ctx context.Context, input io.Reader, opts *logOptions) ([]b
 		if len(line) > maxFilteredLineBytes {
 			return nil, false, fmt.Errorf("console line exceeds %d bytes; cannot select an exact log tail", maxFilteredLineBytes)
 		}
-		text := bytes.TrimSuffix(bytes.TrimSuffix(line, []byte{'\n'}), []byte{'\r'})
+		text := line
+		if bytes.HasSuffix(text, []byte{'\n'}) {
+			text = bytes.TrimSuffix(text, []byte{'\n'})
+			text = bytes.TrimSuffix(text, []byte{'\r'})
+		}
 		if opts.grep != nil && !opts.grep.Match(text) {
 			continue
 		}

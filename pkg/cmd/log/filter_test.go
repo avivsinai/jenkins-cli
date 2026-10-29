@@ -35,6 +35,8 @@ func TestSelectLogLines(t *testing.T) {
 		{name: "filter before tail", input: "match 1\nno\nmatch 2\nno\n", pattern: "^match", tail: 2, want: "match 1\nmatch 2\n"},
 		{name: "no matches", input: "nothing\nhere", pattern: "missing", tail: 10},
 		{name: "anchors exclude CRLF", input: "a\r\nb\r\n", pattern: "^a$", want: "a\r\n"},
+		{name: "bare final CR remains content", input: "abc\r", pattern: "^abc$"},
+		{name: "bare final CR can match explicitly", input: "abc\r", pattern: "^abc\r$", want: "abc\r"},
 		{name: "grep output budget", input: "aaa\nbbb\nccc\n", pattern: ".", budget: 8, want: "aaa\nbbb\n", truncated: true},
 		{name: "tail output budget", input: "aaa\nbbb\nccc\n", tail: 3, budget: 8, want: "bbb\nccc\n", truncated: true},
 		{name: "early budget eviction no longer needed", input: "1234567\na\nb\n", tail: 2, budget: 8, want: "a\nb\n"},
