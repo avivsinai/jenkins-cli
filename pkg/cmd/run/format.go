@@ -164,6 +164,9 @@ type runTestSummary struct {
 	Total   int `json:"total"`
 	Failed  int `json:"failed"`
 	Skipped int `json:"skipped"`
+	// Failure details support the human summary without changing run JSON.
+	failedCases     []shared.TestCase
+	failedCaseCount int
 }
 
 type runQueueInfo struct {
@@ -694,11 +697,22 @@ func extractTestSummary(report *shared.TestReport) *runTestSummary {
 	if report == nil {
 		return nil
 	}
-	return &runTestSummary{
+	summary := &runTestSummary{
 		Total:   report.TotalCount,
 		Failed:  report.FailCount,
 		Skipped: report.SkipCount,
 	}
+	for _, suite := range report.Suites {
+		for _, c := range suite.Cases {
+			if c.Failed() {
+				summary.failedCaseCount++
+				if len(summary.failedCases) < maxSummaryFailures {
+					summary.failedCases = append(summary.failedCases, c)
+				}
+			}
+		}
+	}
+	return summary
 }
 
 func statusFromFlags(building bool) string {

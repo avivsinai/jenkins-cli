@@ -201,6 +201,9 @@ func defaultExitCodes() map[string]string {
 func defaultEnvVars() map[string]string {
 	return map[string]string{
 		"JK_CONTEXT": "Override the active Jenkins context (same as --context/-c flag)",
+		"JK_TOKEN":   "Use an API token from the environment without opening the secret store",
+		"JK_URL":     "Controller URL for an ephemeral context (requires JK_USER and JK_TOKEN)",
+		"JK_USER":    "Jenkins user ID for an ephemeral context (requires JK_URL and JK_TOKEN)",
 		"JK_QUIET":   "Enable quiet mode for supported commands (same as --quiet/-q flag)",
 	}
 }

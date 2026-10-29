@@ -91,91 +91,90 @@ func StreamProgressiveLog(ctx context.Context, client *jenkins.Client, jobPath s
 	}
 }
 
+// CollectLogSnapshot copies at most maxBytes, even if Jenkins returns the entire
+// completed console in one progressive response. The bool indicates omitted data.
 func CollectLogSnapshot(ctx context.Context, client *jenkins.Client, jobPath string, buildNumber int, maxBytes int, out io.Writer) (bool, error) {
 	encoded := jenkins.EncodeJobPath(jobPath)
 	if encoded == "" {
 		return false, errors.New("job path is required")
 	}
-
 	if maxBytes <= 0 {
 		maxBytes = 512 * 1024
 	}
-
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	offset := 0
 	path := fmt.Sprintf("/%s/%d/logText/progressiveText", encoded, buildNumber)
 	total := 0
-	truncated := false
-
 	for i := 0; i < 1000; i++ {
-		if ctx != nil {
-			select {
-			case <-ctx.Done():
-				return truncated, ctx.Err()
-			default:
-			}
+		if err := ctx.Err(); err != nil {
+			return false, err
 		}
-
 		req := client.NewStreamingRequest().
 			SetHeader("Accept", "text/plain").
 			SetQueryParam("start", strconv.Itoa(offset)).
-			SetDoNotParseResponse(true)
-
-		if ctx != nil {
-			req.SetContext(ctx)
-		}
-
+			SetDoNotParseResponse(true).SetContext(ctx)
 		resp, err := client.DoRaw(req, http.MethodGet, path, nil)
 		if err != nil {
-			if ctx != nil && ctx.Err() != nil {
-				return truncated, ctx.Err()
-			}
-			return truncated, err
+			return false, err
 		}
-
+		body := resp.RawBody()
+		if body == nil {
+			return false, errors.New("log stream returned empty body")
+		}
 		if resp.StatusCode() == http.StatusRequestedRangeNotSatisfiable {
+			_ = body.Close()
+			// Restarting after already emitting bytes would duplicate output.
+			if total > 0 {
+				return true, nil
+			}
 			offset = 0
-			time.Sleep(150 * time.Millisecond)
+			timer := time.NewTimer(150 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return false, ctx.Err()
+			case <-timer.C:
+			}
 			continue
 		}
 		if resp.StatusCode() >= 400 {
-			return truncated, fmt.Errorf("collect log for %s #%d: %s", jobPath, buildNumber, resp.Status())
+			_ = body.Close()
+			return false, fmt.Errorf("collect log for %s #%d: %s", jobPath, buildNumber, resp.Status())
 		}
-
-		body := resp.RawBody()
-		if body == nil {
-			return truncated, errors.New("log stream returned empty body")
+		remaining := maxBytes - total
+		chunk, err := io.ReadAll(io.LimitReader(body, int64(remaining)+1))
+		closeErr := body.Close()
+		if err != nil || closeErr != nil {
+			return false, fmt.Errorf("read log chunk: %w", errors.Join(err, closeErr))
 		}
-
-		chunk, err := readAndClose(body)
-		if err != nil {
-			return truncated, fmt.Errorf("read log chunk: %w", err)
+		overflow := len(chunk) > remaining
+		if overflow {
+			chunk = chunk[:remaining]
 		}
-
 		if len(chunk) > 0 {
 			if _, err := out.Write(chunk); err != nil {
-				return truncated, err
+				return false, err
 			}
 			total += len(chunk)
 		}
-
-		if nextOffset := resp.Header().Get("X-Text-Size"); nextOffset != "" {
-			if val, err := strconv.Atoi(nextOffset); err == nil {
-				offset = val
-			}
-		}
-
 		more := strings.EqualFold(resp.Header().Get("X-More-Data"), "true")
-
-		switch {
-		case !more:
-			return truncated, nil
-		case len(chunk) == 0:
-			return true, nil
-		case total >= maxBytes:
+		if overflow {
 			return true, nil
 		}
+		if !more {
+			return false, nil
+		}
+		if total >= maxBytes || len(chunk) == 0 {
+			return true, nil
+		}
+		next, err := strconv.Atoi(resp.Header().Get("X-Text-Size"))
+		if err != nil || next <= offset {
+			return true, nil
+		}
+		offset = next
 	}
-
 	return true, nil
 }
 

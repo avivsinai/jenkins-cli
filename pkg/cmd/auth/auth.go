@@ -84,6 +84,10 @@ func newAuthLoginCmd(f *cmdutil.Factory) *cobra.Command {
 }
 
 func runAuthLogin(cmd *cobra.Command, cfg *config.Config, opts *authLoginOptions, rawURL string) error {
+	if jenkins.HasEnvironmentAuth() {
+		return errors.New("unset JK_URL, JK_USER and JK_TOKEN before auth login; environment credentials are never persisted")
+	}
+
 	parsed, err := url.Parse(rawURL)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return fmt.Errorf("invalid Jenkins URL %q", rawURL)
@@ -325,6 +329,10 @@ func newAuthLogoutCmd(f *cmdutil.Factory) *cobra.Command {
 		Short: "Remove credentials for a context",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if jenkins.HasEnvironmentAuth() {
+				return errors.New("unset JK_URL, JK_USER and JK_TOKEN before auth logout; environment credentials cannot be removed by jk")
+			}
+
 			cfg, err := f.ResolveConfig()
 			if err != nil {
 				return err
@@ -388,12 +396,12 @@ func newAuthStatusCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if name == "" {
+			if name == "" && !jenkins.HasEnvironmentAuth() {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No active context")
 				return nil
 			}
 
-			ctx, err := cfg.Context(name)
+			ctx, name, source, err := jenkins.ResolveAuthContext(cfg, name)
 			if err != nil {
 				if errors.Is(err, config.ErrContextNotFound) {
 					return fmt.Errorf("context %q not found", name)
@@ -408,6 +416,7 @@ func newAuthStatusCmd(f *cmdutil.Factory) *cobra.Command {
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", label, name)
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "URL: %s\n", ctx.URL)
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Username: %s\n", ctx.Username)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Credential source: %s\n", source)
 			return nil
 		},
 	}

@@ -230,6 +230,89 @@ Unlike `jk run ls`, structured search output always includes this lightweight `m
 
 `source` reflects the discovery path actually used (`config` or `runs`; `--source auto`, the default, tries config first and falls back to runs), and `sampleValues`/`frequency` are derived from recent runs. Secret parameters omit defaults and sample values.
 
+### 2.8 JUnit report (`jk test report --json`)
+
+```json
+{
+  "totalCount": 3,
+  "passCount": 1,
+  "failCount": 1,
+  "skipCount": 1,
+  "suites": [{
+    "name": "example.Calculator",
+    "cases": [{
+      "className": "example.Calculator",
+      "name": "test_sum",
+      "status": "FAILED",
+      "duration": 0.1,
+      "errorDetails": "expected 4, got 5",
+      "errorStackTrace": "AssertionError: expected 4, got 5\n  at Calculator.test_sum",
+      "age": 2,
+      "failedSince": 41
+    }]
+  }]
+}
+```
+
+The suite and case arrays contain every reported case by default; the example
+abbreviates them. `--failed` filters cases to `FAILED` and `REGRESSION`, omits
+empty suites and keeps the complete report's aggregate counts. No matches produce
+`"suites": []`. `passCount` is omitted when zero; failure detail/history fields
+are optional and omitted when empty or zero. Full stack traces are preserved.
+If Jenkins omits or returns null for `totalCount`, the CLI derives it from
+pass/fail/skip counts; an explicit total, including zero, is preserved. A missing
+report retains the existing human message, including when `--json` is selected.
+`run view --json` retains its existing `tests: {total, failed, skipped}` shape;
+failure details are displayed only by its human `--summary` mode.
+
+### 2.9 Commit watch (`jk run watch --json`)
+
+`jk run watch <jobPath> --commit <full-source-sha>` prints progress to stderr and
+one final JSON/YAML object to stdout. It selects the newest retained matching
+build, then follows that fixed build number. The full SHA must contain 40 or 64
+hexadecimal characters; abbreviated hashes are rejected. Queue entries before
+discovery are job context rather than commit attribution.
+
+```json
+{
+  "jobPath": "team/app/main",
+  "commit": "2222222222222222222222222222222222222222",
+  "number": 128,
+  "url": "https://jenkins.example/job/team/job/app/job/main/128/",
+  "status": "completed",
+  "result": "SUCCESS",
+  "durationMs": 92345
+}
+```
+
+All fields are present. `status` is `completed`, `timed_out`, or `cancelled` in a
+final result. Before a build is identified, `number` is 0, `url` and `result` are
+empty strings, and `durationMs` is 0. If a selected build is still running at
+timeout/cancellation, the result contains its last observed URL and duration;
+`result` may still be empty. An empty terminal Jenkins result becomes `UNKNOWN`.
+
+`--timeout` exits 124 and cancellation exits 130, regardless of `--exit-status`.
+With `--exit-status`, build results map to SUCCESS=0, UNSTABLE=10, FAILURE=11,
+ABORTED=12, NOT_BUILT=13; unknown terminal results exit 1. Without it, watching a
+completed failed build exits 0. HTTP/authentication failures propagate as errors
+and do not produce a successful watch result.
+
+### 2.10 Pipeline stage and step inspection (`jk run steps --json`)
+
+Requires the optional Pipeline Graph View plugin and run read permission. The CLI decodes the plugin's `status/data` envelope; its own output is:
+
+```json
+{
+  "jobPath": "team/app/main",
+  "build": 128,
+  "complete": true,
+  "stages": [{"id":"2","name":"Test","state":"failure","type":"STAGE"}],
+  "steps": [{"id":"3","name":"unit checks","state":"failure","type":"STEP","title":"Shell Script","stageId":"2"}]
+}
+```
+
+Stages may contain `children` and a `nextSibling` stage. Step labels may repeat; `id` is the node identity, and `stageId` links each step to a stage. States are passed through from the plugin (for example `running`, `paused`, `success`, `failure`, `skipped`). Empty collections are arrays. `complete` is true only when both plugin snapshots report completion.
+
 ## 3. Logs
 
 ### 3.1 Run log snapshot (`jk log --json`)
@@ -242,11 +325,20 @@ Unlike `jk run ls`, structured search output always includes this lightweight `m
   "startTime": "2025-08-12T18:24:03Z",
   "duration": "1m32s",
   "log": "Started by user Jane Doe\nRunning on linux-agent-1...\n...",
-  "truncated": false
+  "truncated": false,
+  "complete": true
 }
 ```
 
-When the run is still executing the snapshot may be truncated; the `truncated` flag is set to `true` and callers should retry with `--follow` to stream the full log. The `--follow` mode emits live text only and does not support JSON/YAML serialization.
+Snapshot output is capped at 2 MiB, including completed logs returned in a single response. `truncated: true` means available selected output was omitted. `complete` is always present and is true only when the completed build's requested selection is exact; running snapshots set it to false even when all currently available bytes fit. The false `truncated` value may be omitted for backward compatibility. `--follow` emits live text only and does not support JSON/YAML.
+
+`jk log <job> <build> --tail N --grep <pattern> --json` scans the complete console of a completed build, applies the Go regular expression to each line (excluding its LF/CRLF ending), then retains the last N matching lines. `--tail` must be positive; an explicitly empty pattern matches all lines. Either flag works alone, and both reject running builds and `--follow`. JSON/YAML preserves line endings and the absence of a final newline.
+
+The selected output budget is 2 MiB, independent of N. If it cannot hold the requested selection, tail output keeps the newest whole lines that fit; grep-only output keeps a prefix of whole matching lines. These cases set `truncated: true, complete: false`. Intentional exclusion by grep or tail does not count as truncation. Lines over 1 MiB including the line ending fail the command explicitly rather than yielding an inexact result. `--plain` suppresses metadata and notices, so callers that must detect truncation should use JSON/YAML.
+
+### 3.2 Pipeline node log (`jk log --step <id> --json`)
+
+The snapshot schema in §3.1 gains `stepId` and `complete` for an isolated Pipeline stage or step log. `truncated` is true when the response exceeds 2 MiB; `complete` is false if capped, the build is still running, or plugin metadata reports incomplete execution. YAML uses the same keys. A stage ID returns the stage's aggregated step log. Unknown IDs are rejected before requesting the log, since the plugin can otherwise return HTTP 200 for an invalid node. `--step` cannot be combined with `--follow`, `--tail` or `--grep`.
 
 ## 4. Credentials
 
@@ -342,6 +434,9 @@ The sample below is the planned plugin payload. Today `jk cred create-secret` po
   },
   "environmentVariables": {
     "JK_CONTEXT": "Override the active Jenkins context (same as --context/-c flag)",
+    "JK_TOKEN": "Use an API token from the environment without opening the secret store",
+    "JK_URL": "Controller URL for an ephemeral context (requires JK_USER and JK_TOKEN)",
+    "JK_USER": "Jenkins user ID for an ephemeral context (requires JK_URL and JK_TOKEN)",
     "JK_QUIET": "Enable quiet mode for supported commands (same as --quiet/-q flag)"
   }
 }

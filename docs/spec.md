@@ -148,7 +148,7 @@ Key workflows the CLI must make trivial:
 | `context`      | `jk context ls`, `jk context use`, `jk context rm`              | Config stored under `os.UserConfigDir()/jk/config.yaml` (`~/.config/jk` on Linux/XDG, `~/Library/Application Support/jk` on macOS, `%AppData%\jk` on Windows). |
 | `search`       | `jk search --job-glob '*ada*'`, `jk search --folder tools`      | Top-level alias for cross-job discovery (`run search`). |
 | `job`          | `jk job ls`, `jk job view`, `jk job create`, `jk job config`, `jk job configure`, `jk job scan` | `create` builds a Bitbucket-backed Multibranch Pipeline from flags, or any job type from a full `config.xml` via `--file`/`--stdin`; `config` emits raw XML; `configure` supports `--file`, `--stdin`, or `--script-path`; `scan` is multibranch-only. |
-| `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run cancel`, `jk run rerun` | `run restart-from` *(planned)*. |
+| `run`          | `jk run start`, `jk run ls`, `jk run search`, `jk run params`, `jk run view`, `jk run watch`, `jk run steps`, `jk run cancel`, `jk run rerun` | `run restart-from` *(planned)*. |
 | `log`          | `jk log`, `jk log --follow`                                     | Snapshot default; `--follow` streams like `gh run view --log`. |
 | `artifact`     | `jk artifact ls`, `jk artifact download`                        | Glob filtering via `--pattern`. |
 | `test`         | `jk test report`                                                | `--json` output; `jk test junit` *(planned)*. |
@@ -183,6 +183,7 @@ lookup failures are errors rather than silently selecting a library checkout.
 - Proxy configuration precedence is `flag (--proxy) > environment (HTTPS_PROXY/HTTP_PROXY/NO_PROXY) > context config`. CLI also honors custom CA bundles via `--ca-file` and `JK_CA_FILE`.
 - Crumb and capability flags are cached in memory for the life of the process (capabilities: 60s TTL); nothing is cached on disk.
 - Context resolution precedence is `--context` > `JK_CONTEXT` > active config (`SetActive`). An empty `JK_CONTEXT` must be treated as unset so automation can clear it without mutating local config.
+- A nonempty `JK_TOKEN` overrides the selected context's stored token and bypasses secret-store opening entirely. Empty or whitespace-only `JK_TOKEN`, `JK_URL` and `JK_USER` values are treated as unset. With no selected context, a complete `JK_URL`/`JK_USER`/`JK_TOKEN` tuple supplies an ephemeral in-memory context. If URL or user is supplied, the entire tuple is required; with a selected stored context, URL and user must match it. An explicit missing context remains an error. `JK_URL` must be HTTP(S), without userinfo, query or fragment. Neither environment credentials nor the ephemeral context are persisted. `auth status` reports `Credential source: environment` (or `stored`) without printing the token. `auth login` and `auth logout` require these three variables to be unset before changing stored credentials.
 
 #### 9.2.1 Code layout (gh parity)
 - `cmd/jk` contains only the entrypoint; execution flows into `internal/jkcmd` mirroring `ghcmd`.
@@ -197,6 +198,14 @@ lookup failures are errors rather than silently selecting a library checkout.
 - `jk job config <jobPath>` emits raw `config.xml` to stdout and does not currently support JSON or YAML output.
 - `jk job configure <jobPath>` supports raw replacement via `--file` or `--stdin`, and targeted Jenkinsfile path updates via `--script-path`.
 - `jk job scan <jobPath>` has no command-specific flags; it validates that the target is a Multibranch Pipeline job before posting `/build?delay=0`.
+
+#### 9.2.3 Optional Pipeline stage and step inspection
+
+- `jk run steps <jobPath> <buildNumber>` reads Pipeline Graph View's `<build>/stages/tree` and `<build>/stages/allSteps`. It decodes their `{status:"ok",data:...}` envelopes and returns stage hierarchy plus step IDs, labels, stage IDs and states. The plugin is optional; ordinary commands do not probe it.
+- `jk log <jobPath> <buildNumber> --step <id>` validates the ID against those nodes, then reads `<build>/stages/log?nodeId=<id>`. Stage IDs select that stage's combined step log. Node labels are not identifiers and may repeat in parallel branches.
+- The build is checked before plugin discovery so an absent run is reported as not found. Plugin-route 404 on an existing run reports unsupported Pipeline Graph View; 401/403 remains an authentication/authorization error.
+- Step snapshots read at most 2 MiB plus one detection byte, exposing `truncated` and `complete` in JSON/YAML. `complete` requires completed graph/step snapshots, a finished build and an uncapped log response. Reject `--step` with `--follow`, `--tail` or `--grep`. Plain output contains only the selected log.
+- Metadata reads are capped at 16 MiB. Wire-format fixtures follow the plugin's `PipelineGraph`, `PipelineStepList` and `PipelineJsonWriterTest` contracts; the issue reporter's fixture used plugin `1053.v9df19e6ceed2`.
 
 ### 9.3 HTTP & Auth Flow
 1. Resolve server URL (ensuring trailing slash trimmed) and credentials from context or flags.
@@ -247,6 +256,13 @@ lookup failures are errors rather than silently selecting a library checkout.
 | RUNNING   | 14        |
 
 `jk run view --result --exit-status` also uses RUNNING=14 when a build is still in progress. Other commands keep the general-purpose codes, surfaced consistently in help text and docs.
+
+#### Commit watching
+
+- `jk run watch <jobPath> --commit <sha>` requires an exact full 40- or 64-digit hexadecimal source SHA. Discovery reads retained history in newest-first pages of 100 and chooses the newest matching build; it then pins that build number through completion.
+- Before a matching build exists, queue entries with the job's task URL are job-level context only. For a selected running build, executor waits require the queue task URL to identify that same job and build number. Unrelated queue entries are never attributed to the commit.
+- Poll immediately, then at `--interval` (default `2s`, must be positive). A nonnegative `--timeout` (default `0`, unlimited) covers both discovery and execution, including HTTP requests. Terminal timeout/cancellation codes are 124/130. With `--exit-status`, terminal builds use the result table above and unknown terminal results exit 1.
+- Emit state changes and normalized queue reasons on stderr, suppressing changing parenthesized ETA values. JSON/YAML output is a single final object with `jobPath`, `commit`, `number`, `url`, `status`, `result` and `durationMs`; timeout/cancellation statuses are `timed_out`/`cancelled`, with `number: 0` when no build was identified. Normal completion uses `status: completed`.
 
 ### 9.7 Discovery flags, cursors & metadata
 - `jk run ls` accepts composable discovery flags:
@@ -305,15 +321,25 @@ lookup failures are errors rather than silently selecting a library checkout.
 - The schema mirrors the Cobra tree, enabling agents to self-discover supported commands without scraping text help.
 - `help` respects `--json` globally: `jk --json` falls back to the same representation when help is invoked implicitly.
 
+#### 9.7.5 JUnit reports and failure summaries
+
+- `jk test report <job> <build>` retains JUnit aggregate counts and suite/case identity. Optional case fields `errorDetails`, `errorStackTrace`, `age` and `failedSince` are preserved in JSON/YAML when nonempty. `passCount` is also retained when nonzero.
+- An absent or null `totalCount` is derived from `passCount + failCount + skipCount`; an explicit total, including zero, is authoritative. Missing counts default to zero. Missing reports keep the existing “No test report available” behavior.
+- `test report --failed` includes only `FAILED` and `REGRESSION` cases, omits suites without matching cases and preserves aggregate counts for the complete report. Human output lists matching case identities (up to 160 Unicode characters), failure history and error details (up to 1,024 characters), plus an ellipsis when truncated. Whitespace is collapsed and control characters are removed. JSON/YAML retain the exact original data and full stack traces.
+- `run view --summary` lists up to five matching failed cases, with failure history and error details. Case identities are limited to 160 Unicode characters and error details to 240 (plus an ellipsis), whitespace is collapsed, control characters are removed and stack traces are omitted. The summary indicates omitted cases and points to `test report --failed`. Existing `run view --json` test aggregates remain unchanged.
+
 ### 9.8 Job path encoding
 - Accept human-readable job paths such as `team/app/main`.
 - Split on `/`, percent-encode each segment (spaces → `%20`, encode `%` and characters disallowed in Jenkins identifiers), and join with `/job/<segment>`.
 - Reuse encoder everywhere (HTTP requests, UI links, plugin identifiers) and verify via unit tests covering nested folders, spaces, and special characters.
 
 ### 9.9 Progressive log streaming
-- `jk log <jobPath> <buildNumber>` prints a formatted snapshot of the console log, mirroring `gh run view --log`. When the run is still executing we fetch incremental chunks (up to ~2 MiB) and annotate output as truncated.
+- `jk log <jobPath> <buildNumber>` prints a formatted console snapshot, capped at 2 MiB even if Jenkins returns a complete log in one response. `truncated` indicates omitted bytes. `complete` is true only for a completed build whose requested output is exact; a running snapshot is never a complete build log.
+- `--tail N` selects the last N lines of a completed console, with positive N required. `--grep <pattern>` matches Go regular expressions against individual lines without their CRLF/LF endings. Filtering precedes tail selection. Empty patterns match every line; empty input produces no lines. Line endings and an absent final newline are retained in JSON/YAML.
+- Filters stream `consoleText` through a fixed byte-budget accumulator, scanning the complete console rather than tailing the default snapshot prefix. The selected result remains capped at 2 MiB. For tail output, keep the newest whole lines that fit; grep-only output retains the first whole matching lines that fit. If selected lines are omitted by that cap, `truncated: true` and `complete: false` explicitly indicate an inexact requested result. Requested tail exclusion and grep nonmatches do not by themselves mean truncation. A line over 1 MiB (including its line ending) fails explicitly so a possible match cannot silently disappear. N never determines the allocation size.
+- `--tail`/`--grep` reject running builds and combinations with `--follow`.
 - `jk log --follow` streams live output, reusing the progressive text endpoint with a default 1s polling interval (`--interval` override).
-- Honor `X-Text-Size` to maintain offsets. When 416 is returned, reset the offset to `0` (Jenkins rotated logs).
+- Honor `X-Text-Size` to maintain offsets. Follow mode resets to `0` on 416 (Jenkins rotated logs); snapshots restart only before emitting any bytes, otherwise mark the snapshot truncated to avoid duplicate content.
 - `--plain` disables headings and truncation notices for scripts. (`--since` remains a backlog item captured in §19).
 - During follow mode, emit a short status footer with the final build result to match `gh` UX expectations.
 
