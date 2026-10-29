@@ -165,6 +165,17 @@ Key workflows the CLI must make trivial:
 | `completion`   | `jk completion bash|zsh|fish|powershell`                        | Cobra-generated shell completions. |
 | Global flags   | `--context/-c`, `--json`, `--yaml`, `--format`, `--jq`, `--template/-t`, `--quiet/-q` | Persistent on the root command. `--url`, `--token`, `--insecure` belong to `auth login`; `--color` and `--trace` are *(planned)*. Context precedence: flag > `JK_CONTEXT` > active context. |
 
+#### Source revision selection
+
+Run list/view/search and commit filters prefer the job's `SCMRevisionAction`
+`hash` or `pullHash`. A merge-strategy GitHub PR reports its head revision.
+Checkout metadata requires an exact current Git `lastBuiltRevision` match, or
+an associated marked revision whose built revision matches that current
+checkout. Historical `buildsByBranchName` entries and branch-name equality alone
+do not identify source repositories. Unmatched branch/repository fields are
+omitted. Unsupported revision types retain the legacy first-checkout fallback;
+lookup failures are errors rather than silently selecting a library checkout.
+
 ### 9.2 Configuration & State
 - Config file `config.yaml` holds contexts (`url`, `username`, `insecure`, `proxy`, `ca_file`, `allow_insecure_store`, `front_door`) and `preferences` (`color`, `output_format`, `max_concurrency`).
 - `front_door` (`mode: proxy-bearer-command`, `header`, `token_command`) adds a front-door credential (WAF, SSO proxy, Google IAP) next to Jenkins Basic auth: `token_command` runs as argv without a shell, again when the token is older than 30 minutes; its trimmed output is sent as `<header>: Bearer <token>` on every request to the context's host (not on cross-host redirects). `header: Authorization` is rejected when the context is used because Jenkins auth uses it. `jk auth login` keeps an existing `front_door` block.

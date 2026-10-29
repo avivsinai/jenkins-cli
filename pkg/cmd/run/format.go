@@ -257,7 +257,7 @@ func buildRunListItem(jobPath string, inspection *runInspection, opts runListOpt
 	summary := inspection.Summary
 	status := statusFromFlags(summary.Building)
 	result := resultForList(summary.Result, summary.Building)
-	scm := extractSCMInfo(summary.Actions, summary.ChangeSet)
+	scm := extractSCMInfo(jobPath, summary.Actions, summary.ChangeSet)
 
 	item := runListItem{
 		ID:         fmt.Sprintf("%s/%d", jobPath, summary.Number),
@@ -339,7 +339,7 @@ func buildRunDetailOutput(jobPath string, detail runDetail, testReport *shared.T
 	result := resultForList(detail.Result, detail.Building)
 
 	parameters := extractParameters(detail)
-	scm := extractSCMInfo(detail.Actions, detail.ChangeSet)
+	scm := extractSCMInfo(normalized, detail.Actions, detail.ChangeSet)
 	causes := extractCauses(detail.Actions)
 	stages := extractStages(detail.Stages)
 	tests := extractTestSummary(testReport)
@@ -478,8 +478,85 @@ func displayParameterValue(value any) string {
 	return fmt.Sprint(value)
 }
 
-func extractSCMInfo(actions []map[string]any, change changeSet) *runSCMInfo {
+// scmRevisionHash returns the revision recorded by SCMRevisionAction, which
+// multibranch and other SCM API jobs attach for the job's own source. Branch
+// and tag revisions carry "hash"; pull request revisions carry "pullHash".
+func scmRevisionHash(actions []map[string]any) string {
+	for _, action := range actions {
+		if action["_class"] != "jenkins.scm.api.SCMRevisionAction" {
+			continue
+		}
+		if revision, ok := action["revision"].(map[string]any); ok {
+			for _, key := range []string{"hash", "pullHash"} {
+				if hash, ok := revision[key].(string); ok && hash != "" {
+					return hash
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// sourceBuildData selects the git BuildData for the job's own source. Pipeline
+// libraries loaded from Git add BuildData actions too, often before the source
+// checkout, so prefer an exact current checkout match across all actions before
+// considering a marked PR head. Branch names alone cannot identify a repository.
+func sourceBuildData(actions []map[string]any, revision string) map[string]any {
+	if revision == "" {
+		return nil
+	}
+	for _, action := range actions {
+		lastBuilt, _ := action["lastBuiltRevision"].(map[string]any)
+		if sha, _ := lastBuilt["SHA1"].(string); sha == revision {
+			return action
+		}
+	}
+	for _, action := range actions {
+		if buildDataHasRevision(action, revision) {
+			return action
+		}
+	}
+	return nil
+}
+
+// buildDataHasRevision reports whether a BuildData action built revision.
+// Pull requests built with the merge strategy record a local merge commit as
+// lastBuiltRevision; the pull request head is the build's marked revision in
+// buildsByBranchName.
+func buildDataHasRevision(action map[string]any, revision string) bool {
+	lastBuilt, _ := action["lastBuiltRevision"].(map[string]any)
+	current, _ := lastBuilt["SHA1"].(string)
+	if current == "" {
+		return false
+	}
+	builds, _ := action["buildsByBranchName"].(map[string]any)
+	for _, raw := range builds {
+		build, _ := raw.(map[string]any)
+		built, _ := build["revision"].(map[string]any)
+		marked, _ := build["marked"].(map[string]any)
+		// buildsByBranchName retains historical branches. Only a marked
+		// revision associated with this action's current checkout applies.
+		if built["SHA1"] == current && marked["SHA1"] == revision {
+			return true
+		}
+	}
+	return false
+}
+
+func extractSCMInfo(_ string, actions []map[string]any, change changeSet) *runSCMInfo {
 	info := &runSCMInfo{}
+
+	revision := scmRevisionHash(actions)
+	info.Commit = revision
+	if revision != "" {
+		// Any other git checkout (a Pipeline library) describes another
+		// repository, so only the one that built the revision applies.
+		source := sourceBuildData(actions, revision)
+		actions = nil
+		if source != nil {
+			actions = []map[string]any{source}
+		}
+	}
 
 	for _, action := range actions {
 		if lastBuilt, ok := action["lastBuiltRevision"].(map[string]any); ok {

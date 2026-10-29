@@ -135,6 +135,17 @@ jk log team/app/pipeline 128 --follow              # stream logs until completio
 jk artifact download team/app/pipeline 128 -p "**/*.xml" -o out/
 ```
 
+### Source revisions in run output
+
+`run ls`, `run view`, and `search` prefer the job's `SCMRevisionAction`
+revision over shared-library checkouts. For GitHub pull requests built with a
+merge strategy, `commit` is the PR head, not Jenkins' synthetic merge commit.
+Branch and repository metadata are omitted when no current checkout can be
+matched to that revision; a matching branch name or historical checkout alone
+is insufficient. Controllers whose SCM revision exposes neither `hash` nor
+`pullHash` (including some Bitbucket/GitLab PR revisions) retain legacy checkout
+selection. A failed source-revision lookup is reported as an error.
+
 ### Jenkins SSO / Google OAuth
 
 `jk` uses Jenkins API tokens for scripted clients. If your controller uses Google OAuth, OpenID Connect, Okta, Azure AD, or another browser-based SSO realm, sign in to Jenkins in the browser first, open `/me/configure`, create a Jenkins API token, then run:

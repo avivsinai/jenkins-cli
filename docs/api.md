@@ -70,6 +70,11 @@ This document is normative for the Jenkins CLI (`jk`) JSON output modes and the 
 
 `description` and `displayName` are omitted when Jenkins does not set them.
 
+Run `commit`/`scm.commit` prefer the job's SCM API revision; GitHub PR merge
+builds report the PR head rather than the synthetic merge commit. Branch and
+repository are omitted if no current checkout matches. Unsupported SCM revision
+types retain legacy selection, while revision lookup failures are errors.
+
 ### 2.2 Run list (`jk run ls --json`; planned plugin endpoint `/jk/api/runs`)
 ```json
 {

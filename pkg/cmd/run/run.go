@@ -709,8 +709,10 @@ func extractJobPathFromURL(rawURL string) string {
 
 func buildRunListTree(fetchLimit int, includeArtifacts, includeParameters, includeCauses bool) string {
 	actionsFields := []string{
+		"_class",
 		"lastBuiltRevision[SHA1,branch[name]]",
-		"buildsByBranchName[*]",
+		"revision[hash,pullHash]",
+		"buildsByBranchName[marked[SHA1],revision[SHA1]]",
 		"remoteUrls",
 	}
 	if includeParameters {
@@ -782,7 +784,7 @@ func processRunList(jobPath string, opts runListOptions, builds []runSummary, ne
 			break
 		}
 
-		inspection := inspectRun(summary, needParams, needCauses, needArtifacts)
+		inspection := inspectRun(jobPath, summary, needParams, needCauses, needArtifacts)
 		if inspection == nil {
 			continue
 		}
@@ -833,7 +835,7 @@ func minInt(a, b int) int {
 	return b
 }
 
-func inspectRun(summary runSummary, needParams, needCauses, needArtifacts bool) *runInspection {
+func inspectRun(jobPath string, summary runSummary, needParams, needCauses, needArtifacts bool) *runInspection {
 	ctx := filter.Context{
 		"result":            strings.ToUpper(strings.TrimSpace(summary.Result)),
 		"status":            statusFromFlags(summary.Building),
@@ -898,7 +900,7 @@ func inspectRun(summary runSummary, needParams, needCauses, needArtifacts bool) 
 		}
 	}
 
-	if scm := extractSCMInfo(summary.Actions, summary.ChangeSet); scm != nil {
+	if scm := extractSCMInfo(jobPath, summary.Actions, summary.ChangeSet); scm != nil {
 		if scm.Branch != "" {
 			ctx["branch"] = scm.Branch
 		}
@@ -1647,7 +1649,36 @@ func fetchRunDetail(client *jenkins.Client, jobPath string, buildNumber int64) (
 	if err != nil {
 		return nil, fmt.Errorf("view run %s #%d: %w", jobPath, buildNumber, err)
 	}
+	if err := addSCMRevision(client, path, &detail); err != nil {
+		return nil, fmt.Errorf("view run %s #%d source revision: %w", jobPath, buildNumber, err)
+	}
 	return &detail, nil
+}
+
+// addSCMRevision fetches the SCMRevisionAction revision, which the default API
+// depth lists by class only. Without it, a Pipeline library's git checkout could
+// be mistaken for the job's source.
+func addSCMRevision(client *jenkins.Client, path string, detail *runDetail) error {
+	marked := false
+	for _, action := range detail.Actions {
+		if class, _ := action["_class"].(string); class == "jenkins.scm.api.SCMRevisionAction" {
+			marked = true
+		}
+	}
+	if !marked || scmRevisionHash(detail.Actions) != "" {
+		return nil
+	}
+	var revisions struct {
+		Actions []map[string]any `json:"actions"`
+	}
+	req := client.NewRequest().SetQueryParam("tree", "actions[_class,revision[hash,pullHash]]")
+	if _, err := client.Do(req, http.MethodGet, path, &revisions); err != nil {
+		return err
+	}
+	if hash := scmRevisionHash(revisions.Actions); hash != "" {
+		detail.Actions = append(detail.Actions, map[string]any{"_class": "jenkins.scm.api.SCMRevisionAction", "revision": map[string]any{"hash": hash}})
+	}
+	return nil
 }
 
 func resolveCancelAction(mode string) (string, error) {
