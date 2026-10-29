@@ -12,6 +12,7 @@ import (
 	"github.com/avivsinai/jenkins-cli/internal/config"
 	"github.com/avivsinai/jenkins-cli/internal/jenkins"
 	"github.com/avivsinai/jenkins-cli/internal/secret"
+	"github.com/avivsinai/jenkins-cli/pkg/cmdutil"
 )
 
 // Wire fixtures follow PipelineGraph/PipelineStepList and PipelineJsonWriterTest
@@ -78,11 +79,12 @@ func TestFetchPipelineStepsErrorsAndEmptyRuns(t *testing.T) {
 	for _, tc := range []struct {
 		name, body, want      string
 		buildCode, pluginCode int
+		exitCode              int
 	}{
-		{name: "absent run", buildCode: 404, want: "run team/app #17 not found"},
+		{name: "absent run", buildCode: 404, exitCode: 3, want: "run team/app #17 not found"},
 		{name: "unauthorized run", buildCode: 401, want: "401 Unauthorized"},
 		{name: "forbidden run", buildCode: 403, want: "403 Forbidden"},
-		{name: "absent plugin", pluginCode: 404, want: "Pipeline Graph View is unavailable"},
+		{name: "absent plugin", pluginCode: 404, exitCode: 8, want: "pipeline graph view is unavailable"},
 		{name: "forbidden plugin", pluginCode: 403, want: "403 Forbidden"},
 		{name: "invalid JSON", body: "<html>login</html>", want: "decode Pipeline Graph View"},
 		{name: "plugin error", body: `{"status":"error","data":{"message":"failed"}}`, want: `status "error"`},
@@ -111,6 +113,11 @@ func TestFetchPipelineStepsErrorsAndEmptyRuns(t *testing.T) {
 			result, err := FetchPipelineSteps(context.Background(), newPipelineClient(t, srv.URL), "team/app", 17)
 			if tc.want != "" {
 				require.ErrorContains(t, err, tc.want)
+				if tc.exitCode != 0 {
+					var exitErr *cmdutil.ExitError
+					require.ErrorAs(t, err, &exitErr)
+					require.Equal(t, tc.exitCode, exitErr.Code)
+				}
 				if tc.buildCode != 0 {
 					require.Zero(t, pluginRequests)
 				}

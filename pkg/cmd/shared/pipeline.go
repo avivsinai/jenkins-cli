@@ -92,21 +92,21 @@ func fetchPipelineData(ctx context.Context, client *jenkins.Client, path, requir
 	}
 	body := resp.RawBody()
 	if body == nil {
-		return errors.New("Pipeline Graph View returned an empty response")
+		return errors.New("pipeline graph view returned an empty response")
 	}
 	defer func() { _ = body.Close() }()
 	if resp.StatusCode() == http.StatusNotFound {
-		return errors.New("Pipeline Graph View is unavailable for this run (install/enable the plugin on a Pipeline job)")
+		return NewExitError(8, "pipeline graph view is unavailable for this run (install/enable the plugin on a Pipeline job)")
 	}
 	if resp.StatusCode() >= 400 {
-		return fmt.Errorf("Pipeline Graph View request: %s", resp.Status())
+		return fmt.Errorf("pipeline graph view request: %s", resp.Status())
 	}
 	data, err := io.ReadAll(io.LimitReader(body, maxMetadata+1))
 	if err != nil {
 		return fmt.Errorf("read Pipeline Graph View response: %w", err)
 	}
 	if len(data) > maxMetadata {
-		return errors.New("Pipeline Graph View metadata exceeds 16 MiB")
+		return errors.New("pipeline graph view metadata exceeds 16 MiB")
 	}
 	var envelope struct {
 		Status string          `json:"status" yaml:"status"`
@@ -116,14 +116,14 @@ func fetchPipelineData(ctx context.Context, client *jenkins.Client, path, requir
 		return fmt.Errorf("decode Pipeline Graph View response: %w", err)
 	}
 	if envelope.Status != "ok" {
-		return fmt.Errorf("Pipeline Graph View response status %q (expected ok)", envelope.Status)
+		return fmt.Errorf("pipeline graph view response status %q (expected ok)", envelope.Status)
 	}
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(envelope.Data, &fields); err != nil {
 		return fmt.Errorf("decode Pipeline Graph View data: %w", err)
 	}
 	if _, ok := fields[required]; !ok {
-		return fmt.Errorf("Pipeline Graph View response is missing %q", required)
+		return fmt.Errorf("pipeline graph view response is missing %q", required)
 	}
 	if err := json.Unmarshal(envelope.Data, dst); err != nil {
 		return fmt.Errorf("decode Pipeline Graph View data: %w", err)

@@ -39,7 +39,7 @@ func renderStepLog(cmd *cobra.Command, client *jenkins.Client, opts *logOptions,
 		return err
 	}
 	if !pipeline.HasNode(opts.stepID) {
-		return fmt.Errorf("Pipeline node %q not found; use jk run steps %s %d", opts.stepID, opts.jobPath, build)
+		return fmt.Errorf("pipeline node %q not found; use jk run steps %s %d", opts.stepID, opts.jobPath, build)
 	}
 	path := fmt.Sprintf("/%s/%d/stages/log", jenkins.EncodeJobPath(opts.jobPath), build)
 	req := client.NewRequest().SetContext(ctx).SetHeader("Accept", "text/plain").
@@ -53,6 +53,9 @@ func renderStepLog(cmd *cobra.Command, client *jenkins.Client, opts *logOptions,
 		return errors.New("step log returned an empty response")
 	}
 	defer func() { _ = body.Close() }()
+	if resp.StatusCode() == http.StatusNotFound {
+		return shared.NewExitError(8, "pipeline graph view node logs are unavailable for this run")
+	}
 	if resp.StatusCode() >= 400 {
 		return fmt.Errorf("fetch Pipeline node %s log: %s", opts.stepID, resp.Status())
 	}
