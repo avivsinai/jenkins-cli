@@ -15,6 +15,7 @@ import (
 
 func TestAdversarialEnvironmentAuthThroughRootFactory(t *testing.T) {
 	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 	t.Setenv("JK_CONTEXT", "")
 	t.Setenv("KEYRING_BACKEND", "unusable-backend")
@@ -47,6 +48,8 @@ func TestAdversarialEnvironmentAuthThroughRootFactory(t *testing.T) {
 	require.Equal(t, 0, code, errOut.String())
 	require.Equal(t, 1, calls)
 	require.NotContains(t, out.String()+errOut.String(), "review-secret")
-	_, err = os.Stat(filepath.Join(tmp, "jk"))
+	configDir, err := os.UserConfigDir()
+	require.NoError(t, err)
+	_, err = os.Stat(filepath.Join(configDir, "jk"))
 	require.ErrorIs(t, err, os.ErrNotExist)
 }

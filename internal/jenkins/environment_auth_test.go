@@ -68,6 +68,7 @@ func TestEnvironmentTokenBypassesUnusableKeyringWithoutWrites(t *testing.T) {
 	for _, ephemeral := range []bool{false, true} {
 		t.Run(map[bool]string{false: "stored context", true: "no config"}[ephemeral], func(t *testing.T) {
 			tmp := t.TempDir()
+			t.Setenv("HOME", tmp)
 			t.Setenv("XDG_CONFIG_HOME", tmp)
 			t.Setenv("JK_ALLOW_INSECURE_STORE", "1")
 			t.Setenv("KEYRING_BACKEND", "file")
