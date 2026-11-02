@@ -49,11 +49,17 @@ func StreamProgressiveLog(ctx context.Context, client *jenkins.Client, jobPath s
 		}
 
 		if resp.StatusCode() == http.StatusRequestedRangeNotSatisfiable {
+			if body := resp.RawBody(); body != nil {
+				_ = body.Close()
+			}
 			offset = 0
 			time.Sleep(interval)
 			continue
 		}
 		if resp.StatusCode() >= 400 {
+			if body := resp.RawBody(); body != nil {
+				_ = body.Close()
+			}
 			return fmt.Errorf("stream log for %s #%d: %s", jobPath, buildNumber, resp.Status())
 		}
 
@@ -62,18 +68,8 @@ func StreamProgressiveLog(ctx context.Context, client *jenkins.Client, jobPath s
 			return errors.New("log stream returned empty body")
 		}
 
-		chunk, err := readAndClose(body)
-		if err != nil {
-			if ctx != nil && ctx.Err() != nil {
-				return nil
-			}
-			return fmt.Errorf("read log chunk: %w", err)
-		}
-
-		if len(chunk) > 0 {
-			if _, err := out.Write(chunk); err != nil {
-				return err
-			}
+		if err := streamAndClose(ctx, body, out); err != nil {
+			return err
 		}
 
 		if nextOffset := resp.Header().Get("X-Text-Size"); nextOffset != "" {
@@ -178,15 +174,37 @@ func CollectLogSnapshot(ctx context.Context, client *jenkins.Client, jobPath str
 	return true, nil
 }
 
-func readAndClose(rc io.ReadCloser) ([]byte, error) {
-	data, err := io.ReadAll(rc)
-	if cerr := rc.Close(); cerr != nil {
-		closeErr := fmt.Errorf("close log stream: %w", cerr)
-		if err != nil {
+// streamAndClose keeps response buffering bounded and closes the body on every
+// exit, including output failures. Cancellation of a read ends following quietly;
+// output failures are still returned to the caller.
+func streamAndClose(ctx context.Context, body io.ReadCloser, out io.Writer) (err error) {
+	defer func() {
+		if cerr := body.Close(); cerr != nil && (ctx == nil || ctx.Err() == nil) {
+			closeErr := fmt.Errorf("read log chunk: close log stream: %w", cerr)
 			err = errors.Join(err, closeErr)
-		} else {
-			err = closeErr
+		}
+	}()
+
+	buf := make([]byte, 32*1024)
+	for {
+		if ctx != nil && ctx.Err() != nil {
+			return nil
+		}
+		n, rerr := body.Read(buf)
+		if n > 0 {
+			written, werr := out.Write(buf[:n])
+			if werr != nil {
+				return werr
+			}
+			if written != n {
+				return io.ErrShortWrite
+			}
+		}
+		if rerr != nil {
+			if rerr == io.EOF || (ctx != nil && ctx.Err() != nil) {
+				return nil
+			}
+			return fmt.Errorf("read log chunk: %w", rerr)
 		}
 	}
-	return data, err
 }
