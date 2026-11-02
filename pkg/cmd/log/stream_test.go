@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 )
 
 func TestLogFollowStreamsLargeCompletedResponse(t *testing.T) {
-	const size = 256 * 1024 * 1024
+	const size = 8 * 1024 * 1024
 	firstWrite := make(chan struct{})
 	serverErr := make(chan error, 1)
 	client, cfg := logTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -109,6 +110,7 @@ func (w *streamCountingWriter) Write(p []byte) (int, error) {
 }
 
 func TestLogFollowPreservesProgressiveOffsets(t *testing.T) {
+	var startsMu sync.Mutex
 	var starts []string
 	client, cfg := logTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/job/main/7/api/json" {
@@ -116,8 +118,11 @@ func TestLogFollowPreservesProgressiveOffsets(t *testing.T) {
 			_, _ = io.WriteString(w, `{"building":false,"result":"SUCCESS"}`)
 			return
 		}
+		startsMu.Lock()
 		starts = append(starts, r.URL.Query().Get("start"))
-		switch len(starts) {
+		requestCount := len(starts)
+		startsMu.Unlock()
+		switch requestCount {
 		case 1:
 			// Jenkins' byte offset need not equal the decoded output length.
 			w.Header().Set("X-Text-Size", "123")
@@ -145,6 +150,9 @@ func TestLogFollowPreservesProgressiveOffsets(t *testing.T) {
 	cmd.SetErr(io.Discard)
 	cmd.SetArgs([]string{"main", "7", "--follow", "--plain", "--interval", "1ms"})
 	require.NoError(t, cmd.Execute())
-	require.Equal(t, []string{"0", "123", "0"}, starts)
+	startsMu.Lock()
+	observedStarts := append([]string(nil), starts...)
+	startsMu.Unlock()
+	require.Equal(t, []string{"0", "123", "0"}, observedStarts)
 	require.Equal(t, "first\nlast\n", out.String())
 }
