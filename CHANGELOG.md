@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bounded memory and explicit completeness/truncation metadata.
 
 ### Fixed
+- Stream `log --follow` responses in bounded chunks, including completed consoles.
 - Derive JUnit totals from pass/fail/skip counts when Jenkins omits the total.
 - Enforce the console snapshot byte budget even for a large single response.
 - Sanitize terminal controls in new human test and Pipeline metadata output.
