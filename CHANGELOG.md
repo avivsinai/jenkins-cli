@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   repository. Bitbucket and GitLab pull request revisions, which carry neither
   `hash` nor `pullHash`, keep the previous behaviour.
 
+### Security
+- Build with golang.org/x/net 0.62.0, which fixes GO-2026-6860 and
+  GO-2026-6866.
+
 ## [0.0.42] - 2026-10-25
 ### Security
 - Build with golang.org/x/net 0.61.0 and golang.org/x/crypto 0.58.0, which fix

@@ -3,6 +3,8 @@ name: Notify Skills Marketplace
 on:
   push:
 
+permissions: {}
+
 concurrency:
   group: notify-marketplace-${{ github.ref }}
   cancel-in-progress: true
