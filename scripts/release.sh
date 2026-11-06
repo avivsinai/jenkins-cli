@@ -21,11 +21,14 @@ Options:
   --skip-verify      Skip JK_E2E_DISABLE=1 make test, make e2e, and make build
   --allow-empty      Allow releasing with an empty Unreleased section
   --no-auto-merge    Create the PR but do not enable auto-merge
+  --no-push          Prepare the local release commit but do not push or open a PR
+  --ci               CI mode: skip e2e/build (run JK_E2E_DISABLE=1 make test only)
   -h, --help         Show this help text
 
 Examples:
   ./scripts/release.sh 0.0.26
   ./scripts/release.sh 0.0.26 --no-auto-merge
+  ./scripts/release.sh 0.0.26 --ci --no-push
 EOF
 }
 
@@ -36,11 +39,22 @@ require_command() {
   fi
 }
 
+ensure_git_identity() {
+  if [ -z "$(git config --get user.name || true)" ]; then
+    git config user.name "github-actions[bot]"
+  fi
+  if [ -z "$(git config --get user.email || true)" ]; then
+    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+  fi
+}
+
 version=""
 release_date="$(date -u +%Y-%m-%d)"
 skip_verify=0
 allow_empty=0
 auto_merge=1
+no_push=0
+ci_mode=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -65,6 +79,14 @@ while [ $# -gt 0 ]; do
       auto_merge=0
       shift
       ;;
+    --no-push)
+      no_push=1
+      shift
+      ;;
+    --ci)
+      ci_mode=1
+      shift
+      ;;
     --*)
       echo "error: unknown option: $1" >&2
       usage >&2
@@ -85,8 +107,10 @@ done
 [ -n "$version" ] || { usage >&2; exit 1; }
 
 require_command git
-require_command gh
 require_command python3
+if [ "$no_push" -eq 0 ]; then
+  require_command gh
+fi
 
 printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$' || {
   echo "error: version must be X.Y.Z or X.Y.Z-rc.1, got: $version" >&2
@@ -109,26 +133,30 @@ git diff --cached --quiet --ignore-submodules -- || {
   exit 1
 }
 
-current_branch="$(git branch --show-current)"
-[ "$current_branch" = "main" ] || {
-  echo "error: releases must be prepared from main; current branch is $current_branch" >&2
-  exit 1
-}
+if [ "$no_push" -eq 0 ]; then
+  current_branch="$(git branch --show-current)"
+  [ "$current_branch" = "main" ] || {
+    echo "error: releases must be prepared from main; current branch is $current_branch" >&2
+    exit 1
+  }
 
-git fetch --quiet origin main --tags
+  git fetch --quiet origin main --tags
 
-local_head="$(git rev-parse HEAD)"
-remote_head="$(git rev-parse origin/main)"
-[ "$local_head" = "$remote_head" ] || {
-  echo "error: local main is not at origin/main; pull or reset before releasing" >&2
-  exit 1
-}
+  local_head="$(git rev-parse HEAD)"
+  remote_head="$(git rev-parse origin/main)"
+  [ "$local_head" = "$remote_head" ] || {
+    echo "error: local main is not at origin/main; pull or reset before releasing" >&2
+    exit 1
+  }
+else
+  git fetch --quiet origin --tags
+fi
 
 if git show-ref --verify --quiet "refs/heads/${branch}"; then
   echo "error: branch already exists locally: ${branch}" >&2
   exit 1
 fi
-if git ls-remote --exit-code --heads origin "${branch}" >/dev/null 2>&1; then
+if [ "$no_push" -eq 0 ] && git ls-remote --exit-code --heads origin "${branch}" >/dev/null 2>&1; then
   echo "error: branch already exists on origin: ${branch}" >&2
   exit 1
 fi
@@ -139,6 +167,10 @@ fi
 if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
   echo "error: tag already exists on origin: ${tag}" >&2
   exit 1
+fi
+
+if [ "$ci_mode" -eq 1 ]; then
+  ensure_git_identity
 fi
 
 git switch -c "$branch"
@@ -211,12 +243,17 @@ PY
 
 if [ "$skip_verify" -eq 0 ]; then
   JK_E2E_DISABLE=1 make test
-  make e2e
-  make build
+  if [ "$ci_mode" -eq 0 ]; then
+    make e2e
+    make build
+  fi
 fi
 
-git add CHANGELOG.md skills/*/SKILL.md .claude-plugin/plugin.json
-[ -f .codex-plugin/plugin.json ] && git add .codex-plugin/plugin.json
+git add -- CHANGELOG.md .claude-plugin/plugin.json
+while IFS= read -r skill_file; do
+  git add -- "$skill_file"
+done < <(find skills -mindepth 2 -maxdepth 2 -name SKILL.md | LC_ALL=C sort)
+[ -f .codex-plugin/plugin.json ] && git add -- .codex-plugin/plugin.json
 
 git diff --cached --quiet && {
   echo "error: release prep produced no staged changes" >&2
@@ -224,6 +261,16 @@ git diff --cached --quiet && {
 }
 
 git commit -m "chore(release): ${tag}"
+
+if [ "$no_push" -eq 1 ]; then
+  echo ""
+  echo "Prepared ${tag} locally (--no-push)"
+  echo "Release branch: ${branch}"
+  echo "Commit: $(git rev-parse HEAD)"
+  echo "Push skipped; no pull request opened"
+  exit 0
+fi
+
 git push -u origin "$branch"
 
 pr_body=$(
