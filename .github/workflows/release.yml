@@ -263,6 +263,8 @@ jobs:
           security import "$RUNNER_TEMP/developer-id.p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign
           rm -f "$RUNNER_TEMP/developer-id.p12"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" >/dev/null
+          # Put the signing keychain first and keep the existing search list.
+          # shellcheck disable=SC2046 # one word per keychain path
           security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
 
           # The SHA-1 picks one identity even if the .p12 holds a renewed and
