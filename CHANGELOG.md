@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.0.43] - 2026-11-06
 ### Added
 - GitHub Actions `Release request` workflow to open a `chore(release): vX.Y.Z` PR from `workflow_dispatch`, so a release can be cut without running `scripts/release.sh` locally.
 - Headless authentication through `JK_TOKEN` and ephemeral `JK_URL`/`JK_USER`
@@ -34,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Build with golang.org/x/net 0.62.0, which fixes GO-2026-6860 and
   GO-2026-6866.
+
 
 ## [0.0.42] - 2026-10-25
 ### Security
