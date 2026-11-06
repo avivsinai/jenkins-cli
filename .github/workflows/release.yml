@@ -339,9 +339,7 @@ jobs:
   skill-publish:
     name: Publish Skills
     needs: [prepare, release]
-    if: >-
-      needs.release.result == 'success' &&
-      (github.event_name == 'push' || inputs.skip-skill-publish != 'true')
+    if: needs.release.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- GitHub Actions `Release request` workflow to open a `chore(release): vX.Y.Z` PR from `workflow_dispatch`, so a release can be cut without running `scripts/release.sh` locally.
 - Headless authentication through `JK_TOKEN` and ephemeral `JK_URL`/`JK_USER`
   contexts, with credential-source reporting and no token persistence.
 - `jk run watch --commit` follows a source revision from queue to completion,

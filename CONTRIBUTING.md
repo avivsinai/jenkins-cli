@@ -105,12 +105,15 @@ This creates binaries in `dist/` with versions like `0.0.30-next+abc1234`.
 
 ## Release process
 
-Releases are automated with the PR-based `./scripts/release.sh X.Y.Z` flow:
+Releases are automated with the PR-based flow. Prefer GitHub Actions so nobody has to run `scripts/release.sh` locally:
 
-1. Update `CHANGELOG.md` under `Unreleased`, then run `./scripts/release.sh X.Y.Z` from `main`.
-2. The script opens a release PR with `chore(release): vX.Y.Z` and aligned skill/plugin metadata.
-3. After the release PR merges, `.github/workflows/release.yml` validates the merged release commit, creates the matching tag, builds binaries for Linux and macOS (amd64 + arm64) and Windows (amd64), and publishes the GitHub release with artifacts and checksums.
-4. Conventional commits (`feat:`, `fix:`, `deps:`) still help keep changelog entries and release summaries consistent.
+1. Update `CHANGELOG.md` under `Unreleased`.
+2. Dispatch **Release request** from `main` (Actions → Release request → Run workflow) with version `X.Y.Z`. Alternatively, run `./scripts/release.sh X.Y.Z` from `main`.
+3. Either path opens a release PR titled `chore(release): vX.Y.Z` with aligned skill/plugin metadata and squash auto-merge. The Actions path uses the release GitHub App token so merge can trigger the existing Release workflow.
+4. After the release PR merges, `.github/workflows/release.yml` validates the merged release commit, creates the matching tag, builds binaries for Linux and macOS (amd64 + arm64) and Windows (amd64), and publishes the GitHub release with artifacts and checksums.
+5. Conventional commits (`feat:`, `fix:`, `deps:`) still help keep changelog entries and release summaries consistent.
+
+`./scripts/release.sh` still works locally. `--ci` skips e2e/build and runs `JK_E2E_DISABLE=1 make test` only (the Actions job uses this). `--no-push` prepares the local release commit without pushing or opening a PR.
 
 ### macOS signing
 
