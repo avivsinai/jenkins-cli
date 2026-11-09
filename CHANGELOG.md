@@ -7,10 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.45] - 2026-11-09
 ### Fixed
 - Fetch newly created release tags before GoReleaser resolves the release version.
   The 0.0.44 publish run was stopped before packaging because it shared this defect.
   This release includes the lost-mutation-reply fix documented under 0.0.44 below.
+
 
 ## [0.0.44] - 2026-11-09
 ### Fixed
