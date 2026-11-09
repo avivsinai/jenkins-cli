@@ -94,7 +94,7 @@ Key workflows the CLI must make trivial:
 ## 6. Non-Functional Requirements
 - **Security:** TLS verification by default with explicit opt-out, secure token storage (OS keychain), automatic crumb handling, adherence to Jenkins permissions.
 - **Performance:** `jk log follow` latency < 500 ms refresh; listing commands limited via pagination (`--limit`) and `tree` query parameters to minimize payloads. Outbound request concurrency limits (`--max-concurrency`, `JK_MAX_CONCURRENCY`) are planned; there is no limiter today.
-- **Reliability:** Commands retry transient network errors; CLI caches crumb until expiry; operations idempotent when possible.
+- **Reliability:** Reads retain bounded retries for transient network errors. Mutating requests do not retry transport failures, because a lost reply may follow an accepted action. A 401/403 response still permits one authentication/crumb refresh and resubmission. CLI caches crumbs until expiry.
 - **Portability:** Single static binary for macOS (amd64/arm64), Linux (amd64/arm64), Windows (amd64).
 - **Observability:** Optional verbose logging (`JK_LOG=debug|trace`), structured logs for integration tests, plugin exposes audit logs/metrics.
 - **Extensibility:** Clear public interfaces for third-party extensions and plugin endpoints; maintain semantic versioning for the CLI and plugin.
