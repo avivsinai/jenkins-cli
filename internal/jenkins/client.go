@@ -349,6 +349,9 @@ func responseBodySnippet(resp *resty.Response) string {
 
 func (c *Client) execute(req *resty.Request, method, path string, allowRetry bool) (*resty.Response, error) {
 	if needsCrumb(method) {
+		// A lost reply may follow an accepted mutation. Only the explicit
+		// authentication/crumb refresh below may repeat this request.
+		req.AddRetryCondition(func(*resty.Response, error) bool { return false })
 		crumb, err := c.ensureCrumb(req.Context())
 		if err != nil {
 			return nil, err

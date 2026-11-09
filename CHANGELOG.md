@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Do not replay mutating requests after a transport failure; preserve read retries and one authentication/crumb refresh after a 401/403 response.
+
 ## [0.0.43] - 2026-11-06
 ### Added
 - GitHub Actions `Release request` workflow to open a `chore(release): vX.Y.Z` PR from `workflow_dispatch`, so a release can be cut without running `scripts/release.sh` locally.
