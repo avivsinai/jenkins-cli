@@ -155,3 +155,46 @@ func TestCrumbRefreshDoesNotRetryTransportFailure(t *testing.T) {
 		}
 	}
 }
+
+// Resty evaluates request-level retry conditions before client-level ones and
+// retries on the first that returns true, so the request-level guard in
+// execute cannot veto a client-level condition. This test fails if any
+// client-level condition makes a mutation repeat after a reply that may
+// follow an accepted request.
+func TestMutationErrorStatusIsNotRetried(t *testing.T) {
+	statuses := []int{
+		http.StatusTooManyRequests,
+		http.StatusInternalServerError,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout,
+	}
+	for _, stream := range []bool{false, true} {
+		for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
+			for _, status := range statuses {
+				t.Run(fmt.Sprintf("%s/%d/stream=%t", method, status, stream), func(t *testing.T) {
+					var accepted atomic.Int32
+					server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						if r.URL.Path == crumbEndpoint {
+							w.WriteHeader(http.StatusNotFound)
+							return
+						}
+						accepted.Add(1)
+						w.Header().Set("Retry-After", "0")
+						w.WriteHeader(status)
+					}))
+					defer server.Close()
+					client := retryTestClient(t, server.URL)
+					req := client.NewRequest()
+					if stream {
+						req = client.NewStreamingRequest()
+					}
+					_, _ = client.Do(req.SetBody("action"), method, "/job/example/build", nil)
+					if got := accepted.Load(); got != 1 {
+						t.Errorf("mutation requests after HTTP %d = %d, want 1", status, got)
+					}
+				})
+			}
+		}
+	}
+}
