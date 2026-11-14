@@ -1,6 +1,6 @@
 module github.com/avivsinai/jenkins-cli
 
-go 1.26.7
+go 1.26.11
 
 require (
 	github.com/99designs/keyring v1.2.2
