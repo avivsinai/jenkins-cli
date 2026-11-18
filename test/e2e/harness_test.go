@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 	"github.com/containerd/platforms"
 	mobycontainertypes "github.com/moby/moby/api/types/container"
 	mobymount "github.com/moby/moby/api/types/mount"
+	mobynetwork "github.com/moby/moby/api/types/network"
 	mobyclient "github.com/moby/moby/client"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	tc "github.com/testcontainers/testcontainers-go"
@@ -364,6 +366,9 @@ func launchJenkins(ctx context.Context, repoRoot, bareRepoPath string) (tc.Conta
 		ExposedPorts:  []string{"8080/tcp"},
 		WaitingFor:    wait.ForLog("Jenkins is fully up and running").WithStartupTimeout(5 * time.Minute),
 		HostConfigModifier: func(hc *mobycontainertypes.HostConfig) {
+			hc.PortBindings = mobynetwork.PortMap{
+				mobynetwork.MustParsePort("8080/tcp"): {{HostIP: netip.MustParseAddr("127.0.0.1"), HostPort: "0"}},
+			}
 			if caFile != "" {
 				hc.Mounts = append(hc.Mounts, mobymount.Mount{Type: mobymount.TypeBind, Source: caFile, Target: caTarget, ReadOnly: true})
 			}
@@ -447,6 +452,10 @@ func (h *harness) runCLI(ctx context.Context, args ...string) (string, string, e
 func (h *harness) runCLIWithInput(ctx context.Context, input string, args ...string) (string, string, error) {
 	cmd := exec.CommandContext(ctx, h.cliPath, args...)
 	cmd.Env = append(os.Environ(),
+		"JK_URL=",
+		"JK_USER=",
+		"JK_TOKEN=",
+		"JK_CONTEXT=",
 		fmt.Sprintf("XDG_CONFIG_HOME=%s", h.configDir),
 		fmt.Sprintf("KEYRING_BACKEND=%s", "file"),
 		fmt.Sprintf("KEYRING_FILE_DIR=%s", h.secretsDir),
