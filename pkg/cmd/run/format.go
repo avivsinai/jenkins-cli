@@ -92,6 +92,7 @@ type filterMetadata struct {
 type runParameterInfo struct {
 	Name         string   `json:"name"`
 	Type         string   `json:"type,omitempty"`
+	InputFlag    string   `json:"inputFlag,omitempty"`
 	Default      string   `json:"default,omitempty"`
 	IsSecret     bool     `json:"isSecret"`
 	SampleValues []string `json:"sampleValues,omitempty"`

@@ -311,6 +311,7 @@ func NewCmdRun(f *cmdutil.Factory) *cobra.Command {
 
 func newRunStartCmd(f *cmdutil.Factory) *cobra.Command {
 	var params []string
+	var paramLists []string
 	var follow bool
 	var interval time.Duration
 	var fuzzyMatch bool
@@ -328,7 +329,8 @@ func newRunStartCmd(f *cmdutil.Factory) *cobra.Command {
 Related commands:
   jk search --job-glob '<pattern>'      Search for jobs by pattern
   jk job ls --folder '<folder>'         List jobs in a folder`,
-		Args: cobra.ExactArgs(1),
+		Example: `  jk run start team/app -p ENV=staging --param-list 'DOMAINS=["a","b","c"]'`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate --result requires --follow
 			if resultOnly && !follow {
@@ -339,18 +341,14 @@ Related commands:
 				return fmt.Errorf("--wait and --follow are mutually exclusive")
 			}
 
-			client, err := shared.JenkinsClient(cmd, f)
+			form, err := parseStartParameters(params, paramLists)
 			if err != nil {
 				return err
 			}
 
-			paramMap := make(map[string]string, len(params))
-			for _, p := range params {
-				parts := strings.SplitN(p, "=", 2)
-				if len(parts) != 2 {
-					return fmt.Errorf("invalid parameter %q", p)
-				}
-				paramMap[strings.TrimSpace(parts[0])] = parts[1]
+			client, err := shared.JenkinsClient(cmd, f)
+			if err != nil {
+				return err
 			}
 
 			// Try to resolve the job path (with fuzzy matching if enabled)
@@ -364,7 +362,7 @@ Related commands:
 				return err
 			}
 
-			resp, err := triggerBuild(client, resolvedPath, paramMap)
+			resp, err := triggerBuild(client, resolvedPath, form)
 			if err != nil {
 				return err
 			}
@@ -447,7 +445,8 @@ Related commands:
 		},
 	}
 
-	cmd.Flags().StringArrayVarP(&params, "param", "p", nil, "Build parameter key=value (use multiple -p flags for multiple params)")
+	cmd.Flags().StringArrayVarP(&params, "param", "p", nil, "Scalar build parameter NAME=VALUE (one flag per name)")
+	cmd.Flags().StringArrayVar(&paramLists, "param-list", nil, "Multi-value build parameter NAME=JSON_ARRAY (one flag per name)")
 	cmd.Flags().BoolVar(&follow, "follow", false, "Follow the run progress until completion")
 	cmd.Flags().DurationVar(&interval, "follow-interval", 500*time.Millisecond, "Polling interval when following runs")
 	cmd.Flags().BoolVar(&fuzzyMatch, "fuzzy", false, "Enable fuzzy matching for job names")
@@ -1414,7 +1413,11 @@ func newRunRerunCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			params := collectRerunParameters(*detail)
-			resp, err := triggerBuild(client, args[0], params)
+			form := make(url.Values, len(params))
+			for name, value := range params {
+				form.Set(name, value)
+			}
+			resp, err := triggerBuild(client, args[0], form)
 			if err != nil {
 				return err
 			}
@@ -1558,7 +1561,7 @@ func validateJobIsBuildable(client *jenkins.Client, jobPath string) error {
 	return nil
 }
 
-func triggerBuild(client *jenkins.Client, jobPath string, params map[string]string) (*resty.Response, error) {
+func triggerBuild(client *jenkins.Client, jobPath string, params url.Values) (*resty.Response, error) {
 	if client == nil {
 		return nil, errors.New("jenkins client is required")
 	}
@@ -1571,7 +1574,7 @@ func triggerBuild(client *jenkins.Client, jobPath string, params map[string]stri
 	methodPath := fmt.Sprintf("/%s/build", encoded)
 	req := client.NewRequest()
 	if len(params) > 0 {
-		req.SetFormData(params)
+		req.SetFormDataFromValues(params)
 		methodPath = fmt.Sprintf("/%s/buildWithParameters", encoded)
 	}
 

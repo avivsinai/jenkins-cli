@@ -3,10 +3,12 @@ package run
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -22,7 +24,48 @@ const (
 	paramsSourceAuto   = "auto"
 	paramsSourceConfig = "config"
 	paramsSourceRuns   = "runs"
+
+	extendedChoiceDefinition = "com.cwctravel.hudson.plugins.extended_choice_parameter.ExtendedChoiceParameterDefinition"
 )
+
+func parseStartParameters(scalars, lists []string) (url.Values, error) {
+	form := make(url.Values, len(scalars)+len(lists))
+	for _, group := range []struct {
+		flag string
+		args []string
+	}{
+		{flag: "--param", args: scalars},
+		{flag: "--param-list", args: lists},
+	} {
+		for _, arg := range group.args {
+			name, value, found := strings.Cut(arg, "=")
+			name = strings.TrimSpace(name)
+			if !found || name == "" {
+				return nil, fmt.Errorf("invalid %s: expected NAME=VALUE", group.flag)
+			}
+			if _, exists := form[name]; exists {
+				return nil, fmt.Errorf("duplicate parameter %q: specify each name once, using --param-list for multiple selections", name)
+			}
+			if group.flag == "--param" {
+				form.Set(name, value)
+				continue
+			}
+
+			var selections []any
+			if err := json.Unmarshal([]byte(value), &selections); err != nil || len(selections) == 0 {
+				return nil, fmt.Errorf("invalid --param-list for %q: expected a non-empty JSON array of strings", name)
+			}
+			for _, selection := range selections {
+				option, ok := selection.(string)
+				if !ok {
+					return nil, fmt.Errorf("invalid --param-list for %q: expected only JSON strings", name)
+				}
+				form.Add(name, option)
+			}
+		}
+	}
+	return form, nil
+}
 
 func newRunParamsCmd(f *cmdutil.Factory) *cobra.Command {
 	var (
@@ -201,6 +244,9 @@ func renderRunParamsHuman(cmd *cobra.Command, output runParamsOutput) error {
 		if len(param.SampleValues) > 0 && !param.IsSecret {
 			_, _ = fmt.Fprintf(w, "    Sample values: %s\n", strings.Join(param.SampleValues, ", "))
 		}
+		if param.InputFlag != "" {
+			_, _ = fmt.Fprintf(w, "    Input flag: %s (JSON array of strings)\n", param.InputFlag)
+		}
 		if param.Frequency > 0 && param.Frequency < 0.999 {
 			_, _ = fmt.Fprintf(w, "    Seen in %.0f%% of recent runs\n", param.Frequency*100)
 		}
@@ -269,6 +315,11 @@ func parseParametersFromConfig(data []byte) ([]runParameterInfo, error) {
 			case "defaultValue":
 				if !current.IsSecret {
 					current.Default = text
+				}
+			case "type":
+				if depth == paramDepth+1 && (text == "PT_CHECKBOX" || text == "PT_MULTI_SELECT") &&
+					strings.ReplaceAll(stack[paramDepth-1].Name.Local, "__", "_") == extendedChoiceDefinition {
+					current.InputFlag = "--param-list"
 				}
 			case "description":
 				// description omitted from output for now

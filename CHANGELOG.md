@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+- Submit Extended Choice checkbox and multi-select parameters with `jk run start --param-list` and reject repeated parameter names. Reported by Tair-Bitan in [#211](https://github.com/avivsinai/jenkins-cli/issues/211).
 
 ## [0.0.45] - 2026-11-09
 ### Fixed

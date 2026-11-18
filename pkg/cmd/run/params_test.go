@@ -1,6 +1,13 @@
 package run
 
-import "testing"
+import (
+	"io"
+	"net/http"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestParseParametersFromConfig(t *testing.T) {
 	xml := `
@@ -85,6 +92,40 @@ func TestParameterTypeFromElement(t *testing.T) {
 			t.Fatalf("parameterTypeFromElement(%q) = (%s,%t), expected (%s,%t)", input, gotType, gotSecret, want.expectedType, want.expectedSecret)
 		}
 	}
+}
+
+func TestRunParamsAdvertisesExtendedChoiceListInput(t *testing.T) {
+	const configXML = `<project><properties><hudson.model.ParametersDefinitionProperty><parameterDefinitions>
+  <com.cwctravel.hudson.plugins.extended__choice__parameter.ExtendedChoiceParameterDefinition>
+    <name>DOMAINS</name><type>PT_CHECKBOX</type>
+  </com.cwctravel.hudson.plugins.extended__choice__parameter.ExtendedChoiceParameterDefinition>
+  <com.cwctravel.hudson.plugins.extended__choice__parameter.ExtendedChoiceParameterDefinition>
+    <name>REGIONS</name><type>PT_MULTI_SELECT</type>
+  </com.cwctravel.hudson.plugins.extended__choice__parameter.ExtendedChoiceParameterDefinition>
+  <com.cwctravel.hudson.plugins.extended__choice__parameter.ExtendedChoiceParameterDefinition>
+    <name>CHANNEL</name><type>PT_SINGLE_SELECT</type>
+  </com.cwctravel.hudson.plugins.extended__choice__parameter.ExtendedChoiceParameterDefinition>
+  <com.moded.extendedchoiceparameter.ExtendedChoiceParameterDefinition>
+    <name>OTHER</name><type>PT_CHECKBOX</type>
+  </com.moded.extendedchoiceparameter.ExtendedChoiceParameterDefinition>
+</parameterDefinitions></hudson.model.ParametersDefinitionProperty></properties></project>`
+	client, cfg := watchTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/job/app/config.xml", r.URL.Path)
+		w.Header().Set("Content-Type", "application/xml")
+		_, _ = io.WriteString(w, configXML)
+	})
+	cmd, out, _ := newWatchTestCommand(client, cfg)
+	cmd.SetArgs([]string{"run", "params", "app", "--json"})
+	require.NoError(t, cmd.Execute())
+	require.JSONEq(t, `{
+  "jobPath": "app", "source": "config", "parameters": [
+    {"name":"CHANNEL", "type":"extendedchoice", "isSecret":false, "frequency":1},
+    {"name":"DOMAINS", "type":"extendedchoice", "inputFlag":"--param-list", "isSecret":false, "frequency":1},
+    {"name":"OTHER", "type":"extendedchoice", "isSecret":false, "frequency":1},
+    {"name":"REGIONS", "type":"extendedchoice", "inputFlag":"--param-list", "isSecret":false, "frequency":1}
+  ]
+}`, out.String())
 }
 
 func TestAppendSampleValue(t *testing.T) {
