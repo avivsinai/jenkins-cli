@@ -1,11 +1,93 @@
 package run
 
 import (
+	"io"
+	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestRunStartParameterSubmission(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want url.Values
+	}{
+		{name: "no parameters"},
+		{
+			name: "scalar parameters",
+			args: []string{"-p", "CONFIG=a=1,b=2", "-p", "EMPTY=", "-p", `JSON=["a","b"]`},
+			want: url.Values{"CONFIG": {"a=1,b=2"}, "EMPTY": {""}, "JSON": {`["a","b"]`}},
+		},
+		{
+			name: "scalar and list parameters",
+			args: []string{"-p", "ENV=staging", "--param-list", `DOMAINS=["a","b","c"]`, "--param-list", `LABELS=["with,comma","with=equals+plus"]`},
+			want: url.Values{"ENV": {"staging"}, "DOMAINS": {"a", "b", "c"}, "LABELS": {"with,comma", "with=equals+plus"}},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			buildPath := "/job/app/build"
+			if len(tc.want) > 0 {
+				buildPath = "/job/app/buildWithParameters"
+			}
+			client, cfg := watchTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/job/app/api/json":
+					assert.Equal(t, http.MethodGet, r.Method)
+					_, _ = io.WriteString(w, `{"_class":"hudson.model.FreeStyleProject"}`)
+				case buildPath:
+					assert.Equal(t, http.MethodPost, r.Method)
+					assert.NoError(t, r.ParseForm())
+					if len(tc.want) > 0 {
+						assert.Equal(t, tc.want, r.PostForm)
+					} else {
+						assert.Empty(t, r.PostForm)
+					}
+					w.WriteHeader(http.StatusCreated)
+				case "/crumbIssuer/api/json":
+					w.WriteHeader(http.StatusNotFound)
+				default:
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL)
+					w.WriteHeader(http.StatusNotFound)
+				}
+			})
+			cmd, out, _ := newWatchTestCommand(client, cfg)
+			cmd.SetArgs(append([]string{"run", "start", "app"}, tc.args...))
+			require.NoError(t, cmd.Execute())
+			require.Contains(t, out.String(), "Triggered run for app")
+		})
+	}
+}
+
+func TestRunStartRejectsInvalidParametersBeforeConnecting(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"duplicate scalar", []string{"-p", "DOMAINS=a", "-p", " DOMAINS =b"}, `duplicate parameter "DOMAINS"`},
+		{"duplicate list", []string{"--param-list", `DOMAINS=["a"]`, "--param-list", `DOMAINS=["b"]`}, `duplicate parameter "DOMAINS"`},
+		{"mixed duplicate", []string{"--param-list", `DOMAINS=["a"]`, "-p", "DOMAINS=b"}, `duplicate parameter "DOMAINS"`},
+		{"missing assignment", []string{"-p", "DOMAINS"}, "expected NAME=VALUE"},
+		{"empty name", []string{"--param-list", `=["a"]`}, "expected NAME=VALUE"},
+		{"empty array", []string{"--param-list", `DOMAINS=[]`}, "expected a non-empty JSON array"},
+		{"null array", []string{"--param-list", `DOMAINS=null`}, "expected a non-empty JSON array"},
+		{"malformed array", []string{"--param-list", `DOMAINS=[a,b]`}, "expected a non-empty JSON array"},
+		{"nonstring entry", []string{"--param-list", `DOMAINS=["a",null]`}, "expected only JSON strings"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := newRunStartCmd(nil)
+			cmd.SilenceErrors = true
+			cmd.SilenceUsage = true
+			cmd.SetArgs(append([]string{"app"}, tc.args...))
+			require.ErrorContains(t, cmd.Execute(), tc.want)
+		})
+	}
+}
 
 // TestParamFlagType verifies that the actual -p/--param flag in newRunStartCmd
 // uses StringArrayVarP (not StringSliceVarP). This is critical because

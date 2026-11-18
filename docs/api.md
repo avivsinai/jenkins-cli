@@ -230,6 +230,10 @@ Unlike `jk run ls`, structured search output always includes this lightweight `m
 
 `source` reflects the discovery path actually used (`config` or `runs`; `--source auto`, the default, tries config first and falls back to runs), and `sampleValues`/`frequency` are derived from recent runs. Secret parameters omit defaults and sample values.
 
+When `source` is `config`, a parameter with `"inputFlag": "--param-list"`
+accepts `jk run start ... --param-list 'NAME=["value1","value2"]'`. The field
+is optional and is set for Extended Choice checkbox and multi-select definitions.
+
 ### 2.8 JUnit report (`jk test report --json`)
 
 ```json

@@ -296,6 +296,7 @@ lookup failures are errors rather than silently selecting a library checkout.
 - `jk run ls --json` follows the enhanced schema above. When `--select` is used, the selected attributes appear under `item.fields{}` while the canonical columns remain stable for humans.
 - `jk run view --json` emits the normative run detail payload (parameters, SCM, causes, stages, artifacts, tests, queue/node metadata). Human output now highlights parameters, SCM, and test counts inline.
 - `jk run start` and `jk run rerun` emit `{jobPath, message, queueLocation}` in JSON/YAML modes when not following. When `--follow` is combined with structured output, the CLI suppresses live log streaming and instead waits for completion before printing the full run detail document, keeping machine-readable pipelines intact.
+- `jk run start` accepts scalar parameters with `-p NAME=VALUE` and Extended Choice `PT_CHECKBOX` and `PT_MULTI_SELECT` selections with `--param-list 'NAME=["a","b"]'`. Each name can appear once across both flags. A list must contain at least one string. The CLI sends each selection as a separate form value under the same name to `buildWithParameters`. The plugin validates the selections and joins them with the job's configured delimiter. For explicit selections, the plugin applies `quoteValue` in its UI form handler only. Commas in `-p` values and within individual list entries are preserved on the wire.
 - `jk run cancel` accepts `--mode stop|term|kill` and returns a short `{jobPath, build, action, status}` acknowledgement in JSON/YAML.
 
 #### 9.7.2 Parameter discovery (`jk run params`)
@@ -304,6 +305,7 @@ lookup failures are errors rather than silently selecting a library checkout.
   - `--source runs` scans the last *N* runs (default 50) and infers usage frequency plus sample values from observed parameters (`executeRunList` powers the inference path).
   - `--source auto` (default) attempts config first, then falls back to run inference when definitions are absent or Jenkins denies config access.
 - Output includes `{jobPath, source, parameters[]}` where each parameter surfaces `name`, `type`, `default`, `isSecret`, `sampleValues[]`, and `frequency` (fraction of scanned runs containing the parameter). Secret heuristics hide defaults and samples by name/type and re-use the `filter.IsLikelySecret` helper.
+- Configuration discovery adds `inputFlag: "--param-list"` to known Extended Choice checkbox and multi-select definitions. Run history stores the resulting build value, so history-based discovery omits this hint.
 - Human-readable output lists parameters with type/required status (`frequency≈1`), default value when safe, highlighted secrecy, and representative sample values.
 
 #### 9.7.3 Cross-job search (`jk search`, `jk run search`)
