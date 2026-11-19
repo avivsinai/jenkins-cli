@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,7 +24,7 @@ import (
 )
 
 type runListResponse struct {
-	Builds []runSummary `json:"builds"`
+	Builds []runSummary `json:"allBuilds"`
 }
 
 type runSummary struct {
@@ -134,6 +135,8 @@ type runGroupAccumulator struct {
 }
 
 const runListHeadroom = 50
+
+const runListMaxPageSize = 500
 
 type selectionRequirement struct {
 	requiresParameters bool
@@ -575,19 +578,62 @@ func executeRunList(ctx context.Context, client *jenkins.Client, jobPath string,
 		fetchLimit = opts.Limit
 	}
 
+	var cutoff int64
+	if strings.TrimSpace(opts.Cursor) != "" {
+		payload, err := decodeRunCursor(opts.Cursor)
+		if err != nil {
+			return runListOutput{}, err
+		}
+		if payload.JobPath != "" && payload.JobPath != normalizeJobPath(jobPath) {
+			return runListOutput{}, fmt.Errorf("cursor job path %q does not match %q", payload.JobPath, normalizeJobPath(jobPath))
+		}
+		cutoff = payload.Number
+	}
+
 	path := fmt.Sprintf("/%s/api/json", jenkins.EncodeJobPath(jobPath))
-	query := buildRunListTree(fetchLimit, requireArtifacts, requireParams, requireCauses)
-	req := client.NewRequest().SetQueryParam("tree", query)
-	if ctx != nil {
-		req.SetContext(ctx)
+	var builds []runSummary
+	pageSize := min(fetchLimit, runListMaxPageSize)
+	var boundary int64
+	for offset := 0; len(builds) < fetchLimit; offset += pageSize - 1 {
+		query := buildRunListTree(offset, pageSize, requireArtifacts, requireParams, requireCauses)
+		req := client.NewRequest().SetQueryParam("tree", query)
+		if ctx != nil {
+			req.SetContext(ctx)
+		}
+
+		var resp runListResponse
+		if _, err := client.Do(req, http.MethodGet, path, &resp); err != nil {
+			return runListOutput{}, err
+		}
+		page := resp.Builds
+		if offset > 0 {
+			// Overlap by one build to verify where the previous range ended.
+			// Newer builds can shift the boundary right. If it disappeared or
+			// leaves no room to advance, fail rather than skip or repeat runs.
+			i := slices.IndexFunc(page, func(build runSummary) bool { return build.Number == boundary })
+			if i < 0 || (i == len(page)-1 && len(page) >= pageSize) {
+				return runListOutput{}, errors.New("jenkins build history changed or did not advance while paging; retry the request")
+			}
+			page = page[i+1:]
+		}
+		// Keep the same bounded candidate window, starting after the cursor
+		// rather than repeatedly filtering the newest builds.
+		for _, summary := range page {
+			if cutoff > 0 && summary.Number >= cutoff {
+				continue
+			}
+			builds = append(builds, summary)
+			if len(builds) == fetchLimit {
+				break
+			}
+		}
+		if len(resp.Builds) < pageSize {
+			break
+		}
+		boundary = resp.Builds[len(resp.Builds)-1].Number
 	}
 
-	var resp runListResponse
-	if _, err := client.Do(req, http.MethodGet, path, &resp); err != nil {
-		return runListOutput{}, err
-	}
-
-	out, _, err := processRunList(jobPath, opts, resp.Builds, requireArtifacts, requireParams, requireCauses)
+	out, _, err := processRunList(jobPath, opts, builds, requireArtifacts, requireParams, requireCauses)
 	if err != nil {
 		return out, err
 	}
@@ -708,7 +754,7 @@ func extractJobPathFromURL(rawURL string) string {
 	return strings.Join(pathParts, "/")
 }
 
-func buildRunListTree(fetchLimit int, includeArtifacts, includeParameters, includeCauses bool) string {
+func buildRunListTree(offset, fetchLimit int, includeArtifacts, includeParameters, includeCauses bool) string {
 	actionsFields := []string{
 		"_class",
 		"lastBuiltRevision[SHA1,branch[name]]",
@@ -739,7 +785,7 @@ func buildRunListTree(fetchLimit int, includeArtifacts, includeParameters, inclu
 		fields = append(fields, "artifacts[fileName,relativePath,size]")
 	}
 
-	return fmt.Sprintf("builds[%s]{,%d}", strings.Join(fields, ","), fetchLimit)
+	return fmt.Sprintf("allBuilds[%s]{%d,%d}", strings.Join(fields, ","), offset, offset+fetchLimit)
 }
 
 func processRunList(jobPath string, opts runListOptions, builds []runSummary, needArtifacts, needParams, needCauses bool) (runListOutput, []*runInspection, error) {

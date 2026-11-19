@@ -228,7 +228,7 @@ func TestExtractSCMInfoDoesNotInferRepositoryFromBranchName(t *testing.T) {
 }
 
 func TestBuildRunListTreeRequestsBuildsByBranchNameRevisions(t *testing.T) {
-	tree := buildRunListTree(10, false, false, false)
+	tree := buildRunListTree(0, 10, false, false, false)
 	require.Contains(t, tree, "buildsByBranchName[marked[SHA1],revision[SHA1]]")
 	require.Contains(t, tree, "revision[hash,pullHash]")
 }

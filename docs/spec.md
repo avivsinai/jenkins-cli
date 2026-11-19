@@ -290,7 +290,7 @@ lookup failures are errors rather than silently selecting a library checkout.
   }
   ```
 - Human-readable output mirrors the classic `#<number> RESULT START DURATION` table, switches to a grouped summary when `--group-by` is provided, and still emits `Next cursor: <value>` when more data is available.
-- Against baseline Jenkins endpoints, the CLI enforces `--limit` client-side with a bounded fetch window; the companion plugin can honor server-side limits/cursors directly.
+- Against baseline Jenkins endpoints, the CLI reads retained history in bounded `allBuilds` ranges and applies `--limit` client-side. The CLI checks that consecutive ranges overlap. If the history shifts too far during a request, retry with the same cursor.
 
 #### 9.7.1 Run command structured output
 - `jk run ls --json` follows the enhanced schema above. When `--select` is used, the selected attributes appear under `item.fields{}` while the canonical columns remain stable for humans.

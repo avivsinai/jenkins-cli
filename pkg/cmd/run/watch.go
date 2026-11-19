@@ -206,8 +206,7 @@ func findCommitRun(ctx context.Context, client *jenkins.Client, jobPath, commit 
 	opts := runListOptions{Limit: 1, Filters: []filter.Filter{{Key: "commit", Operator: filter.OpEQ, Value: commit}}}
 	var previousLast int64
 	for offset := 0; ; offset += pageSize {
-		query := buildRunListTree(pageSize, false, false, false)
-		query = strings.TrimSuffix(query, fmt.Sprintf("{,%d}", pageSize)) + fmt.Sprintf("{%d,%d}", offset, offset+pageSize)
+		query := buildRunListTree(offset, pageSize, false, false, false)
 		// SCM API revisions are needed even when this command is compiled with
 		// an older buildRunListTree implementation.
 		if !strings.Contains(query, "revision[hash,pullHash]") {

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- List more than 100 builds with `jk run ls --limit` and follow cursors through older retained builds.
+
 ## [0.0.46] - 2026-11-18
 ### Fixed
 - Submit Extended Choice checkbox and multi-select parameters with `jk run start --param-list` and reject repeated parameter names. Reported by Tair-Bitan in [#211](https://github.com/avivsinai/jenkins-cli/issues/211).
