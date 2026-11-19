@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -134,6 +135,8 @@ type runGroupAccumulator struct {
 }
 
 const runListHeadroom = 50
+
+const runListMaxPageSize = 500
 
 type selectionRequirement struct {
 	requiresParameters bool
@@ -589,8 +592,10 @@ func executeRunList(ctx context.Context, client *jenkins.Client, jobPath string,
 
 	path := fmt.Sprintf("/%s/api/json", jenkins.EncodeJobPath(jobPath))
 	var builds []runSummary
-	for offset := 0; len(builds) < fetchLimit; offset += fetchLimit {
-		query := buildRunListTree(offset, fetchLimit, requireArtifacts, requireParams, requireCauses)
+	pageSize := min(fetchLimit, runListMaxPageSize)
+	var boundary int64
+	for offset := 0; len(builds) < fetchLimit; offset += pageSize - 1 {
+		query := buildRunListTree(offset, pageSize, requireArtifacts, requireParams, requireCauses)
 		req := client.NewRequest().SetQueryParam("tree", query)
 		if ctx != nil {
 			req.SetContext(ctx)
@@ -600,9 +605,20 @@ func executeRunList(ctx context.Context, client *jenkins.Client, jobPath string,
 		if _, err := client.Do(req, http.MethodGet, path, &resp); err != nil {
 			return runListOutput{}, err
 		}
+		page := resp.Builds
+		if offset > 0 {
+			// Overlap by one build to verify where the previous range ended.
+			// Newer builds can shift the boundary right. If it disappeared or
+			// leaves no room to advance, fail rather than skip or repeat runs.
+			i := slices.IndexFunc(page, func(build runSummary) bool { return build.Number == boundary })
+			if i < 0 || (i == len(page)-1 && len(page) >= pageSize) {
+				return runListOutput{}, errors.New("jenkins build history changed or did not advance while paging; retry the request")
+			}
+			page = page[i+1:]
+		}
 		// Keep the same bounded candidate window, starting after the cursor
 		// rather than repeatedly filtering the newest builds.
-		for _, summary := range resp.Builds {
+		for _, summary := range page {
 			if cutoff > 0 && summary.Number >= cutoff {
 				continue
 			}
@@ -611,9 +627,10 @@ func executeRunList(ctx context.Context, client *jenkins.Client, jobPath string,
 				break
 			}
 		}
-		if len(resp.Builds) < fetchLimit {
+		if len(resp.Builds) < pageSize {
 			break
 		}
+		boundary = resp.Builds[len(resp.Builds)-1].Number
 	}
 
 	out, _, err := processRunList(jobPath, opts, builds, requireArtifacts, requireParams, requireCauses)
