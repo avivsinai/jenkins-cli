@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.47] - 2026-11-19
 ### Fixed
-- List more than 100 builds with `jk run ls --limit` and follow cursors through older retained builds.
+- List more than 100 builds with `jk run ls --limit` and follow cursors through older retained builds. Contributed by benjamin-di in [#214](https://github.com/avivsinai/jenkins-cli/pull/214).
+
 
 ## [0.0.46] - 2026-11-18
 ### Fixed
