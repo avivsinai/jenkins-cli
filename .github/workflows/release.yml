@@ -150,6 +150,8 @@ jobs:
       contents: write
       attestations: write
       id-token: write
+    outputs:
+      goreleaser_outcome: ${{ steps.goreleaser.outcome }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -305,6 +307,7 @@ jobs:
           repositories: homebrew-tap,scoop-bucket
 
       - name: GoReleaser
+        id: goreleaser
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
           distribution: goreleaser
@@ -350,7 +353,14 @@ jobs:
   skill-publish:
     name: Publish Skills
     needs: [prepare, release]
-    if: needs.release.result == 'success'
+    # GoReleaser can publish successfully before attestation fails.
+    if: >-
+      ${{
+        !cancelled() &&
+        needs.prepare.result == 'success' &&
+        needs.release.result != 'cancelled' &&
+        needs.release.outputs.goreleaser_outcome == 'success'
+      }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
